@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowLeft, Plus, Pencil, Trash2, Search, X, Save, 
   Building2, Briefcase, UserPlus, Mail, Phone, Users, 
-  Network, ShieldCheck, Check, LayoutGrid, Award, 
+  Network, ShieldCheck, Check, Award, 
   GitGraph, Minimize2, MapPin, Calendar, Fingerprint,
-  FileText, UploadCloud, FileBadge, Eye, UserCircle
+  FileText, FileBadge, Eye, UserCircle
 } from 'lucide-react'
 
 import solarisLogo from '../assets/solarislogo.png'
@@ -31,7 +31,7 @@ const NodoOrganigrama = ({ usuario, todosLosUsuarios, busqueda }: any) => {
   
   return (
     <div className="flex flex-col items-center relative">
-      <motion.div animate={estaResaltado ? { scale: 1.1, ring: 4 } : { scale: 1 }} className={`relative p-2.5 rounded-xl border-2 min-w-[180px] shadow-lg backdrop-blur-md transition-all z-10 ${usuario.rol_sistema === 'Director' ? 'bg-slate-900 border-orange-500 text-white shadow-orange-500/20' : 'bg-white border-slate-100 text-slate-900'} ${estaResaltado ? 'ring-4 ring-orange-500 ring-offset-2' : ''}`}>
+      <motion.div animate={estaResaltado ? { scale: 1.1 } : { scale: 1 }} className={`relative p-2.5 rounded-xl border-2 min-w-[180px] shadow-lg backdrop-blur-md transition-all z-10 ${usuario.rol_sistema === 'Director' ? 'bg-slate-900 border-orange-500 text-white shadow-orange-500/20' : 'bg-white border-slate-100 text-slate-900'} ${estaResaltado ? 'ring-4 ring-orange-500 ring-offset-2' : ''}`}>
         <div className="flex items-center gap-2.5">
           <div className={`w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center font-black text-xs shadow-inner ${usuario.rol_sistema === 'Director' ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white' : 'bg-slate-100 text-slate-800'}`}>
             {usuario.avatar_url ? <img src={usuario.avatar_url} className="w-full h-full object-cover" /> : <span>{usuario.nombre.charAt(0)}{usuario.apellidos.charAt(0)}</span>}

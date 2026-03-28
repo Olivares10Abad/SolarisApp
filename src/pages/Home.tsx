@@ -169,7 +169,7 @@ export default function Home() {
 
     usuariosDb.forEach(u => {
         if (u.fecha_nacimiento) {
-            const [y, m, d] = u.fecha_nacimiento.split('-');
+            const [, m, d] = u.fecha_nacimiento.split('-');
             const date = new Date(añoActual, parseInt(m)-1, parseInt(d));
             arr.push({ id: `C${u.id}`, tipo: 'cumple', titulo: `Cumpleaños de ${u.nombre}`, date, mes: parseInt(m)-1, dia: parseInt(d), iniciales: `${u.nombre.charAt(0)}` });
         }
