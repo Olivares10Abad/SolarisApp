@@ -109,30 +109,42 @@ export default function Home() {
   }
 
   const registrarSuscripcionPush = async (userId: string) => {
-    try {
-      if (PUBLIC_VAPID_KEY === 'BKOZjVBbf2CGGp0-WewaZYN-CjyHJAlApE2iX19T7OZxTdr5C3-x89CYu6pDpMnbKRaKYQccunTi4IattIom_Is') return;
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-      
-      const registro = await navigator.serviceWorker.ready;
-      const permiso = await Notification.requestPermission();
-      
-      if (permiso === 'granted') {
-        const suscripcion = await registro.pushManager.subscribe({ 
-            userVisibleOnly: true, 
-            applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY) 
-        });
-        
-        const subJson = suscripcion.toJSON();
-        
-        // Ahora guardamos usando el 'endpoint' como identificador único del dispositivo
-        await supabase.from('push_subscriptions').upsert({ 
-            user_id: userId, 
-            endpoint: subJson.endpoint, 
-            subscription_json: subJson 
-        }, { onConflict: 'endpoint' });
-      }
-    } catch (err) { console.error('Push error:', err); }
+  console.log("🕵️ Intentando registrar push para el usuario:", userId);
+  
+  try {
+    if (!('serviceWorker' in navigator)) {
+      console.error("❌ El navegador no soporta Service Workers");
+      return;
+    }
+
+    const registro = await navigator.serviceWorker.ready;
+    const suscripcion = await registro.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+    });
+
+    const subJson = suscripcion.toJSON();
+    console.log("✅ Suscripción obtenida del navegador:", subJson);
+
+    // INTENTO DE GUARDADO EN SUPABASE
+    const { data, error } = await supabase.from('push_subscriptions').upsert({
+      user_id: userId,
+      endpoint: subJson.endpoint,
+      subscription_json: subJson
+    }, { onConflict: 'endpoint' });
+
+    if (error) {
+      console.error("❌ ERROR DE SUPABASE AL GUARDAR:", error.message, error.details);
+      alert("Error al guardar en BD: " + error.message);
+    } else {
+      console.log("🚀 ¡TOKEN GUARDADO CON ÉXITO EN LA TABLA!");
+    }
+
+  } catch (err) {
+    console.error("🔥 ERROR CRÍTICO EN EL PROCESO:", err);
+    alert("Error crítico: " + err.message);
   }
+}
 
   useEffect(() => {
     const sessionData = localStorage.getItem('session_gea_solar')
