@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
 import { 
-  BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, PencilRuler, CalendarCheck, 
+  BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, CalendarCheck, 
   Banknote, FileText, LogOut, Bell, Image as ImageIcon, Send, MessageSquare, Heart, Cake, 
-  Calendar as CalendarIcon, X, Loader2, MoreVertical, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2,
-  CheckCircle2, XCircle, Clock, PlaneTakeoff, Menu, MapPin, UserCircle, Trash
+  Calendar as CalendarIcon, X, Loader2, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2,
+  CheckCircle2, Clock, PlaneTakeoff, Menu, Trash
 } from 'lucide-react'
 
 import solarisLogo from '../assets/solarislogo.png'
@@ -24,17 +24,17 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 const modulosMenu = [
-  { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
-  { nombre: 'Proyectos', icono: LayoutGrid, ruta: '/proyectos', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-  { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
-  { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-  { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/agendar-viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
-  { nombre: 'Ingeniería', icono: PencilRuler, ruta: '/ingenieria', color: 'text-purple-500', bg: 'hover:bg-purple-50' },
-  { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
-  { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-  { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
-  { nombre: 'Finanzas', icono: Banknote, ruta: '/finanzas', color: 'text-purple-500', bg: 'hover:bg-purple-50' },
-  { nombre: 'Directorio', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
+    { nombre: 'Proyectos', icono: LayoutGrid, ruta: '/proyectos', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
+    { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revicion', color: 'text-red-500', bg: 'hover:bg-red-50' },
+    { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
+    { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
+    { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/agendar-viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
+    { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
+    { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
+    { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
+    { nombre: 'Finanzas', icono: Banknote, ruta: '/finanzas', color: 'text-purple-500', bg: 'hover:bg-purple-50' },
+    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
+    { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50' }
 ]
 
 const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -108,14 +108,12 @@ export default function Home() {
     }
   }
 
-  const registrarSuscripcionPush = async (userId: string) => {
-  console.log("🕵️ Intentando registrar push para el usuario:", userId);
-  
+const registrarSuscripcionPush = async (userId: string) => {
+  // 1. Freno de seguridad: Si no hay usuario, nos salimos en silencio
+  if (!userId) return; 
+
   try {
-    if (!('serviceWorker' in navigator)) {
-      console.error("❌ El navegador no soporta Service Workers");
-      return;
-    }
+    if (!('serviceWorker' in navigator)) return;
 
     const registro = await navigator.serviceWorker.ready;
     const suscripcion = await registro.pushManager.subscribe({
@@ -124,25 +122,22 @@ export default function Home() {
     });
 
     const subJson = suscripcion.toJSON();
-    console.log("✅ Suscripción obtenida del navegador:", subJson);
 
-    // INTENTO DE GUARDADO EN SUPABASE
-    const { data, error } = await supabase.from('push_subscriptions').upsert({
+    const { error } = await supabase.from('push_subscriptions').upsert({
       user_id: userId,
       endpoint: subJson.endpoint,
       subscription_json: subJson
     }, { onConflict: 'endpoint' });
 
     if (error) {
-      console.error("❌ ERROR DE SUPABASE AL GUARDAR:", error.message, error.details);
-      alert("Error al guardar en BD: " + error.message);
-    } else {
-      console.log("🚀 ¡TOKEN GUARDADO CON ÉXITO EN LA TABLA!");
+      console.error("Error al guardar token:", error);
+      // ¡AQUÍ YA NO HAY ALERT!
     }
 
   } catch (err) {
-    console.error("🔥 ERROR CRÍTICO EN EL PROCESO:", err);
-    alert("Error crítico: " + err.message);
+    // ¡AQUÍ TAMPOCO HAY ALERT! 
+    // Lo dejamos como warning silencioso en consola
+    console.warn("Aviso de Push:", err);
   }
 }
 
