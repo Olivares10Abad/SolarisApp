@@ -239,10 +239,31 @@ export default function Home() {
       }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('session_gea_solar');
-    navigate('/login');
+  const handleLogout = async () => {
+  try {
+    // 1. Obtenemos la suscripción actual del navegador
+    const registro = await navigator.serviceWorker.ready;
+    const suscripcion = await registro.pushManager.getSubscription();
+
+    if (suscripcion) {
+      // 2. Borramos el token de la base de datos de Supabase
+      // Usamos el endpoint para estar seguros de borrar SOLO este dispositivo
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('endpoint', suscripcion.toJSON().endpoint);
+
+      // 3. Opcional: Desvincular la suscripción del navegador
+      await suscripcion.unsubscribe();
+    }
+  } catch (error) {
+    console.error("Error al limpiar notificaciones en logout:", error);
   }
+
+  // 4. Finalmente cerramos la sesión normal
+  await supabase.auth.signOut();
+  window.location.href = "/login"; // O tu ruta de login
+};
 
   // --- FILTRO INTELIGENTE DE SOLICITUDES (OCULTA RECHAZADAS) ---
   const solicitudesVisibles = useMemo(() => {
