@@ -1,7 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import webpush from "npm:web-push"
 
-// 1. Configurar las llaves
 const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')!
 const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')!
 
@@ -11,39 +10,50 @@ webpush.setVapidDetails(
   vapidPrivateKey
 )
 
-// Usamos la API moderna de Deno
 Deno.serve(async (req) => {
   try {
-    // 2. Recibir los datos del trigger SQL
     const payload = await req.json()
-    const { usuario_id, mensaje } = payload.record
+    const { usuario_id, autor_id, mensaje } = payload.record
 
-    // 3. Conectarse a Supabase (Service Role para saltar reglas RLS)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // 4. Buscar el token del celular
-    const { data: subData } = await supabase
+    // 1. Buscamos TODOS los dispositivos registrados para este usuario (quitamos el .single())
+    const { data: subs, error } = await supabase
       .from('push_subscriptions')
       .select('subscription_json')
       .eq('user_id', usuario_id)
-      .single()
 
-    if (!subData) {
-      return new Response("El usuario no tiene celular registrado.", { status: 200 })
+    // Si no hay dispositivos en la lista, terminamos.
+    if (error || !subs || subs.length === 0) return new Response("Sin dispositivos", { status: 200 })
+
+    // 2. Buscar el nombre del autor
+    let tituloNotificacion = "Sistema Solaris"
+    if (autor_id) {
+        const { data: autor } = await supabase.from('perfiles').select('nombre, apellidos').eq('id', autor_id).single()
+        if (autor) tituloNotificacion = `${autor.nombre} ${autor.apellidos}`
     }
 
-    // 5. ¡Disparar la Push!
-    await webpush.sendNotification(subData.subscription_json, JSON.stringify({
-      title: "Sistema Solaris",
-      body: mensaje,
-      url: "/"
-    }))
+    // 3. ¡Disparar a TODOS los dispositivos al mismo tiempo!
+    const promesasEnvio = subs.map(sub => 
+      webpush.sendNotification(sub.subscription_json, JSON.stringify({
+        title: tituloNotificacion,
+        body: mensaje,
+        url: "/"
+      })).catch(err => {
+        // Si un celular viejo ya borró la app, fallará aquí, pero no detendrá a los demás
+        console.log("Un dispositivo falló o el token expiró", err)
+      })
+    )
 
-    return new Response("Notificación enviada con éxito.", { status: 200 })
+    // Esperamos a que salgan todas las notificaciones
+    await Promise.all(promesasEnvio)
+
+    return new Response("Notificaciones multi-dispositivo enviadas", { status: 200 })
+    
   } catch (error) {
     console.error("Error en Push:", error)
-    return new Response("Error interno enviando push.", { status: 500 })
+    return new Response("Error", { status: 500 })
   }
 })
