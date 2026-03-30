@@ -25,7 +25,7 @@ function urlBase64ToUint8Array(base64String: string) {
 
 const modulosMenu = [
     { nombre: 'Proyectos', icono: LayoutGrid, ruta: '/proyectos', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-    { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revicion', color: 'text-red-500', bg: 'hover:bg-red-50' },
+    { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revision', color: 'text-red-500', bg: 'hover:bg-red-50' },
     { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
     { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
     { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/agendar-viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
@@ -109,7 +109,6 @@ export default function Home() {
   }
 
 const registrarSuscripcionPush = async (userId: string) => {
-  // 1. Freno de seguridad: Si no hay usuario, nos salimos en silencio
   if (!userId) return; 
 
   try {
@@ -131,12 +130,9 @@ const registrarSuscripcionPush = async (userId: string) => {
 
     if (error) {
       console.error("Error al guardar token:", error);
-      // ¡AQUÍ YA NO HAY ALERT!
     }
 
   } catch (err) {
-    // ¡AQUÍ TAMPOCO HAY ALERT! 
-    // Lo dejamos como warning silencioso en consola
     console.warn("Aviso de Push:", err);
   }
 }
@@ -231,7 +227,6 @@ const registrarSuscripcionPush = async (userId: string) => {
       return <div className={`${size} bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-black shadow-sm shrink-0 uppercase text-xs`}>{userObj?.nombre?.charAt(0)}</div>;
   }
 
-  // --- LÓGICA PARA RESPONDER SOLICITUD Y NOTIFICAR AL USUARIO ---
   const responderSolicitud = async (id: string, estado: 'Aprobada' | 'Rechazada') => {
       await supabase.from('solicitudes_ausencia').update({ estado, revisado_por: usuario.id }).eq('id', id);
       setSolicitudesVacaciones(solicitudesVacaciones.map(s => s.id === id ? { ...s, estado } : s));
@@ -248,35 +243,29 @@ const registrarSuscripcionPush = async (userId: string) => {
 
   const handleLogout = async () => {
   try {
-    // 1. Obtenemos la suscripción actual del navegador
     const registro = await navigator.serviceWorker.ready;
     const suscripcion = await registro.pushManager.getSubscription();
 
     if (suscripcion) {
-      // 2. Borramos el token de la base de datos de Supabase
-      // Usamos el endpoint para estar seguros de borrar SOLO este dispositivo
       await supabase
         .from('push_subscriptions')
         .delete()
         .eq('endpoint', suscripcion.toJSON().endpoint);
 
-      // 3. Opcional: Desvincular la suscripción del navegador
       await suscripcion.unsubscribe();
     }
   } catch (error) {
     console.error("Error al limpiar notificaciones en logout:", error);
   }
 
-  // 4. Finalmente cerramos la sesión normal
   await supabase.auth.signOut();
-  window.location.href = "/login"; // O tu ruta de login
+  window.location.href = "/login"; 
 };
 
-  // --- FILTRO INTELIGENTE DE SOLICITUDES (OCULTA RECHAZADAS) ---
   const solicitudesVisibles = useMemo(() => {
       if (!usuario) return [];
       return solicitudesVacaciones.filter(sol => {
-          if (sol.estado === 'Rechazada') return false; // OCULTA LAS RECHAZADAS DE LA VISTA
+          if (sol.estado === 'Rechazada') return false; 
           const isMine = sol.user_id === usuario.id;
           const isMyTeam = sol.empleado?.jefe_id === usuario.id;
           const isMyBoss = sol.user_id === usuario.jefe_id;
@@ -284,7 +273,6 @@ const registrarSuscripcionPush = async (userId: string) => {
       }).slice(0, 10);
   }, [solicitudesVacaciones, usuario]);
 
-  // --- LÓGICA CALENDARIO ---
   const diaInicioMes = new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth(), 1).getDay();
   const diasEnMes = new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() + 1, 0).getDate();
 
@@ -321,7 +309,6 @@ const registrarSuscripcionPush = async (userId: string) => {
     return eventosCombinados.filter(e => e.date >= hoy).slice(0, 10);
   }, [eventosCombinados]);
 
-  // --- GESTIÓN PUBLICACIÓN ---
   const handleSelectImagen = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -379,7 +366,6 @@ const registrarSuscripcionPush = async (userId: string) => {
     } catch (err) { console.error(err); } finally { setPublicando(false); }
   }
 
-  // --- LÓGICA DE INTERACCIONES Y NOTIFICACIONES DE LIKES/COMENTARIOS ---
   const toggleLike = async (postId: string) => {
       const myLikes = likesUsuarios[postId] || [];
       const hasLiked = myLikes.includes(usuario.id);
@@ -398,15 +384,27 @@ const registrarSuscripcionPush = async (userId: string) => {
       }
   }
 
+  // --- ACTUALIZADO: MANEJO DE ERRORES Y REFRESH DE UI ---
   const guardarEdicion = async (id: string) => {
     if (!textoEditado.trim()) return;
-    await supabase.from('muro_social').update({ contenido: textoEditado }).eq('id', id);
+    const { error } = await supabase.from('muro_social').update({ contenido: textoEditado }).eq('id', id);
+    if (error) {
+        alert("Error al guardar edición: " + error.message);
+        return;
+    }
     setPostEditandoId(null);
+    cargarPosts(); // <-- OBLIGAMOS A REFRESCAR LA PANTALLA
   }
 
+  // --- ACTUALIZADO: MANEJO DE ERRORES Y REFRESH DE UI ---
   const borrarPost = async (id: string) => {
     if(!confirm('¿Eliminar publicación?')) return;
-    await supabase.from('muro_social').delete().eq('id', id);
+    const { error } = await supabase.from('muro_social').delete().eq('id', id);
+    if (error) {
+        alert("Error al eliminar publicación: " + error.message);
+        return;
+    }
+    cargarPosts(); // <-- OBLIGAMOS A REFRESCAR LA PANTALLA
   }
 
   const toggleComentarios = async (postId: string) => {
@@ -440,7 +438,6 @@ const registrarSuscripcionPush = async (userId: string) => {
       }
   }
 
-  // --- WIDGET CALENDARIO HOMOLOGADO ---
   const WidgetCalendario = () => (
       <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white">
           <div className="flex items-center justify-between mb-4 px-2">
@@ -647,8 +644,19 @@ const registrarSuscripcionPush = async (userId: string) => {
                     return (
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-8 shadow-2xl border border-white relative">
                             <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">{renderAvatar(post.autor)}<div><h4 className="font-black text-slate-950 text-[13px] uppercase leading-none italic">{post.autor?.nombre} {post.autor?.apellidos}</h4><p className="text-[10px] font-bold text-slate-400 mt-2 uppercase flex items-center gap-1.5"><Clock size={10} className="text-orange-500"/> {formatearFechaPost(post.creado_at)}</p></div></div>
-                                {usuario?.id === post.autor?.id && (<div className="flex gap-2"><button onClick={() => { setPostEditandoId(post.id); setTextoEditado(post.contenido); }} className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Edit2 size={16}/></button><button onClick={() => borrarPost(post.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button></div>)}
+                                <div className="flex items-center gap-3">
+                                  {renderAvatar(post.autor)}
+                                  <div>
+                                    <h4 className="font-black text-slate-950 text-[13px] uppercase leading-none italic">{post.autor?.nombre} {post.autor?.apellidos}</h4>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase flex items-center gap-1.5"><Clock size={10} className="text-orange-500"/> {formatearFechaPost(post.creado_at)}</p>
+                                  </div>
+                                </div>
+                                {usuario?.id === post.user_id && (
+                                  <div className="flex gap-2">
+                                    <button onClick={() => { setPostEditandoId(post.id); setTextoEditado(post.contenido); }} className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Edit2 size={16}/></button>
+                                    <button onClick={() => borrarPost(post.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
+                                  </div>
+                                )}
                             </div>
                             
                             {postEditandoId === post.id ? (

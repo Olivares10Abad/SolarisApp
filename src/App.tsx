@@ -5,6 +5,7 @@ import Usuarios from './pages/Usuarios'
 import Perfil from './pages/Perfil'
 import ProyectosList from './pages/Proyectos'
 import Cotizaciones from './pages/Cotizaciones'
+import Revision from './pages/Revisión'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path='/perfil' element={<Perfil />} />
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/cotizaciones" element={<Cotizaciones />} />
+        <Route path="/revision" element={<Revision />} />
 
         
         {/* Nueva ruta de Gestión de Proyectos */}
