@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -6,7 +6,7 @@ import {
   ArrowLeft, Search, X, Save, 
   MapPin, FileText, CheckCircle2, AlertCircle, Clock, ChevronRight, History,
   FileCheck, FileX, Timer, Calendar as CalendarIcon, Phone, Mail, File,
-  ChevronLeft, ZoomIn, ZoomOut, ShieldCheck
+  ChevronLeft, ZoomIn, ZoomOut, ShieldCheck, MessageSquare, Send, Users, Paperclip, Image as ImageIcon
 } from 'lucide-react'
 
 import solarisLogo from '../assets/solarislogo.png'
@@ -32,40 +32,27 @@ const calcularHorasHabiles = (fechaCreacion: string) => {
   let start = new Date(fechaCreacion);
   let end = new Date();
   if (start > end) return { hours: 0, mins: 0, text: '0h 0m' };
-
-  let mins = 0;
-  start.setSeconds(0, 0);
-  end.setSeconds(0, 0);
-
+  let mins = 0; start.setSeconds(0, 0); end.setSeconds(0, 0);
   while (start < end) {
-    const day = start.getDay();
-    const hour = start.getHours();
-    if (day >= 1 && day <= 5 && hour >= 9 && hour < 18) {
-      mins++;
-    }
+    const day = start.getDay(); const hour = start.getHours();
+    if (day >= 1 && day <= 5 && hour >= 9 && hour < 18) mins++;
     start.setMinutes(start.getMinutes() + 1);
   }
-
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const h = Math.floor(mins / 60); const m = mins % 60;
   return { hours: h, mins: m, text: `${h}h ${m}m` };
 }
 
-// ==========================================
-// --- COMPONENTE PRINCIPAL ---
-// ==========================================
 export default function Revision() {
   const navigate = useNavigate()
   const [proyectos, setProyectos] = useState<any[]>([])
+  const [usuariosDb, setUsuariosDb] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
-  // Por defecto, vemos lo que el equipo de cotizaciones mandó a revisión
   const [filtroEstatus, setFiltroEstatus] = useState('Cotización – Revisión')
   
   const [modalDetalle, setModalDetalle] = useState(false)
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
   
-  // VISOR MULTI-ARCHIVO CON ZOOM
   const [docPreview, setDocPreview] = useState<{ urls: string[], currentIndex: number, nombre: string } | null>(null)
   const [zoom, setZoom] = useState(1)
   const [modalListaArchivos, setModalListaArchivos] = useState<{ titulo: string, urls: string[] } | null>(null)
@@ -75,116 +62,204 @@ export default function Revision() {
 
   const [modalRechazo, setModalRechazo] = useState(false)
   const [modalAprobar, setModalAprobar] = useState(false)
-  
   const [mensajeRechazo, setMensajeRechazo] = useState('')
   const [mensajeAprobacion, setMensajeAprobacion] = useState('')
   const [procesando, setProcesando] = useState(false)
+
+  // --- ESTADOS DEL CHAT Y MULTIMEDIA ---
+  const [chatDrawerAbierto, setChatDrawerAbierto] = useState(false)
+  const [chatActivo, setChatActivo] = useState<{tipo: 'proyecto'|'dm', id: string, nombre: string, estatusProyecto?: string} | null>(null)
+  const [mensajesChat, setMensajesChat] = useState<any[]>([])
+  const [nuevoMensaje, setNuevoMensaje] = useState('')
+  const [archivoChat, setArchivoChat] = useState<File | null>(null) 
+  const [previewArchivoChat, setPreviewArchivoChat] = useState<string | null>(null) 
+  const [enviandoMensaje, setEnviandoMensaje] = useState(false)
+
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const fileInputChatRef = useRef<HTMLInputElement>(null)
+
+  // ESTADOS PARA MENCIONES (@)
+  const [mostrarMenciones, setMostrarMenciones] = useState(false)
+  const [busquedaMencion, setBusquedaMencion] = useState('')
+  const [posicionCursor, setPosicionCursor] = useState(0)
 
   const usuarioLogueado = useMemo(() => {
     const data = localStorage.getItem('session_gea_solar')
     return data ? JSON.parse(data) : null
   }, [])
 
-  const fetchProyectos = async () => {
+  const fetchInicial = async () => {
     setCargando(true)
-    const { data } = await supabase
-      .from('proyectos')
-      .select(`
-        *,
-        vendedor:vendedor_id (nombre, apellidos, avatar_url, departamento, telefono_movil, email_corporativo),
-        interacciones:proyectos_interacciones (mensaje, accion, created_at)
-      `)
-      .order('created_at', { ascending: false })
-    
-    if (data) setProyectos(data)
+    const [resProyectos, resUsuarios] = await Promise.all([
+        supabase.from('proyectos').select(`*, vendedor:vendedor_id (nombre, apellidos, avatar_url, departamento, telefono_movil, email_corporativo)`).order('created_at', { ascending: false }),
+        supabase.from('perfiles').select(`id, nombre, apellidos, avatar_url, rol_sistema`).order('nombre', { ascending: true })
+    ])
+    if (resProyectos.data) setProyectos(resProyectos.data)
+    if (resUsuarios.data) setUsuariosDb(resUsuarios.data)
     setCargando(false)
   }
 
-  useEffect(() => { fetchProyectos() }, [])
+  useEffect(() => { fetchInicial() }, [])
 
-  // --- RECHAZAR: Devolver a Cotización ---
+  // --- LÓGICA DEL CHAT EN TIEMPO REAL ---
+  useEffect(() => {
+      if (!chatActivo) return;
+
+      const cargarMensajes = async () => {
+          let query = supabase.from('mensajes_chat')
+              .select(`*, remitente:perfiles!mensajes_chat_remitente_id_fkey(id, nombre, apellidos, avatar_url)`)
+              .order('created_at', { ascending: true });
+          
+          if (chatActivo.tipo === 'proyecto') query = query.eq('proyecto_id', chatActivo.id);
+          else query = query.is('proyecto_id', null).or(`and(remitente_id.eq.${usuarioLogueado.id},destinatario_id.eq.${chatActivo.id}),and(remitente_id.eq.${chatActivo.id},destinatario_id.eq.${usuarioLogueado.id})`);
+          
+          const { data, error } = await query;
+          if (error) console.error("Error al cargar chat:", error);
+          if (data) setMensajesChat(data);
+          setTimeout(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, 100);
+      };
+
+      cargarMensajes();
+
+      const channel = supabase.channel(`chat_${chatActivo.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_chat' }, (payload) => {
+            const msg = payload.new;
+            const correspondeAlProyecto = chatActivo.tipo === 'proyecto' && msg.proyecto_id === chatActivo.id;
+            const correspondeAlDM = chatActivo.tipo === 'dm' && msg.proyecto_id === null && 
+                                   ((msg.remitente_id === usuarioLogueado.id && msg.destinatario_id === chatActivo.id) || 
+                                    (msg.remitente_id === chatActivo.id && msg.destinatario_id === usuarioLogueado.id));
+
+            if (correspondeAlProyecto || correspondeAlDM) {
+                supabase.from('perfiles').select('id, nombre, apellidos, avatar_url').eq('id', msg.remitente_id).single().then(({data}) => {
+                    setMensajesChat(prev => {
+                        if (prev.find(m => m.id === msg.id)) return prev;
+                        return [...prev, {...msg, remitente: data}];
+                    });
+                    setTimeout(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, 100);
+                });
+            }
+        }).subscribe();
+
+      return () => { supabase.removeChannel(channel); }
+  }, [chatActivo]);
+
+  const handleMensajeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const texto = e.target.value; setNuevoMensaje(texto);
+    const cursor = e.target.selectionStart;
+    const match = texto.substring(0, cursor).match(/@([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*)$/);
+    if (match) {
+        setBusquedaMencion(match[1]); setPosicionCursor(cursor || 0); setMostrarMenciones(true);
+    } else { setMostrarMenciones(false); }
+  }
+
+  const insertarMencion = (u: any) => {
+    const textoAntes = nuevoMensaje.substring(0, posicionCursor).replace(/@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/, '');
+    const textoDespues = nuevoMensaje.substring(posicionCursor);
+    setNuevoMensaje(`${textoAntes}@${u.nombre}${u.apellidos?.charAt(0)} ${textoDespues}`);
+    setMostrarMenciones(false);
+  }
+
+  const handleSeleccionarArchivoChat = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setArchivoChat(file);
+      if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onloadend = () => { setPreviewArchivoChat(reader.result as string); };
+          reader.readAsDataURL(file);
+      } else {
+          setPreviewArchivoChat('pdf_icon'); 
+      }
+    }
+  }
+
+  const enviarMensaje = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if ((!nuevoMensaje.trim() && !archivoChat) || !chatActivo || enviandoMensaje) return;
+      setEnviandoMensaje(true);
+
+      let archivoUrl = null;
+      let archivoTipo = null;
+      let archivoNombre = null;
+
+      try {
+          if (archivoChat) {
+              const fileExt = archivoChat.name.split('.').pop();
+              const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
+              const { error: uploadError } = await supabase.storage.from('chat_media').upload(fileName, archivoChat);
+              if (uploadError) throw new Error("Error al subir archivo.");
+              
+              archivoUrl = supabase.storage.from('chat_media').getPublicUrl(fileName).data.publicUrl;
+              archivoTipo = archivoChat.type;
+              archivoNombre = archivoChat.name;
+          }
+
+          const payload: any = { 
+              remitente_id: usuarioLogueado.id, 
+              mensaje: nuevoMensaje.trim(),
+              archivo_url: archivoUrl,
+              archivo_tipo: archivoTipo,
+              archivo_nombre: archivoNombre
+          };
+
+          if (chatActivo.tipo === 'proyecto') payload.proyecto_id = chatActivo.id;
+          else payload.destinatario_id = chatActivo.id;
+
+          setNuevoMensaje(''); setArchivoChat(null); setPreviewArchivoChat(null); setMostrarMenciones(false);
+
+          const fakeId = `temp-${Date.now()}`;
+          const msgOptimista = {
+              id: fakeId, ...payload, created_at: new Date().toISOString(),
+              remitente: { nombre: usuarioLogueado.nombre, apellidos: usuarioLogueado.apellidos, avatar_url: usuarioLogueado.avatar_url }
+          };
+          setMensajesChat(prev => [...prev, msgOptimista]);
+          setTimeout(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, 50);
+
+          const { data } = await supabase.from('mensajes_chat').insert([payload]).select().single();
+          if (data) setMensajesChat(prev => prev.map(m => m.id === fakeId ? { ...m, id: data.id } : m));
+
+      } catch (err: any) { alert(err.message); } finally { setEnviandoMensaje(false); }
+  };
+
+
   const handleRechazar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mensajeRechazo.trim()) return alert("Debes ingresar un motivo para regresar la cotización.");
+    if (!mensajeRechazo.trim()) return alert("Debes ingresar un motivo.");
     setProcesando(true);
-
     try {
-      // Lo regresamos a 'Cotización' para que el equipo lo rehaga
-      const { error: updateError } = await supabase.from('proyectos')
-        .update({ estatus: 'Cotización' })
-        .eq('id', proyectoSeleccionado.id);
-        
-      if (updateError) throw updateError;
-
-      await supabase.from('proyectos_interacciones').insert([{
-        proyecto_id: proyectoSeleccionado.id,
-        usuario_id: usuarioLogueado?.id,
-        estado_anterior: proyectoSeleccionado.estatus,
-        estado_nuevo: 'Cotización',
-        accion: 'Revisión Rechazada',
-        mensaje: mensajeRechazo
-      }]);
-
-      setModalRechazo(false); setModalDetalle(false); setMensajeRechazo(''); fetchProyectos();
+      await supabase.from('proyectos').update({ estatus: 'Cotización' }).eq('id', proyectoSeleccionado.id);
+      await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: 'Cotización', accion: 'Revisión Rechazada', mensaje: mensajeRechazo }]);
+      setModalRechazo(false); setModalDetalle(false); setMensajeRechazo(''); fetchInicial();
     } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
   }
 
-  // --- APROBAR: Cambiar a Cotizado y Guardar KPI ---
   const handleAprobar = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcesando(true);
-
     try {
-      // Lo pasamos finalmente a 'Cotizado' y guardamos la fecha de revisión
-      const { error: updateError } = await supabase.from('proyectos')
-        .update({ 
-            estatus: 'Cotizado',
-            fecha_revision: new Date().toISOString() // <-- KPI Guardado
-        })
-        .eq('id', proyectoSeleccionado.id);
-        
-      if (updateError) throw updateError;
-
-      await supabase.from('proyectos_interacciones').insert([{
-        proyecto_id: proyectoSeleccionado.id,
-        usuario_id: usuarioLogueado?.id,
-        estado_anterior: proyectoSeleccionado.estatus,
-        estado_nuevo: 'Cotizado',
-        accion: 'Revisión Aprobada',
-        mensaje: mensajeAprobacion || 'Cotización validada y liberada para Ventas.'
-      }]);
-
-      setModalAprobar(false); setModalDetalle(false); setMensajeAprobacion(''); fetchProyectos();
+      await supabase.from('proyectos').update({ estatus: 'Cotizado', fecha_revision: new Date().toISOString() }).eq('id', proyectoSeleccionado.id);
+      await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: 'Cotizado', accion: 'Revisión Aprobada', mensaje: mensajeAprobacion || 'Cotización validada y liberada para Ventas.' }]);
+      setModalAprobar(false); setModalDetalle(false); setMensajeAprobacion(''); fetchInicial();
     } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
   }
 
   const abrirVisorArchivos = (titulo: string, urls: string[]) => {
     if (!urls || urls.length === 0) return;
     setZoom(1); 
-    if (urls.length === 1) {
-       setDocPreview({ urls, currentIndex: 0, nombre: titulo });
-    } else {
-       setModalListaArchivos({ titulo, urls });
-    }
+    if (urls.length === 1) { setDocPreview({ urls, currentIndex: 0, nombre: titulo }); } 
+    else { setModalListaArchivos({ titulo, urls }); }
   };
 
   const verLogs = async (proyectoId: string) => {
     setModalLog(false);
-    const { data, error } = await supabase
-        .from('proyectos_interacciones')
-        .select(`*, perfiles:usuario_id (nombre, apellidos, avatar_url)`)
-        .eq('proyecto_id', proyectoId)
-        .order('created_at', { ascending: false });
-    
+    const { data } = await supabase.from('proyectos_interacciones').select(`*, perfiles:usuario_id (nombre, apellidos, avatar_url)`).eq('proyecto_id', proyectoId).order('created_at', { ascending: false });
     if (data) setLogsProyecto(data);
-    if (error) console.error("Error logs:", error);
     setModalLog(true);
   };
 
   const proyectosFiltrados = useMemo(() => {
     return proyectos.filter(p => {
-      const matchBusqueda = p.nombre_proyecto.toLowerCase().includes(busqueda.toLowerCase()) || 
-                            p.giro_proyecto?.toLowerCase().includes(busqueda.toLowerCase())
+      const matchBusqueda = p.nombre_proyecto.toLowerCase().includes(busqueda.toLowerCase()) || p.giro_proyecto?.toLowerCase().includes(busqueda.toLowerCase())
       const matchEstatus = filtroEstatus === 'Todos' || p.estatus === filtroEstatus
       return matchBusqueda && matchEstatus
     })
@@ -195,7 +270,7 @@ export default function Revision() {
       <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] pointer-events-none" />
 
       {/* HEADER HOMOLOGADO */}
-      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 shadow-sm h-16 flex items-center relative">
+      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-[60] shadow-sm h-16 flex items-center relative">
         <div className="max-w-[1700px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-4">
             <button onClick={() => navigate('/home')} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
@@ -203,21 +278,25 @@ export default function Revision() {
             <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
             <h1 className="font-black text-sm md:text-base uppercase italic tracking-tighter text-slate-900 hidden sm:block">Revisión de Cotizaciones</h1>
           </div>
-          <div className="bg-white px-3 md:px-4 py-1 md:py-1.5 rounded-xl border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="text-right flex flex-col hidden sm:flex">
-              <span className="text-[10px] md:text-[11px] font-black text-slate-900 uppercase leading-none">{usuarioLogueado?.nombre}</span>
-              <span className="text-[8px] md:text-[9px] font-bold text-orange-500 uppercase mt-1 truncate max-w-[120px]">{usuarioLogueado?.puesto_actual}</span>
-            </div>
-            <div className="w-6 h-6 md:w-8 md:h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-[10px] overflow-hidden">
-                {usuarioLogueado?.avatar_url ? <img src={usuarioLogueado.avatar_url} className="w-full h-full object-cover" /> : usuarioLogueado?.nombre?.charAt(0)}
+          <div className="flex items-center gap-4">
+            <button onClick={() => {setChatActivo(null); setChatDrawerAbierto(true)}} className="p-2 bg-slate-100 hover:bg-orange-100 text-slate-500 hover:text-orange-500 rounded-full transition-all relative shadow-inner border border-slate-200">
+                <MessageSquare className="w-5 h-5" />
+            </button>
+
+            <div className="bg-white px-3 md:px-4 py-1 md:py-1.5 rounded-xl border border-slate-100 flex items-center gap-2 md:gap-3 shadow-sm">
+                <div className="text-right flex flex-col hidden sm:flex">
+                <span className="text-[10px] md:text-[11px] font-black text-slate-900 uppercase leading-none">{usuarioLogueado?.nombre}</span>
+                <span className="text-[8px] md:text-[9px] font-bold text-orange-500 uppercase mt-1 truncate max-w-[120px]">{usuarioLogueado?.puesto_actual}</span>
+                </div>
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-[10px] overflow-hidden shadow-inner">
+                    {usuarioLogueado?.avatar_url ? <img src={usuarioLogueado.avatar_url} className="w-full h-full object-cover" /> : usuarioLogueado?.nombre?.charAt(0)}
+                </div>
             </div>
           </div>
         </div>
       </nav>
 
       <main className="max-w-[1700px] mx-auto px-4 md:px-8 py-6 md:py-8 relative z-10">
-        
-        {/* BARRA DE ACCIÓN */}
         <div className="flex justify-end mb-8 md:mb-10">
           <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto items-center">
             <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-2 w-full md:w-72 shadow-sm">
@@ -231,13 +310,12 @@ export default function Revision() {
           </div>
         </div>
 
-        {/* VISTA DE LISTA */}
         <div className="flex flex-col gap-4">
           {cargando ? (
             <p className="text-center text-slate-400 font-bold py-10 uppercase tracking-widest text-xs">Cargando revisiones...</p>
           ) : proyectosFiltrados.length === 0 ? (
             <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay proyectos pendientes de revisión.</p>
+              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay proyectos pendientes.</p>
             </div>
           ) : (
             proyectosFiltrados.map((p) => {
@@ -246,9 +324,7 @@ export default function Revision() {
               return (
                 <div key={p.id} onClick={() => { setProyectoSeleccionado(p); setModalDetalle(true); }} className="bg-white border border-slate-100 rounded-[20px] md:rounded-[25px] p-4 md:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group hover:border-blue-400 transition-all hover:shadow-xl cursor-pointer relative overflow-hidden">
                   <div className="flex items-center gap-4 w-full md:w-auto">
-                      <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black text-lg md:text-xl flex-shrink-0 shadow-md"> 
-                        {p.nombre_proyecto.charAt(0)} 
-                      </div>
+                      <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black text-lg md:text-xl flex-shrink-0 shadow-md"> {p.nombre_proyecto.charAt(0)} </div>
                       <div className="flex-1 overflow-hidden md:hidden">
                         <h4 className="font-black text-slate-950 text-[12px] uppercase italic tracking-tighter leading-none truncate">{p.nombre_proyecto}</h4>
                         <p className="text-[9px] font-semibold text-slate-600 uppercase mt-1.5 truncate flex items-center gap-1.5 leading-none"> <MapPin size={10} className="text-slate-400"/> {p.giro_proyecto} </p>
@@ -286,10 +362,10 @@ export default function Revision() {
           )}
         </div>
 
-        {/* MODAL DETALLE (FICHA TÉCNICA DE REVISIÓN) */}
+        {/* MODAL DETALLE (FICHA TÉCNICA) */}
         <AnimatePresence>
           {modalDetalle && proyectoSeleccionado && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh] mt-12 md:mt-0 overflow-y-auto custom-scrollbar">
                 
                 <div className="flex justify-between items-center pt-6 pb-4 px-6 md:px-8 border-b border-slate-100 shrink-0 bg-slate-50">
@@ -300,6 +376,10 @@ export default function Revision() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                     <button onClick={() => {
+                        setChatActivo({tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus});
+                        setChatDrawerAbierto(true);
+                     }} className="p-2 bg-white shadow-sm border border-slate-100 text-orange-500 hover:text-white hover:bg-orange-500 rounded-full transition-colors"><MessageSquare className="w-4 h-4 md:w-5 md:h-5"/></button>
                      <button onClick={() => verLogs(proyectoSeleccionado.id)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-500 hover:text-blue-500 rounded-full transition-colors"><History className="w-4 h-4 md:w-5 md:h-5"/></button>
                      <button onClick={() => setModalDetalle(false)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors leading-none"><X className="w-4 h-4 md:w-5 md:h-5"/></button>
                   </div>
@@ -325,7 +405,6 @@ export default function Revision() {
                     <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Timer size={10}/> SLA Global</p> <p className={`text-xs md:text-sm font-black uppercase ${calcularHorasHabiles(proyectoSeleccionado.created_at).hours >= 24 ? 'text-red-500' : 'text-slate-800'}`}> {calcularHorasHabiles(proyectoSeleccionado.created_at).text} hrs </p> </div>
                   </div>
 
-                  {/* INFO VENDEDOR */}
                   {proyectoSeleccionado.vendedor && (
                     <div className="bg-white border border-slate-200 rounded-[15px] p-3 md:p-4 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                         <div className="flex flex-col">
@@ -339,7 +418,6 @@ export default function Revision() {
                     </div>
                   )}
 
-                  {/* COMENTARIOS */}
                   <div className="bg-slate-50 p-4 md:p-5 rounded-[15px] md:rounded-[20px] border border-slate-200 shadow-inner flex flex-col gap-2 md:gap-3">
                     <p className="font-black text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest">📝 Contexto de la Solicitud</p>
                     <p className="text-xs md:text-sm text-slate-800 font-medium italic border-l-2 border-blue-300 pl-3 py-1">
@@ -347,24 +425,15 @@ export default function Revision() {
                     </p>
                   </div>
 
-                  {/* BOTONERA ARCHIVOS HOMOLOGADA */}
                   <div className="grid grid-cols-2 gap-2 px-1 pb-2 border-t border-slate-100 pt-4 mt-1">
-                    <button 
-                      onClick={() => abrirVisorArchivos('Archivos del Vendedor', proyectoSeleccionado.archivos_adjuntos || (proyectoSeleccionado.archivo_url ? [proyectoSeleccionado.archivo_url] : []))} 
-                      disabled={!(proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url)} 
-                      className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600 opacity-90'}`}>
+                    <button onClick={() => abrirVisorArchivos('Archivos del Vendedor', proyectoSeleccionado.archivos_adjuntos || (proyectoSeleccionado.archivo_url ? [proyectoSeleccionado.archivo_url] : []))} disabled={!(proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url)} className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 opacity-90'}`}>
                       <FileText size={14}/> Ver Recibos/Planos
                     </button>
-
-                    <button 
-                      onClick={() => abrirVisorArchivos('Propuestas de Cotización', proyectoSeleccionado.archivos_cotizacion || [])} 
-                      disabled={!(proyectoSeleccionado.archivos_cotizacion?.length > 0)} 
-                      className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_cotizacion?.length > 0 ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600 opacity-90'}`}>
+                    <button onClick={() => abrirVisorArchivos('Propuestas de Cotización', proyectoSeleccionado.archivos_cotizacion || [])} disabled={!(proyectoSeleccionado.archivos_cotizacion?.length > 0)} className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_cotizacion?.length > 0 ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 opacity-90'}`}>
                       <FileCheck size={14}/> Ver Cotización
                     </button>
                   </div>
 
-                  {/* BOTONES DE DECISIÓN DE REVISIÓN */}
                   {(proyectoSeleccionado.estatus === 'Cotización – Revisión') && (
                     <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 mt-1">
                       <button onClick={() => setModalRechazo(true)} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-red-200 bg-white text-red-500 font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"> <FileX className="w-4 h-4 md:w-5 md:h-5"/> Rechazar (Corregir) </button>
@@ -377,61 +446,230 @@ export default function Revision() {
           )}
         </AnimatePresence>
 
-        {/* SUB-MODAL DE RECHAZO */}
+        {/* --- DRAWER DEL CHAT ROBUSTO (Z-[1010] Para estar encima del Modal) --- */}
+        <AnimatePresence>
+            {chatDrawerAbierto && (
+                <div className="fixed inset-0 z-[1010] flex justify-end">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setChatDrawerAbierto(false)} />
+                    <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col border-l border-white/20 pt-16 md:pt-0">
+                        
+                        <div className="bg-slate-900 p-5 md:p-6 flex justify-between items-center text-white shrink-0 shadow-md z-10">
+                            {chatActivo ? (
+                                <div className="flex items-center gap-3 w-full overflow-hidden">
+                                    <button onClick={() => setChatActivo(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors shrink-0"><ArrowLeft size={18}/></button>
+                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/10">
+                                        {chatActivo.tipo === 'proyecto' ? <FileText className="text-orange-400" size={18}/> : <Users className="text-blue-400" size={18}/>}
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <h3 className="font-black text-sm uppercase truncate">{chatActivo.nombre}</h3>
+                                        <p className="text-[9px] font-bold text-orange-400 uppercase tracking-widest truncate">{chatActivo.tipo === 'proyecto' ? 'Chat de Proyecto' : 'Mensaje Directo'}</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/10"><MessageSquare className="text-orange-400" size={20}/></div>
+                                    <h3 className="font-black text-lg uppercase italic tracking-tighter">Mensajes</h3>
+                                </div>
+                            )}
+                            <button onClick={() => setChatDrawerAbierto(false)} className="p-2 hover:bg-red-500 rounded-full transition-colors shrink-0 ml-2"><X size={20}/></button>
+                        </div>
+
+                        <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden relative">
+                            {!chatActivo ? (
+                                <div className="overflow-y-auto p-4 space-y-6 custom-scrollbar h-full">
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Chats de Proyectos</p>
+                                        <div className="space-y-2">
+                                            {proyectos.filter(p => !p.estatus.includes('Cotizado')).slice(0,5).map(p => (
+                                                <button key={p.id} onClick={() => setChatActivo({tipo: 'proyecto', id: p.id, nombre: p.nombre_proyecto, estatusProyecto: p.estatus})} className="w-full bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-orange-300 hover:shadow-md transition-all flex items-center gap-3 text-left">
+                                                    <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black shrink-0 shadow-inner">{p.nombre_proyecto.charAt(0)}</div>
+                                                    <div className="overflow-hidden flex-1">
+                                                        <p className="font-black text-[11px] uppercase text-slate-800 truncate">{p.nombre_proyecto}</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase truncate">{p.giro_proyecto} • {p.estatus}</p>
+                                                    </div>
+                                                    <ChevronRight size={16} className="text-slate-300"/>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Directorio (Mensaje Directo)</p>
+                                        <div className="space-y-2">
+                                            {usuariosDb.filter(u => u.id !== usuarioLogueado?.id).map(u => (
+                                                <button key={u.id} onClick={() => setChatActivo({tipo: 'dm', id: u.id, nombre: `${u.nombre} ${u.apellidos}`})} className="w-full bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-3 text-left">
+                                                    <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-black shrink-0 overflow-hidden shadow-inner">
+                                                        {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <span>{u.nombre.charAt(0)}</span>}
+                                                    </div>
+                                                    <div className="overflow-hidden flex-1">
+                                                        <p className="font-black text-[11px] uppercase text-slate-800 truncate">{u.nombre} {u.apellidos}</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase truncate">{u.rol_sistema}</p>
+                                                    </div>
+                                                    <ChevronRight size={16} className="text-slate-300"/>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-50/90 bg-blend-overlay">
+                                        
+                                        {/* BANNER NEGRO DEL PROYECTO */}
+                                        {chatActivo.tipo === 'proyecto' && (
+                                            <div className="bg-slate-900 text-white rounded-xl p-3 mb-6 flex flex-col items-center justify-center text-center shadow-md border border-slate-700">
+                                                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Estás en el chat del proyecto</span>
+                                                <span className="text-xs font-black uppercase italic tracking-tighter">{chatActivo.nombre}</span>
+                                            </div>
+                                        )}
+
+                                        {chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado' && (
+                                            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest shadow-sm mb-4">
+                                                🔒 Proyecto Cotizado. Chat cerrado.
+                                            </div>
+                                        )}
+
+                                        {mensajesChat.length === 0 ? (
+                                            <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
+                                                <MessageSquare size={40} className="mb-3"/>
+                                                <p className="text-xs font-bold uppercase tracking-widest">Inicia la conversación</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {mensajesChat.map(msg => {
+                                                    const soyYo = msg.remitente_id === usuarioLogueado?.id;
+                                                    return (
+                                                        <div key={msg.id} className={`flex w-full ${soyYo ? 'justify-end' : 'justify-start'}`}>
+                                                            {!soyYo && (
+                                                                <div className="w-8 h-8 rounded-full overflow-hidden mr-2 shrink-0 bg-slate-200 border border-slate-300 flex items-center justify-center font-black text-[10px] text-slate-500 shadow-sm">
+                                                                    {msg.remitente?.avatar_url ? <img src={msg.remitente.avatar_url} className="w-full h-full object-cover"/> : msg.remitente?.nombre?.charAt(0)}
+                                                                </div>
+                                                            )}
+                                                            <div className={`flex flex-col ${soyYo ? 'items-end' : 'items-start'} max-w-[80%]`}>
+                                                                <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${soyYo ? 'text-slate-400 mr-2' : 'text-slate-400 ml-2'}`}>
+                                                                    {soyYo ? 'TÚ' : `${msg.remitente?.nombre}`}
+                                                                </span>
+                                                                <div className={`p-3 md:p-4 rounded-2xl shadow-sm text-[11px] md:text-xs font-medium leading-relaxed ${soyYo ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm'}`}>
+                                                                    
+                                                                    {msg.archivo_url && (
+                                                                        <div className="mb-2 border-b border-white/20 pb-2">
+                                                                            {msg.archivo_tipo?.includes('image') ? (
+                                                                                <img src={msg.archivo_url} onClick={() => abrirVisorArchivos(msg.archivo_nombre, [msg.archivo_url])} className="rounded-lg max-h-40 w-auto object-cover cursor-zoom-in hover:opacity-90 transition-opacity shadow-sm" alt="Adjunto"/>
+                                                                            ) : (
+                                                                                <button onClick={() => abrirVisorArchivos(msg.archivo_nombre, [msg.archivo_url])} className={`flex items-center gap-2 p-2 rounded-lg transition-colors font-bold text-[10px] uppercase w-full ${soyYo ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>
+                                                                                    <File size={14}/> {msg.archivo_nombre}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+
+                                                                    {msg.mensaje && msg.mensaje.split(/(@[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)/).map((part:string, i:number) => part.startsWith('@') ? <span key={i} className={`font-black ${soyYo ? 'text-orange-200' : 'text-blue-500'}`}>{part}</span> : part)}
+                                                                </div>
+                                                                <span className="text-[8px] font-bold text-slate-400 mt-1 mx-1">{new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <form onSubmit={enviarMensaje} className="p-4 bg-white border-t border-slate-100 flex flex-col gap-2 shrink-0 relative shadow-[0_-10px_20px_rgba(0,0,0,0.03)]">
+                                        
+                                        <AnimatePresence>
+                                            {archivoChat && (
+                                                <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0, scale:0.9}} className="relative w-fit bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm mb-1">
+                                                    <button type="button" onClick={() => {setArchivoChat(null); setPreviewArchivoChat(null)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-md z-10"><X size={10}/></button>
+                                                    {previewArchivoChat === 'pdf_icon' ? (
+                                                        <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center flex-col gap-1 text-slate-500"><File size={20}/><span className="text-[7px] font-black uppercase truncate w-full px-1 text-center">{archivoChat.name}</span></div>
+                                                    ) : (
+                                                        <img src={previewArchivoChat!} className="h-16 w-auto rounded-lg object-cover" />
+                                                    )}
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+
+                                        <AnimatePresence>
+                                            {mostrarMenciones && (
+                                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-40 overflow-y-auto">
+                                                    {usuariosDb.filter(u=>`${u.nombre} ${u.apellidos}`.toLowerCase().includes(busquedaMencion.toLowerCase())).map(u=>(
+                                                        <div key={u.id} onClick={()=>insertarMencion(u)} className="p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-black text-[10px] overflow-hidden">{u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <span>{u.nombre.charAt(0)}</span>}</div>
+                                                            <p className="text-slate-900 font-black text-[10px] uppercase">{u.nombre} {u.apellidos}</p>
+                                                        </div>
+                                                    ))}
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+
+                                        <div className="flex items-end gap-2">
+                                            <input type="file" ref={fileInputChatRef} onChange={handleSeleccionarArchivoChat} className="hidden" />
+                                            <button type="button" onClick={() => fileInputChatRef.current?.click()} disabled={chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado'} className="p-3 md:p-3.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-orange-100 hover:text-orange-500 transition-colors disabled:opacity-50 shrink-0">
+                                                <Paperclip size={18}/>
+                                            </button>
+
+                                            <textarea 
+                                                rows={1} placeholder="Escribe un mensaje... (@ para mencionar)" 
+                                                value={nuevoMensaje} onChange={handleMensajeChange}
+                                                disabled={chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado'}
+                                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(e); } }}
+                                                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner resize-none disabled:opacity-50 disabled:bg-slate-100" 
+                                            />
+                                            <button type="submit" disabled={(!nuevoMensaje.trim() && !archivoChat) || enviandoMensaje || (chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado')} className="p-3 md:p-3.5 bg-slate-900 text-white rounded-xl shadow-md hover:bg-orange-500 transition-colors disabled:opacity-50 shrink-0">
+                                                <Send size={18}/>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </>
+                            )}
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {/* ... MODALES RESTANTES (RECHAZO/APROBACIÓN) ... */}
         <AnimatePresence>
           {modalRechazo && (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
                  <div className="bg-red-50 p-6 flex justify-between items-center text-red-600 border-b border-red-100">
-                    <div className="flex items-center gap-3">
-                        <AlertCircle size={24} className="text-red-500 shrink-0"/>
-                        <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Rechazar Cotización</h3>
-                    </div>
-                    <button onClick={() => setModalRechazo(false)} className="p-2 bg-white hover:bg-red-100 rounded-full transition-colors shrink-0"><X className="w-5 h-5"/></button>
+                    <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0"/> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Rechazar Revisión</h3> </div>
+                    <button onClick={() => setModalRechazo(false)} className="p-2 bg-white hover:bg-red-100 rounded-full transition-colors shrink-0"><X size={20}/></button>
                  </div>
                  <form onSubmit={handleRechazar} className="p-6 bg-slate-50 flex flex-col gap-4">
-                    <p className="text-[11px] md:text-xs text-slate-500 font-medium">Explica por qué la cotización no puede ser aprobada. El proyecto regresará al equipo de Cotizaciones para que lo corrijan.</p>
-                    <textarea 
-                      required rows={4} placeholder="Ej: Los precios están mal, falta incluir el inversor..." 
-                      value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)} 
-                      className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-red-400 shadow-inner resize-none" 
-                    />
-                    <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-3.5 md:py-4 rounded-xl font-black shadow-lg hover:bg-red-600 transition-all flex items-center justify-center gap-2 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50">
-                      {procesando ? 'Procesando...' : 'Devolver a Cotizaciones'}
-                    </button>
+                    <p className="text-[11px] md:text-xs text-slate-500 font-medium">Explica por qué la cotización no puede ser aprobada. El proyecto regresará al equipo de Cotizaciones para corrección.</p>
+                    <textarea required rows={4} placeholder="Ej: Faltan equipos en la lista..." value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-red-400 shadow-inner resize-none" />
+                    <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-red-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : 'Devolver a Cotizaciones'} </button>
                  </form>
               </motion.div>
             </div>
           )}
         </AnimatePresence>
 
-        {/* SUB-MODAL DE APROBACIÓN */}
         <AnimatePresence>
           {modalAprobar && (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
                  <div className="bg-emerald-50 p-6 flex justify-between items-center text-emerald-700 border-b border-emerald-100">
-                    <div className="flex items-center gap-3"> <ShieldCheck size={24} className="text-emerald-500 shrink-0"/> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Aprobar Cotización</h3> </div>
-                    <button onClick={() => setModalAprobar(false)} className="p-2 bg-white hover:bg-emerald-100 rounded-full transition-colors shrink-0"><X className="w-5 h-5"/></button>
+                    <div className="flex items-center gap-3"> <CheckCircle2 size={24} className="shrink-0"/> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Aprobar Revisión</h3> </div>
+                    <button onClick={() => setModalAprobar(false)} className="p-2 bg-white hover:bg-emerald-100 rounded-full transition-colors shrink-0"><X size={20}/></button>
                  </div>
                  <form onSubmit={handleAprobar} className="p-6 bg-slate-50 flex flex-col gap-5">
                     <div>
-                      <span className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase text-slate-500 mb-2"> <FileText className="w-4 h-4 text-emerald-500"/> Notas Finales de Aprobación (Opcional) </span>
-                      <textarea rows={3} placeholder="Dejar un mensaje final que verá ventas..." value={mensajeAprobacion} onChange={e => setMensajeAprobacion(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs md:text-sm font-bold outline-none resize-none shadow-inner" />
+                      <span className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase text-slate-500 mb-2"> <FileText className="w-4 h-4 text-emerald-500"/> Comentario de Cierre (Opcional) </span>
+                      <textarea rows={3} placeholder="Dejar un mensaje final..." value={mensajeAprobacion} onChange={e => setMensajeAprobacion(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none resize-none shadow-inner" />
                     </div>
-                    <button type="submit" disabled={procesando} className="mt-2 bg-emerald-500 text-white w-full py-3.5 md:py-4 rounded-xl font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all uppercase text-[10px] md:text-[11px] disabled:opacity-50 tracking-widest"> 
-                      {procesando ? 'Procesando...' : 'Aprobar y Liberar'} 
-                    </button>
+                    <button type="submit" disabled={procesando} className="mt-2 bg-emerald-500 text-white w-full py-4 rounded-xl font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Procesando...' : 'Aprobar y Liberar Proyecto'} </button>
                  </form>
               </motion.div>
             </div>
           )}
         </AnimatePresence>
 
-        {/* SUB-MODAL LISTA DE ARCHIVOS (VISOR PREVIO) */}
+        {/* VISORES Y LOGS COMPACTOS */}
         <AnimatePresence>
             {modalListaArchivos && (
-               <div className="fixed inset-0 z-[1001] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+               <div className="fixed inset-0 z-[1051] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-sm shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0 max-h-[70vh]">
                     <div className="bg-slate-50 p-5 md:p-6 flex justify-between items-center border-b border-slate-200 shrink-0">
                         <h3 className="font-black uppercase tracking-widest text-slate-900 text-xs md:text-sm flex items-center gap-2"><FileText className="text-blue-500 w-4 h-4 md:w-5 md:h-5"/> {modalListaArchivos.titulo}</h3>
@@ -449,10 +687,9 @@ export default function Revision() {
             )}
         </AnimatePresence>
 
-        {/* VISOR MULTI-ARCHIVO FINAL CON ZOOM */}
         <AnimatePresence>
             {docPreview && (
-                <div className="fixed inset-0 z-[1005] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
+                <div className="fixed inset-0 z-[1055] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-6xl h-[85vh] md:h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-white mt-12 md:mt-0 relative" onClick={e => e.stopPropagation()}>
                         
                         <div className="bg-white p-4 md:p-6 flex justify-between items-center border-b border-slate-100 z-10 shrink-0">
@@ -481,9 +718,7 @@ export default function Revision() {
                             <div className="transition-transform duration-300 origin-center flex items-center justify-center w-full h-full" style={{ transform: `scale(${zoom})` }}>
                                 {docPreview.urls[docPreview.currentIndex].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) != null ? (
                                     <img src={docPreview.urls[docPreview.currentIndex]} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" alt="Visor" />
-                                ) : (
-                                    <iframe src={docPreview.urls[docPreview.currentIndex]} className="w-full h-full border-none bg-white rounded-xl shadow-2xl min-h-[60vh] md:min-h-full" title={docPreview.nombre} />
-                                )}
+                                ) : ( <iframe src={docPreview.urls[docPreview.currentIndex]} className="w-full h-full border-none bg-white rounded-xl shadow-2xl min-h-[60vh] md:min-h-full" title={docPreview.nombre} /> )}
                             </div>
                         </div>
                     </motion.div>
@@ -491,7 +726,6 @@ export default function Revision() {
             )}
         </AnimatePresence>
 
-        {/* MODAL LOG / BITÁCORA DEL PROYECTO */}
         <AnimatePresence>
             {modalLog && proyectoSeleccionado && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
@@ -510,7 +744,7 @@ export default function Revision() {
                         {logsProyecto.length === 0 ? (
                             <div className="text-center py-16 text-slate-400 border border-slate-100 rounded-2xl bg-white shadow-inner">
                                 <AlertCircle className='w-8 h-8 mx-auto mb-3 opacity-50'/>
-                                <p className="font-bold uppercase tracking-widest text-[10px]">No hay registros en la bitácora.</p>
+                                <p className="font-bold uppercase tracking-widest text-[10px]">No hay registros.</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -525,10 +759,7 @@ export default function Revision() {
                                              </div>
                                              <div className="flex-1 text-[11px]">
                                                  <div className='flex flex-col md:flex-row md:justify-between gap-1 md:gap-2 items-start'>
-                                                     <div>
-                                                         <p className="font-black uppercase italic text-slate-950 tracking-tighter leading-none">{perfiles?.nombre} {perfiles?.apellidos}</p>
-                                                         <p className="text-[8px] md:text-[9px] font-bold text-slate-600 uppercase mt-1">Acción: <span className='text-slate-900 font-black'>{log.accion}</span></p>
-                                                     </div>
+                                                     <div><p className="font-black uppercase italic text-slate-950 tracking-tighter leading-none">{perfiles?.nombre} {perfiles?.apellidos}</p><p className="text-[8px] md:text-[9px] font-bold text-slate-600 uppercase mt-1">Acción: <span className='text-slate-900 font-black'>{log.accion}</span></p></div>
                                                      <p className="text-[8px] md:text-[10px] text-slate-400 font-medium whitespace-nowrap bg-slate-50 px-2 py-0.5 rounded-full w-fit">{new Date(log.created_at).toLocaleString('es-MX', { timeStyle: 'short', dateStyle: 'short' })}</p>
                                                  </div>
                                                  {log.estado_nuevo && (

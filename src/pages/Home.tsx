@@ -6,8 +6,11 @@ import {
   BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, CalendarCheck, 
   Banknote, FileText, LogOut, Bell, Image as ImageIcon, Send, MessageSquare, Heart, Cake, 
   Calendar as CalendarIcon, X, Loader2, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2,
-  CheckCircle2, Clock, PlaneTakeoff, Menu, Trash
+  CheckCircle2, Clock, PlaneTakeoff, Menu, Trash, ChevronDown, ChevronUp
 } from 'lucide-react'
+
+// IMPORTAR EL COMPONENTE GLOBAL DE CHAT
+import ChatGlobal from '../components/ChatGlobal'
 
 import solarisLogo from '../assets/solarislogo.png'
 import degradadoBg from '../assets/degradado.png'
@@ -61,6 +64,9 @@ export default function Home() {
   const [solicitudesVacaciones, setSolicitudesVacaciones] = useState<any[]>([])
   const [cargandoFeed, setCargandoFeed] = useState(true)
   
+  // Paginación del Muro
+  const [visiblePosts, setVisiblePosts] = useState(5)
+
   // Muro Social & Encuestas
   const [nuevoPost, setNuevoPost] = useState('')
   const [publicando, setPublicando] = useState(false)
@@ -92,14 +98,26 @@ export default function Home() {
   const [fechaCalendario, setFechaCalendario] = useState(new Date())
   const [hoveredDay, setHoveredDay] = useState<number | null>(null)
 
+  // Chat Global
+  const [chatAbierto, setChatAbierto] = useState(false)
+  const [chatInicial, setChatInicial] = useState<any>(null)
+
+  // ESTADOS DE WIDGETS COLAPSABLES (Memoria en localStorage)
+  const [widgetSolicitudesAbierto, setWidgetSolicitudesAbierto] = useState(() => JSON.parse(localStorage.getItem('widget_solicitudes') ?? 'true'))
+  const [widgetProximosAbierto, setWidgetProximosAbierto] = useState(() => JSON.parse(localStorage.getItem('widget_proximos') ?? 'true'))
+
+  useEffect(() => { localStorage.setItem('widget_solicitudes', JSON.stringify(widgetSolicitudesAbierto)) }, [widgetSolicitudesAbierto])
+  useEffect(() => { localStorage.setItem('widget_proximos', JSON.stringify(widgetProximosAbierto)) }, [widgetProximosAbierto])
+
   const formatearFechaPost = (fechaStr: string) => {
     const d = new Date(fechaStr);
     return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
 
   useEffect(() => {
-    document.body.style.overflow = (menuMovilAbierto || mostrarPanelDerecho || verLikesModal || mostrarMenuNotificaciones) ? 'hidden' : 'unset';
-  }, [menuMovilAbierto, mostrarPanelDerecho, verLikesModal, mostrarMenuNotificaciones]);
+    // Permite que la página principal haga scroll libremente
+    document.body.style.overflow = (menuMovilAbierto || mostrarPanelDerecho || verLikesModal || chatAbierto) ? 'hidden' : 'unset';
+  }, [menuMovilAbierto, mostrarPanelDerecho, verLikesModal, chatAbierto]);
 
   const solicitarPermisoPush = async () => {
     if ('Notification' in window) {
@@ -110,31 +128,19 @@ export default function Home() {
 
 const registrarSuscripcionPush = async (userId: string) => {
   if (!userId) return; 
-
   try {
     if (!('serviceWorker' in navigator)) return;
-
     const registro = await navigator.serviceWorker.ready;
     const suscripcion = await registro.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
     });
-
     const subJson = suscripcion.toJSON();
-
     const { error } = await supabase.from('push_subscriptions').upsert({
-      user_id: userId,
-      endpoint: subJson.endpoint,
-      subscription_json: subJson
+      user_id: userId, endpoint: subJson.endpoint, subscription_json: subJson
     }, { onConflict: 'endpoint' });
-
-    if (error) {
-      console.error("Error al guardar token:", error);
-    }
-
-  } catch (err) {
-    console.warn("Aviso de Push:", err);
-  }
+    if (error) console.error("Error al guardar token:", error);
+  } catch (err) { console.warn("Aviso de Push:", err); }
 }
 
   useEffect(() => {
@@ -206,7 +212,7 @@ const registrarSuscripcionPush = async (userId: string) => {
   }
 
   const cargarNotificaciones = async (userId: string) => {
-    const { data } = await supabase.from('notificaciones').select(`*, autor:perfiles!autor_id(nombre, apellidos, avatar_url)`).eq('usuario_id', userId).order('creado_at', { ascending: false });
+    const { data } = await supabase.from('notificaciones').select(`*, autor:perfiles!autor_id(id, nombre, apellidos, avatar_url)`).eq('usuario_id', userId).order('creado_at', { ascending: false });
     if (data) setNotificaciones(data);
   }
 
@@ -220,6 +226,21 @@ const registrarSuscripcionPush = async (userId: string) => {
       await supabase.from('notificaciones').delete().eq('usuario_id', usuario.id);
       setNotificaciones([]);
       setMostrarMenuNotificaciones(false);
+  }
+
+  // --- CLICK EN NOTIFICACIÓN (DEEP LINK A CHAT) ---
+  const handleClickNotificacion = (notif: any) => {
+      if (notif.mensaje.includes('mensaje directo')) {
+          setChatInicial({ tipo: 'dm', id: notif.autor_id, nombre: `${notif.autor?.nombre} ${notif.autor?.apellidos}` });
+          setChatAbierto(true);
+      } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('chat')) {
+          // Si es de proyecto, abrimos la bandeja de chats para que lo seleccione ahí
+          setChatInicial(null); 
+          setChatAbierto(true);
+      }
+      setMostrarMenuNotificaciones(false);
+      // Opcional: Eliminar la notificación al leerla
+      // eliminarNotificacion(notif.id, {stopPropagation: ()=>{}} as any);
   }
 
   const renderAvatar = (userObj: any, size: string = "w-10 h-10 md:w-12 md:h-12 rounded-2xl") => {
@@ -257,7 +278,6 @@ const registrarSuscripcionPush = async (userId: string) => {
   } catch (error) {
     console.error("Error al limpiar notificaciones en logout:", error);
   }
-
   await supabase.auth.signOut();
   window.location.href = "/login"; 
 };
@@ -352,7 +372,23 @@ const registrarSuscripcionPush = async (userId: string) => {
             await supabase.storage.from('post_images').upload(path, imagenSeleccionada);
             url = supabase.storage.from('post_images').getPublicUrl(path).data.publicUrl;
         }
+
+        // OPTIMISTIC UPDATE: Mostramos el post inmediatamente en pantalla
+        const postTemp = {
+            id: `temp-${Date.now()}`,
+            user_id: usuario.id,
+            contenido: nuevoPost,
+            imagen_url: url,
+            tipo: modoEncuesta ? 'encuesta' : 'texto',
+            opciones: modoEncuesta ? opcionesEncuesta.filter(o => o.trim() !== '') : [],
+            creado_at: new Date().toISOString(),
+            autor: { id: usuario.id, nombre: usuario.nombre, apellidos: usuario.apellidos, avatar_url: usuario.avatar_url, rol_sistema: usuario.rol_sistema }
+        };
+        setPosts(prev => [postTemp, ...prev]);
+
         const payload = { user_id: usuario.id, contenido: nuevoPost, imagen_url: url, tipo: modoEncuesta ? 'encuesta' : 'texto', opciones: modoEncuesta ? opcionesEncuesta.filter(o => o.trim() !== '') : [] };
+        
+        // Guardamos en BD sin esperar a recargar todo
         await supabase.from('muro_social').insert([payload]);
         
         let targets = [...idsMencionados];
@@ -367,6 +403,7 @@ const registrarSuscripcionPush = async (userId: string) => {
   }
 
   const toggleLike = async (postId: string) => {
+      if (postId.startsWith('temp-')) return; // Evitar dar like a un post que aún no termina de guardarse en BD
       const myLikes = likesUsuarios[postId] || [];
       const hasLiked = myLikes.includes(usuario.id);
       if (hasLiked) { 
@@ -384,27 +421,18 @@ const registrarSuscripcionPush = async (userId: string) => {
       }
   }
 
-  // --- ACTUALIZADO: MANEJO DE ERRORES Y REFRESH DE UI ---
   const guardarEdicion = async (id: string) => {
     if (!textoEditado.trim()) return;
     const { error } = await supabase.from('muro_social').update({ contenido: textoEditado }).eq('id', id);
-    if (error) {
-        alert("Error al guardar edición: " + error.message);
-        return;
-    }
-    setPostEditandoId(null);
-    cargarPosts(); // <-- OBLIGAMOS A REFRESCAR LA PANTALLA
+    if (error) { alert("Error al guardar edición: " + error.message); return; }
+    setPostEditandoId(null); cargarPosts(); 
   }
 
-  // --- ACTUALIZADO: MANEJO DE ERRORES Y REFRESH DE UI ---
   const borrarPost = async (id: string) => {
     if(!confirm('¿Eliminar publicación?')) return;
     const { error } = await supabase.from('muro_social').delete().eq('id', id);
-    if (error) {
-        alert("Error al eliminar publicación: " + error.message);
-        return;
-    }
-    cargarPosts(); // <-- OBLIGAMOS A REFRESCAR LA PANTALLA
+    if (error) { alert("Error al eliminar publicación: " + error.message); return; }
+    cargarPosts(); 
   }
 
   const toggleComentarios = async (postId: string) => {
@@ -417,6 +445,7 @@ const registrarSuscripcionPush = async (userId: string) => {
   }
 
   const publicarComentario = async (postId: string) => {
+      if (postId.startsWith('temp-')) return;
       const text = nuevoComentario[postId]; if(!text?.trim()) return;
       await supabase.from('comentarios_muro').insert([{ post_id: postId, user_id: usuario.id, contenido: text }]);
       setNuevoComentario({ ...nuevoComentario, [postId]: '' });
@@ -428,6 +457,7 @@ const registrarSuscripcionPush = async (userId: string) => {
   }
 
   const votarEncuesta = async (postId: string, opcionIndex: number) => {
+      if (postId.startsWith('temp-')) return;
       const misVotos = votosEncuestas[postId] || [];
       if (misVotos.some(v => v.user_id === usuario.id)) return; 
       await supabase.from('votos_encuesta').insert([{ post_id: postId, user_id: usuario.id, opcion_index: opcionIndex }]);
@@ -477,11 +507,11 @@ const registrarSuscripcionPush = async (userId: string) => {
   );
 
   return (
-    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover overflow-x-hidden" style={{ backgroundImage: `url(${degradadoBg})` }}>
+    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-none" />
 
-      {/* NAV BAR */}
-      <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 sticky top-0 z-[60] shadow-lg h-16 flex items-center relative">
+      {/* NAV BAR PERSONALIZADA DEL HOME */}
+      <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 sticky top-0 z-[60] shadow-lg h-16 flex items-center relative shrink-0">
         <div className="max-w-[1800px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-4">
             <button onClick={() => setMenuMovilAbierto(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"><Menu size={24} /></button>
@@ -492,6 +522,11 @@ const registrarSuscripcionPush = async (userId: string) => {
           <div className="flex items-center gap-2 md:gap-5">
             <button onClick={() => setMostrarPanelDerecho(!mostrarPanelDerecho)} className="p-2 text-slate-500 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all relative lg:hidden"><LayoutGrid size={24} /><span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" /></button>
             
+            {/* BOTON DE CHAT GLOBAL INYECTADO */}
+            <button onClick={() => { setChatInicial(null); setChatAbierto(true); }} className="p-2 text-slate-500 hover:text-orange-500 rounded-full transition-all relative">
+                <MessageSquare size={24} />
+            </button>
+
             <div className="relative">
                 <button onClick={() => setMostrarMenuNotificaciones(!mostrarMenuNotificaciones)} className="p-2 text-slate-500 hover:text-orange-500 rounded-full transition-all relative"><Bell size={24} />{notificaciones.length > 0 && <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[7px] font-black text-white">{notificaciones.length}</span>}</button>
                 <AnimatePresence>
@@ -500,7 +535,7 @@ const registrarSuscripcionPush = async (userId: string) => {
                             <div className="bg-slate-900 p-4 text-white font-black text-xs uppercase flex justify-between items-center shrink-0">Notificaciones <button onClick={() => setMostrarMenuNotificaciones(false)}><X size={16}/></button></div>
                             <div className="overflow-y-auto flex-1">
                                 {notificaciones.length === 0 ? <div className="p-6 text-center text-slate-400 text-xs font-bold">Sin alertas.</div> : notificaciones.map(notif => (
-                                    <div key={notif.id} className="p-4 border-b border-slate-50 relative group hover:bg-slate-50">
+                                    <div key={notif.id} onClick={() => handleClickNotificacion(notif)} className="p-4 border-b border-slate-50 relative group hover:bg-orange-50 cursor-pointer transition-colors">
                                         <p className="text-xs text-slate-800 leading-tight font-bold pr-6"><span className="text-orange-600">{notif.autor?.nombre}</span> {notif.mensaje}</p>
                                         <button onClick={(e) => eliminarNotificacion(notif.id, e)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={14}/></button>
                                     </div>
@@ -576,11 +611,12 @@ const registrarSuscripcionPush = async (userId: string) => {
         )}
       </AnimatePresence>
 
-      <main className="max-w-[1800px] mx-auto px-4 md:px-6 py-6 md:py-8 relative z-10 flex gap-8">
+      {/* ÁREA PRINCIPAL DIVIDIDA EN 3 COLUMNAS: IZQ FIJA, CENTRO SCROLL, DER FIJA */}
+      <main className="max-w-[1800px] mx-auto w-full px-4 md:px-6 py-6 md:py-8 relative z-10 flex gap-8 flex-1">
         
-        {/* SIDEBAR DESKTOP */}
-        <aside className="hidden lg:block w-72 shrink-0">
-            <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white sticky top-24 max-h-[80vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* SIDEBAR IZQUIERDA (DESKTOP) - SCROLL FIJO */}
+        <aside className="hidden lg:block w-72 shrink-0 h-[calc(100vh-8rem)] sticky top-24 overflow-y-auto custom-scrollbar pb-10">
+            <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 ml-3">Menú</h3>
                 <div className="space-y-1">
                     {modulosMenu.map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all group ${mod.bg}`}><div className={`p-2 rounded-xl bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={16} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
@@ -588,7 +624,7 @@ const registrarSuscripcionPush = async (userId: string) => {
             </div>
         </aside>
 
-        {/* FEED CENTRAL */}
+        {/* FEED CENTRAL (Scroll Natural) */}
         <section className="flex-1 space-y-6 min-w-0">
             {/* PUBLICAR */}
             <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-8 shadow-2xl border border-white relative z-20">
@@ -629,141 +665,204 @@ const registrarSuscripcionPush = async (userId: string) => {
                 </form>
             </div>
 
-            {/* LISTA POSTS */}
+            {/* LISTA POSTS PAGINADA */}
             <div className="space-y-6 pb-20">
                 {cargandoFeed ? (
                     <div className="py-20 text-center flex flex-col items-center gap-4 text-white font-black uppercase"><Loader2 className="w-10 h-10 animate-spin text-orange-500"/> Sincronizando Vlog...</div>
-                ) : posts.map((post) => {
-                    const hasLiked = likesUsuarios[post.id]?.includes(usuario?.id);
-                    const misVotos = votosEncuestas[post.id] || [];
-                    const cCount = comentariosCounts[post.id] || 0;
-                    const listLikes = likesUsuarios[post.id] || [];
-                    const primerNombreLike = listLikes.length > 0 ? usuariosDb.find(u => u.id === listLikes[0])?.nombre : '';
-                    const tooltipNombres = listLikes.map(uid => usuariosDb.find(u => u.id === uid)?.nombre).join(', ');
+                ) : (
+                  <>
+                    {posts.slice(0, visiblePosts).map((post) => {
+                        const hasLiked = likesUsuarios[post.id]?.includes(usuario?.id);
+                        const misVotos = votosEncuestas[post.id] || [];
+                        const cCount = comentariosCounts[post.id] || 0;
+                        const listLikes = likesUsuarios[post.id] || [];
+                        const primerNombreLike = listLikes.length > 0 ? usuariosDb.find(u => u.id === listLikes[0])?.nombre : '';
+                        const tooltipNombres = listLikes.map(uid => usuariosDb.find(u => u.id === uid)?.nombre).join(', ');
 
-                    return (
-                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-8 shadow-2xl border border-white relative">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                  {renderAvatar(post.autor)}
-                                  <div>
-                                    <h4 className="font-black text-slate-950 text-[13px] uppercase leading-none italic">{post.autor?.nombre} {post.autor?.apellidos}</h4>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase flex items-center gap-1.5"><Clock size={10} className="text-orange-500"/> {formatearFechaPost(post.creado_at)}</p>
-                                  </div>
+                        return (
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-8 shadow-2xl border border-white relative">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                      {renderAvatar(post.autor)}
+                                      <div>
+                                        <h4 className="font-black text-slate-950 text-[13px] uppercase leading-none italic">{post.autor?.nombre} {post.autor?.apellidos}</h4>
+                                        <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase flex items-center gap-1.5"><Clock size={10} className="text-orange-500"/> {formatearFechaPost(post.creado_at)}</p>
+                                      </div>
+                                    </div>
+                                    {usuario?.id === post.user_id && (
+                                      <div className="flex gap-2">
+                                        <button onClick={() => { setPostEditandoId(post.id); setTextoEditado(post.contenido); }} className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Edit2 size={16}/></button>
+                                        <button onClick={() => borrarPost(post.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
+                                      </div>
+                                    )}
                                 </div>
-                                {usuario?.id === post.user_id && (
-                                  <div className="flex gap-2">
-                                    <button onClick={() => { setPostEditandoId(post.id); setTextoEditado(post.contenido); }} className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Edit2 size={16}/></button>
-                                    <button onClick={() => borrarPost(post.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
-                                  </div>
-                                )}
-                            </div>
-                            
-                            {postEditandoId === post.id ? (
-                                <div className="mb-6 space-y-3"><textarea value={textoEditado} onChange={e => setTextoEditado(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 h-24 shadow-inner" /><div className="flex gap-2"><button onClick={() => setPostEditandoId(null)} className="px-4 py-2 text-xs font-black uppercase text-slate-400 hover:bg-slate-100 rounded-xl">Cancelar</button><button onClick={() => guardarEdicion(post.id)} className="px-6 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-black uppercase shadow-lg">Guardar</button></div></div>
-                            ) : (<p className="text-slate-800 text-sm md:text-[15px] font-bold leading-relaxed mb-6 whitespace-pre-line italic">{(post.contenido || '').split(/(@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+)/).map((part: string, i: number) => part.startsWith('@') ? <span key={i} className="text-blue-600 bg-blue-50 px-1 rounded font-black">{part}</span> : part)}</p>)}
-                            
-                            {post.tipo === 'encuesta' && post.opciones && (
-                                <div className="mb-6 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                    {post.opciones.map((op: string, idx: number) => { 
-                                        const total = misVotos.length; 
-                                        const vOp = misVotos.filter(v => v.opcion_index === idx).length; 
-                                        const pct = total > 0 ? Math.round((vOp / total) * 100) : 0; 
-                                        return (
-                                            <div key={idx} onClick={() => votarEncuesta(post.id, idx)} className="relative h-10 border-2 border-slate-200 rounded-xl flex items-center px-4 cursor-pointer overflow-hidden bg-white hover:border-blue-400 transition-all">
-                                                <div className="absolute left-0 top-0 bottom-0 bg-blue-100 transition-all duration-1000" style={{ width: `${pct}%` }} />
-                                                <span className="relative z-10 text-[10px] font-black uppercase text-slate-700">{op}</span>
-                                                <span className="relative z-10 ml-auto text-[10px] font-black text-blue-600">{pct}%</span>
-                                            </div>
-                                        )
-                                    })}
-                                    <p className="text-[8px] font-black text-slate-400 uppercase text-center mt-3">{misVotos.length} Votos totales</p>
-                                </div>
-                            )}
-
-                            {post.imagen_url && <img src={post.imagen_url} alt="Post" className="rounded-3xl w-full h-auto mb-6 shadow-sm border border-slate-100" />}
-
-                            <div className="pt-6 border-t border-slate-100">
-                                <div className="flex gap-6 mb-2">
-                                    <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-2 font-black text-[10px] transition-colors ${hasLiked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}>
-                                        <Heart size={20} className={hasLiked ? 'fill-red-500' : ''} /> <span className="hover:underline">{listLikes.length}</span>
-                                    </button>
-                                    <button onClick={() => toggleComentarios(post.id)} className="flex items-center gap-2 font-black text-[10px] text-slate-400 hover:text-blue-500 transition-colors"><MessageSquare size={20} /> {cCount}</button>
-                                </div>
-                                {listLikes.length > 0 && (
-                                    <p className="text-[10px] font-bold text-slate-400 cursor-help w-fit" title={tooltipNombres} onClick={() => setVerLikesModal(listLikes)}>
-                                        Le gusta a <span className="font-black text-slate-600 hover:underline">{primerNombreLike}</span> {listLikes.length > 1 && `y ${listLikes.length - 1} más`}
-                                    </p>
-                                )}
-                            </div>
-
-                            <AnimatePresence>
-                                {comentariosVisibles[post.id] && (
-                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                        <div className="space-y-4 mb-4 max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                            {(comentariosData[post.id] || []).map(com => (
-                                                <div key={com.id} className="flex gap-3">
-                                                    {renderAvatar(com.autor, "w-8 h-8 rounded-lg")}
-                                                    <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex-1">
-                                                        <p className="text-[10px] font-black text-slate-900 uppercase leading-none mb-1">{com.autor?.nombre}</p>
-                                                        <p className="text-xs font-bold text-slate-600 leading-tight">{com.contenido}</p>
-                                                    </div>
+                                
+                                {postEditandoId === post.id ? (
+                                    <div className="mb-6 space-y-3"><textarea value={textoEditado} onChange={e => setTextoEditado(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 h-24 shadow-inner" /><div className="flex gap-2"><button onClick={() => setPostEditandoId(null)} className="px-4 py-2 text-xs font-black uppercase text-slate-400 hover:bg-slate-100 rounded-xl">Cancelar</button><button onClick={() => guardarEdicion(post.id)} className="px-6 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-black uppercase shadow-lg">Guardar</button></div></div>
+                                ) : (<p className="text-slate-800 text-sm md:text-[15px] font-bold leading-relaxed mb-6 whitespace-pre-line italic">{(post.contenido || '').split(/(@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+)/).map((part: string, i: number) => part.startsWith('@') ? <span key={i} className="text-blue-600 bg-blue-50 px-1 rounded font-black">{part}</span> : part)}</p>)}
+                                
+                                {post.tipo === 'encuesta' && post.opciones && (
+                                    <div className="mb-6 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                        {post.opciones.map((op: string, idx: number) => { 
+                                            const total = misVotos.length; 
+                                            const vOp = misVotos.filter(v => v.opcion_index === idx).length; 
+                                            const pct = total > 0 ? Math.round((vOp / total) * 100) : 0; 
+                                            return (
+                                                <div key={idx} onClick={() => votarEncuesta(post.id, idx)} className="relative h-10 border-2 border-slate-200 rounded-xl flex items-center px-4 cursor-pointer overflow-hidden bg-white hover:border-blue-400 transition-all">
+                                                    <div className="absolute left-0 top-0 bottom-0 bg-blue-100 transition-all duration-1000" style={{ width: `${pct}%` }} />
+                                                    <span className="relative z-10 text-[10px] font-black uppercase text-slate-700">{op}</span>
+                                                    <span className="relative z-10 ml-auto text-[10px] font-black text-blue-600">{pct}%</span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <input type="text" value={nuevoComentario[post.id] || ''} onChange={e => setNuevoComentario({...nuevoComentario, [post.id]: e.target.value})} placeholder="Comentar..." onKeyDown={e => e.key === 'Enter' && publicarComentario(post.id)} className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-orange-500 shadow-inner" />
-                                            <button onClick={() => publicarComentario(post.id)} className="bg-slate-900 text-white p-2.5 rounded-xl shadow-md"><Send size={16}/></button>
-                                        </div>
-                                    </motion.div>
+                                            )
+                                        })}
+                                        <p className="text-[8px] font-black text-slate-400 uppercase text-center mt-3">{misVotos.length} Votos totales</p>
+                                    </div>
                                 )}
-                            </AnimatePresence>
-                        </motion.div>
-                    )
-                })}
+
+                                {post.imagen_url && <img src={post.imagen_url} alt="Post" className="rounded-3xl w-full h-auto mb-6 shadow-sm border border-slate-100" />}
+
+                                <div className="pt-6 border-t border-slate-100">
+                                    <div className="flex gap-6 mb-2">
+                                        <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-2 font-black text-[10px] transition-colors ${hasLiked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}>
+                                            <Heart size={20} className={hasLiked ? 'fill-red-500' : ''} /> <span className="hover:underline">{listLikes.length}</span>
+                                        </button>
+                                        <button onClick={() => toggleComentarios(post.id)} className="flex items-center gap-2 font-black text-[10px] text-slate-400 hover:text-blue-500 transition-colors"><MessageSquare size={20} /> {cCount}</button>
+                                    </div>
+                                    {listLikes.length > 0 && (
+                                        <p className="text-[10px] font-bold text-slate-400 cursor-help w-fit" title={tooltipNombres} onClick={() => setVerLikesModal(listLikes)}>
+                                            Le gusta a <span className="font-black text-slate-600 hover:underline">{primerNombreLike}</span> {listLikes.length > 1 && `y ${listLikes.length - 1} más`}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <AnimatePresence>
+                                    {comentariosVisibles[post.id] && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                                            <div className="space-y-4 mb-4 max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                                {(comentariosData[post.id] || []).map(com => (
+                                                    <div key={com.id} className="flex gap-3">
+                                                        {renderAvatar(com.autor, "w-8 h-8 rounded-lg")}
+                                                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex-1">
+                                                            <p className="text-[10px] font-black text-slate-900 uppercase leading-none mb-1">{com.autor?.nombre}</p>
+                                                            <p className="text-xs font-bold text-slate-600 leading-tight">{com.contenido}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input type="text" value={nuevoComentario[post.id] || ''} onChange={e => setNuevoComentario({...nuevoComentario, [post.id]: e.target.value})} placeholder="Comentar..." onKeyDown={e => e.key === 'Enter' && publicarComentario(post.id)} className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-orange-500 shadow-inner" />
+                                                <button onClick={() => publicarComentario(post.id)} className="bg-slate-900 text-white p-2.5 rounded-xl shadow-md"><Send size={16}/></button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        )
+                    })}
+                    
+                    {/* BOTON VER MÁS */}
+                    {posts.length > visiblePosts && (
+                        <div className="flex justify-center mt-6">
+                            <button 
+                                onClick={() => setVisiblePosts(prev => prev + 5)}
+                                className="bg-white/90 backdrop-blur-sm border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest px-8 py-3 rounded-2xl shadow-sm hover:bg-white hover:text-orange-500 hover:border-orange-300 transition-all flex items-center gap-2"
+                            >
+                                Ver más publicaciones <ChevronDown size={14}/>
+                            </button>
+                        </div>
+                    )}
+                  </>
+                )}
             </div>
         </section>
 
-        {/* SIDEBAR DERECHA (DESKTOP) */}
-        <aside className="hidden xl:block w-80 shrink-0">
-            <div className="space-y-8 sticky top-24">
-                <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white">
-                    <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-3"><PlaneTakeoff size={18} className="text-blue-500"/> Solicitudes Equipo</h3>
-                    <div className="space-y-3 max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {solicitudesVisibles.length === 0 ? <p className="text-xs text-slate-400 font-bold italic text-center">Sin solicitudes.</p> : solicitudesVisibles.map((sol) => (
-                            <div key={sol.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 shadow-sm">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] font-black text-slate-800 uppercase leading-none">{sol.empleado?.nombre}</span>
-                                    <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700' : sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{sol.estado}</span>
-                                </div>
-                                <p className="text-[8px] font-bold text-slate-400 uppercase leading-none">{sol.fecha_inicio} / {sol.fecha_fin}</p>
-                                {sol.empleado?.jefe_id === usuario?.id && sol.estado === 'Pendiente' && (
-                                    <div className="flex gap-2 mt-2">
-                                        <button onClick={() => responderSolicitud(sol.id, 'Aprobada')} className="flex-1 bg-emerald-500 text-white py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Aprobar</button>
-                                        <button onClick={() => responderSolicitud(sol.id, 'Rechazada')} className="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">Rechazar</button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+        {/* SIDEBAR DERECHA (DESKTOP) - SCROLL FIJO Y WIDGETS COLAPSABLES */}
+        <aside className="hidden xl:block w-80 shrink-0 h-[calc(100vh-8rem)] sticky top-24 overflow-y-auto custom-scrollbar pb-10">
+            <div className="space-y-6">
+                
+                {/* WIDGET SOLICITUDES */}
+                <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white transition-all">
+                    <div 
+                      className="flex items-center justify-between cursor-pointer group"
+                      onClick={() => setWidgetSolicitudesAbierto(!widgetSolicitudesAbierto)}
+                    >
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-3 group-hover:text-blue-500 transition-colors"><PlaneTakeoff size={18} className="text-blue-500"/> Solicitudes Equipo</h3>
+                      <button className="text-slate-300 group-hover:text-blue-500 transition-colors">
+                        {widgetSolicitudesAbierto ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                      </button>
                     </div>
+
+                    <AnimatePresence>
+                      {widgetSolicitudesAbierto && (
+                        <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 16 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
+                          <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                              {solicitudesVisibles.length === 0 ? <p className="text-xs text-slate-400 font-bold italic text-center pb-2">Sin solicitudes pendientes.</p> : solicitudesVisibles.map((sol) => (
+                                  <div key={sol.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 shadow-sm">
+                                      <div className="flex justify-between items-center mb-1">
+                                          <span className="text-[10px] font-black text-slate-800 uppercase leading-none">{sol.empleado?.nombre}</span>
+                                          <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700' : sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{sol.estado}</span>
+                                      </div>
+                                      <p className="text-[8px] font-bold text-slate-400 uppercase leading-none">{sol.fecha_inicio} / {sol.fecha_fin}</p>
+                                      {sol.empleado?.jefe_id === usuario?.id && sol.estado === 'Pendiente' && (
+                                          <div className="flex gap-2 mt-2">
+                                              <button onClick={() => responderSolicitud(sol.id, 'Aprobada')} className="flex-1 bg-emerald-500 text-white py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Aprobar</button>
+                                              <button onClick={() => responderSolicitud(sol.id, 'Rechazada')} className="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">Rechazar</button>
+                                          </div>
+                                      )}
+                                  </div>
+                              ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                 </div>
                 
+                {/* WIDGET CALENDARIO (Siempre Abierto) */}
                 <WidgetCalendario />
 
-                <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white max-h-[300px] overflow-hidden flex flex-col">
-                    <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-3 shrink-0"><CalendarIcon size={18} className="text-emerald-500"/> Próximos</h3>
-                    <div className="space-y-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {eventosFuturos.map((ev) => (
-                            <div key={ev.id} className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl hover:border-orange-200 transition-colors">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] shadow-sm ${ev.tipo === 'cumple' ? 'bg-pink-100 text-pink-600' : ev.tipo === 'vacaciones' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>{ev.iniciales}</div>
-                                <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{ev.titulo}</p><p className="text-[7px] font-bold text-slate-400 mt-0.5">{ev.dia} {mesesNombres[ev.mes]}</p></div>
-                            </div>
-                        ))}
+                {/* WIDGET PRÓXIMOS */}
+                <div className="bg-white/95 backdrop-blur-xl rounded-[35px] p-6 shadow-2xl border border-white flex flex-col transition-all">
+                    <div 
+                      className="flex items-center justify-between cursor-pointer group"
+                      onClick={() => setWidgetProximosAbierto(!widgetProximosAbierto)}
+                    >
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-3 shrink-0 group-hover:text-emerald-500 transition-colors"><CalendarIcon size={18} className="text-emerald-500"/> Próximos Eventos</h3>
+                      <button className="text-slate-300 group-hover:text-emerald-500 transition-colors">
+                        {widgetProximosAbierto ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                      </button>
                     </div>
+
+                    <AnimatePresence>
+                      {widgetProximosAbierto && (
+                        <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 16 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
+                          <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                              {eventosFuturos.length === 0 ? <p className="text-xs text-slate-400 font-bold italic text-center pb-2">Sin eventos próximos.</p> : eventosFuturos.map((ev) => (
+                                  <div key={ev.id} className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl hover:border-orange-200 transition-colors">
+                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] shadow-sm ${ev.tipo === 'cumple' ? 'bg-pink-100 text-pink-600' : ev.tipo === 'vacaciones' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>{ev.iniciales}</div>
+                                      <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{ev.titulo}</p><p className="text-[7px] font-bold text-slate-400 mt-0.5">{ev.dia} {mesesNombres[ev.mes]}</p></div>
+                                  </div>
+                              ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                 </div>
+
             </div>
         </aside>
       </main>
+
+      {/* ========================================================================= */}
+      {/* ZONA DE MODALES Y COMPONENTES FLOTANTES (FUERA DEL MAIN)                  */}
+      {/* ========================================================================= */}
+
+      {/* CHAT GLOBAL */}
+      <ChatGlobal 
+          isOpen={chatAbierto} 
+          onClose={() => setChatAbierto(false)} 
+          usuarioLogueado={usuario}
+          chatInicial={chatInicial}
+      />
 
       {/* MODAL LIKES (Quién dio like) */}
       <AnimatePresence>
