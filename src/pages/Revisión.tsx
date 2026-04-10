@@ -1,15 +1,17 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  ArrowLeft, Search, X, Save, 
-  MapPin, FileText, CheckCircle2, AlertCircle, Clock, ChevronRight, History,
-  FileCheck, FileX, Timer, Calendar as CalendarIcon, Phone, Mail, File,
-  ChevronLeft, ZoomIn, ZoomOut, ShieldCheck, MessageSquare, Send, Users, Paperclip, Image as ImageIcon
+  Search, X, MapPin, FileText, CheckCircle2, AlertCircle, Clock, 
+  ChevronRight, History, FileCheck, FileX, Timer, Calendar as CalendarIcon, 
+  Phone, Mail, File, ChevronLeft, ShieldCheck, MessageSquare
 } from 'lucide-react'
 
-import solarisLogo from '../assets/solarislogo.png'
+// IMPORTAMOS NUESTROS COMPONENTES GLOBALES
+import Header from '../components/Header'
+import ChatGlobal from '../components/ChatGlobal'
+
 import degradadoBg from '../assets/degradado.png'
 
 // --- HELPERS DE COLORES Y TIEMPOS ---
@@ -43,7 +45,6 @@ const calcularHorasHabiles = (fechaCreacion: string) => {
 }
 
 export default function Revision() {
-  const navigate = useNavigate()
   const [proyectos, setProyectos] = useState<any[]>([])
   const [usuariosDb, setUsuariosDb] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
@@ -66,22 +67,9 @@ export default function Revision() {
   const [mensajeAprobacion, setMensajeAprobacion] = useState('')
   const [procesando, setProcesando] = useState(false)
 
-  // --- ESTADOS DEL CHAT Y MULTIMEDIA ---
-  const [chatDrawerAbierto, setChatDrawerAbierto] = useState(false)
-  const [chatActivo, setChatActivo] = useState<{tipo: 'proyecto'|'dm', id: string, nombre: string, estatusProyecto?: string} | null>(null)
-  const [mensajesChat, setMensajesChat] = useState<any[]>([])
-  const [nuevoMensaje, setNuevoMensaje] = useState('')
-  const [archivoChat, setArchivoChat] = useState<File | null>(null) 
-  const [previewArchivoChat, setPreviewArchivoChat] = useState<string | null>(null) 
-  const [enviandoMensaje, setEnviandoMensaje] = useState(false)
-
-  const chatScrollRef = useRef<HTMLDivElement>(null)
-  const fileInputChatRef = useRef<HTMLInputElement>(null)
-
-  // ESTADOS PARA MENCIONES (@)
-  const [mostrarMenciones, setMostrarMenciones] = useState(false)
-  const [busquedaMencion, setBusquedaMencion] = useState('')
-  const [posicionCursor, setPosicionCursor] = useState(0)
+  // --- ESTADOS DEL CHAT GLOBAL ---
+  const [chatAbierto, setChatAbierto] = useState(false)
+  const [chatInicial, setChatInicial] = useState<any>(null)
 
   const usuarioLogueado = useMemo(() => {
     const data = localStorage.getItem('session_gea_solar')
@@ -100,127 +88,6 @@ export default function Revision() {
   }
 
   useEffect(() => { fetchInicial() }, [])
-
-  // --- LÓGICA DEL CHAT EN TIEMPO REAL ---
-  useEffect(() => {
-      if (!chatActivo) return;
-
-      const cargarMensajes = async () => {
-          let query = supabase.from('mensajes_chat')
-              .select(`*, remitente:perfiles!mensajes_chat_remitente_id_fkey(id, nombre, apellidos, avatar_url)`)
-              .order('created_at', { ascending: true });
-          
-          if (chatActivo.tipo === 'proyecto') query = query.eq('proyecto_id', chatActivo.id);
-          else query = query.is('proyecto_id', null).or(`and(remitente_id.eq.${usuarioLogueado.id},destinatario_id.eq.${chatActivo.id}),and(remitente_id.eq.${chatActivo.id},destinatario_id.eq.${usuarioLogueado.id})`);
-          
-          const { data, error } = await query;
-          if (error) console.error("Error al cargar chat:", error);
-          if (data) setMensajesChat(data);
-          setTimeout(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, 100);
-      };
-
-      cargarMensajes();
-
-      const channel = supabase.channel(`chat_${chatActivo.id}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_chat' }, (payload) => {
-            const msg = payload.new;
-            const correspondeAlProyecto = chatActivo.tipo === 'proyecto' && msg.proyecto_id === chatActivo.id;
-            const correspondeAlDM = chatActivo.tipo === 'dm' && msg.proyecto_id === null && 
-                                   ((msg.remitente_id === usuarioLogueado.id && msg.destinatario_id === chatActivo.id) || 
-                                    (msg.remitente_id === chatActivo.id && msg.destinatario_id === usuarioLogueado.id));
-
-            if (correspondeAlProyecto || correspondeAlDM) {
-                supabase.from('perfiles').select('id, nombre, apellidos, avatar_url').eq('id', msg.remitente_id).single().then(({data}) => {
-                    setMensajesChat(prev => {
-                        if (prev.find(m => m.id === msg.id)) return prev;
-                        return [...prev, {...msg, remitente: data}];
-                    });
-                    setTimeout(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, 100);
-                });
-            }
-        }).subscribe();
-
-      return () => { supabase.removeChannel(channel); }
-  }, [chatActivo]);
-
-  const handleMensajeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const texto = e.target.value; setNuevoMensaje(texto);
-    const cursor = e.target.selectionStart;
-    const match = texto.substring(0, cursor).match(/@([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*)$/);
-    if (match) {
-        setBusquedaMencion(match[1]); setPosicionCursor(cursor || 0); setMostrarMenciones(true);
-    } else { setMostrarMenciones(false); }
-  }
-
-  const insertarMencion = (u: any) => {
-    const textoAntes = nuevoMensaje.substring(0, posicionCursor).replace(/@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/, '');
-    const textoDespues = nuevoMensaje.substring(posicionCursor);
-    setNuevoMensaje(`${textoAntes}@${u.nombre}${u.apellidos?.charAt(0)} ${textoDespues}`);
-    setMostrarMenciones(false);
-  }
-
-  const handleSeleccionarArchivoChat = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setArchivoChat(file);
-      if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onloadend = () => { setPreviewArchivoChat(reader.result as string); };
-          reader.readAsDataURL(file);
-      } else {
-          setPreviewArchivoChat('pdf_icon'); 
-      }
-    }
-  }
-
-  const enviarMensaje = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if ((!nuevoMensaje.trim() && !archivoChat) || !chatActivo || enviandoMensaje) return;
-      setEnviandoMensaje(true);
-
-      let archivoUrl = null;
-      let archivoTipo = null;
-      let archivoNombre = null;
-
-      try {
-          if (archivoChat) {
-              const fileExt = archivoChat.name.split('.').pop();
-              const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
-              const { error: uploadError } = await supabase.storage.from('chat_media').upload(fileName, archivoChat);
-              if (uploadError) throw new Error("Error al subir archivo.");
-              
-              archivoUrl = supabase.storage.from('chat_media').getPublicUrl(fileName).data.publicUrl;
-              archivoTipo = archivoChat.type;
-              archivoNombre = archivoChat.name;
-          }
-
-          const payload: any = { 
-              remitente_id: usuarioLogueado.id, 
-              mensaje: nuevoMensaje.trim(),
-              archivo_url: archivoUrl,
-              archivo_tipo: archivoTipo,
-              archivo_nombre: archivoNombre
-          };
-
-          if (chatActivo.tipo === 'proyecto') payload.proyecto_id = chatActivo.id;
-          else payload.destinatario_id = chatActivo.id;
-
-          setNuevoMensaje(''); setArchivoChat(null); setPreviewArchivoChat(null); setMostrarMenciones(false);
-
-          const fakeId = `temp-${Date.now()}`;
-          const msgOptimista = {
-              id: fakeId, ...payload, created_at: new Date().toISOString(),
-              remitente: { nombre: usuarioLogueado.nombre, apellidos: usuarioLogueado.apellidos, avatar_url: usuarioLogueado.avatar_url }
-          };
-          setMensajesChat(prev => [...prev, msgOptimista]);
-          setTimeout(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, 50);
-
-          const { data } = await supabase.from('mensajes_chat').insert([payload]).select().single();
-          if (data) setMensajesChat(prev => prev.map(m => m.id === fakeId ? { ...m, id: data.id } : m));
-
-      } catch (err: any) { alert(err.message); } finally { setEnviandoMensaje(false); }
-  };
-
 
   const handleRechazar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,37 +133,27 @@ export default function Revision() {
   }, [proyectos, busqueda, filtroEstatus])
 
   return (
-    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover" style={{ backgroundImage: `url(${degradadoBg})` }}>
+    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
       <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] pointer-events-none" />
 
-      {/* HEADER HOMOLOGADO */}
-      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-[60] shadow-sm h-16 flex items-center relative">
-        <div className="max-w-[1700px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => navigate('/home')} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
-            <img src={solarisLogo} alt="GEA" className="h-6 md:h-7 w-auto" />
-            <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
-            <h1 className="font-black text-sm md:text-base uppercase italic tracking-tighter text-slate-900 hidden sm:block">Revisión de Cotizaciones</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => {setChatActivo(null); setChatDrawerAbierto(true)}} className="p-2 bg-slate-100 hover:bg-orange-100 text-slate-500 hover:text-orange-500 rounded-full transition-all relative shadow-inner border border-slate-200">
-                <MessageSquare className="w-5 h-5" />
-            </button>
+      {/* --- COMPONENTE GLOBAL DE CHAT (POR ENCIMA DEL HEADER) --- */}
+      <ChatGlobal 
+          isOpen={chatAbierto} 
+          onClose={() => setChatAbierto(false)} 
+          usuarioLogueado={usuarioLogueado}
+          chatInicial={chatInicial}
+      />
 
-            <div className="bg-white px-3 md:px-4 py-1 md:py-1.5 rounded-xl border border-slate-100 flex items-center gap-2 md:gap-3 shadow-sm">
-                <div className="text-right flex flex-col hidden sm:flex">
-                <span className="text-[10px] md:text-[11px] font-black text-slate-900 uppercase leading-none">{usuarioLogueado?.nombre}</span>
-                <span className="text-[8px] md:text-[9px] font-bold text-orange-500 uppercase mt-1 truncate max-w-[120px]">{usuarioLogueado?.puesto_actual}</span>
-                </div>
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-[10px] overflow-hidden shadow-inner">
-                    {usuarioLogueado?.avatar_url ? <img src={usuarioLogueado.avatar_url} className="w-full h-full object-cover" /> : usuarioLogueado?.nombre?.charAt(0)}
-                </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      {/* HEADER GLOBAL HOMOLOGADO */}
+      <Header 
+        titulo="Revisión de Cotizaciones" 
+        onAbrirChat={(chatInit) => {
+          setChatInicial(chatInit || null);
+          setChatAbierto(true);
+        }}
+      />
 
-      <main className="max-w-[1700px] mx-auto px-4 md:px-8 py-6 md:py-8 relative z-10">
+      <main className="max-w-[1700px] mx-auto w-full px-4 md:px-8 py-6 md:py-8 relative z-10 flex-1">
         <div className="flex justify-end mb-8 md:mb-10">
           <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto items-center">
             <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-2 w-full md:w-72 shadow-sm">
@@ -377,8 +234,8 @@ export default function Revision() {
                   </div>
                   <div className="flex items-center gap-2">
                      <button onClick={() => {
-                        setChatActivo({tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus});
-                        setChatDrawerAbierto(true);
+                        setChatInicial({tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus});
+                        setChatAbierto(true);
                      }} className="p-2 bg-white shadow-sm border border-slate-100 text-orange-500 hover:text-white hover:bg-orange-500 rounded-full transition-colors"><MessageSquare className="w-4 h-4 md:w-5 md:h-5"/></button>
                      <button onClick={() => verLogs(proyectoSeleccionado.id)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-500 hover:text-blue-500 rounded-full transition-colors"><History className="w-4 h-4 md:w-5 md:h-5"/></button>
                      <button onClick={() => setModalDetalle(false)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors leading-none"><X className="w-4 h-4 md:w-5 md:h-5"/></button>
@@ -444,187 +301,6 @@ export default function Revision() {
               </motion.div>
             </div>
           )}
-        </AnimatePresence>
-
-        {/* --- DRAWER DEL CHAT ROBUSTO (Z-[1010] Para estar encima del Modal) --- */}
-        <AnimatePresence>
-            {chatDrawerAbierto && (
-                <div className="fixed inset-0 z-[1010] flex justify-end">
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setChatDrawerAbierto(false)} />
-                    <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col border-l border-white/20 pt-16 md:pt-0">
-                        
-                        <div className="bg-slate-900 p-5 md:p-6 flex justify-between items-center text-white shrink-0 shadow-md z-10">
-                            {chatActivo ? (
-                                <div className="flex items-center gap-3 w-full overflow-hidden">
-                                    <button onClick={() => setChatActivo(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors shrink-0"><ArrowLeft size={18}/></button>
-                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/10">
-                                        {chatActivo.tipo === 'proyecto' ? <FileText className="text-orange-400" size={18}/> : <Users className="text-blue-400" size={18}/>}
-                                    </div>
-                                    <div className="overflow-hidden">
-                                        <h3 className="font-black text-sm uppercase truncate">{chatActivo.nombre}</h3>
-                                        <p className="text-[9px] font-bold text-orange-400 uppercase tracking-widest truncate">{chatActivo.tipo === 'proyecto' ? 'Chat de Proyecto' : 'Mensaje Directo'}</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/10"><MessageSquare className="text-orange-400" size={20}/></div>
-                                    <h3 className="font-black text-lg uppercase italic tracking-tighter">Mensajes</h3>
-                                </div>
-                            )}
-                            <button onClick={() => setChatDrawerAbierto(false)} className="p-2 hover:bg-red-500 rounded-full transition-colors shrink-0 ml-2"><X size={20}/></button>
-                        </div>
-
-                        <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden relative">
-                            {!chatActivo ? (
-                                <div className="overflow-y-auto p-4 space-y-6 custom-scrollbar h-full">
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Chats de Proyectos</p>
-                                        <div className="space-y-2">
-                                            {proyectos.filter(p => !p.estatus.includes('Cotizado')).slice(0,5).map(p => (
-                                                <button key={p.id} onClick={() => setChatActivo({tipo: 'proyecto', id: p.id, nombre: p.nombre_proyecto, estatusProyecto: p.estatus})} className="w-full bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-orange-300 hover:shadow-md transition-all flex items-center gap-3 text-left">
-                                                    <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black shrink-0 shadow-inner">{p.nombre_proyecto.charAt(0)}</div>
-                                                    <div className="overflow-hidden flex-1">
-                                                        <p className="font-black text-[11px] uppercase text-slate-800 truncate">{p.nombre_proyecto}</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase truncate">{p.giro_proyecto} • {p.estatus}</p>
-                                                    </div>
-                                                    <ChevronRight size={16} className="text-slate-300"/>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Directorio (Mensaje Directo)</p>
-                                        <div className="space-y-2">
-                                            {usuariosDb.filter(u => u.id !== usuarioLogueado?.id).map(u => (
-                                                <button key={u.id} onClick={() => setChatActivo({tipo: 'dm', id: u.id, nombre: `${u.nombre} ${u.apellidos}`})} className="w-full bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-3 text-left">
-                                                    <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-black shrink-0 overflow-hidden shadow-inner">
-                                                        {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <span>{u.nombre.charAt(0)}</span>}
-                                                    </div>
-                                                    <div className="overflow-hidden flex-1">
-                                                        <p className="font-black text-[11px] uppercase text-slate-800 truncate">{u.nombre} {u.apellidos}</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase truncate">{u.rol_sistema}</p>
-                                                    </div>
-                                                    <ChevronRight size={16} className="text-slate-300"/>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-50/90 bg-blend-overlay">
-                                        
-                                        {/* BANNER NEGRO DEL PROYECTO */}
-                                        {chatActivo.tipo === 'proyecto' && (
-                                            <div className="bg-slate-900 text-white rounded-xl p-3 mb-6 flex flex-col items-center justify-center text-center shadow-md border border-slate-700">
-                                                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Estás en el chat del proyecto</span>
-                                                <span className="text-xs font-black uppercase italic tracking-tighter">{chatActivo.nombre}</span>
-                                            </div>
-                                        )}
-
-                                        {chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado' && (
-                                            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest shadow-sm mb-4">
-                                                🔒 Proyecto Cotizado. Chat cerrado.
-                                            </div>
-                                        )}
-
-                                        {mensajesChat.length === 0 ? (
-                                            <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
-                                                <MessageSquare size={40} className="mb-3"/>
-                                                <p className="text-xs font-bold uppercase tracking-widest">Inicia la conversación</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {mensajesChat.map(msg => {
-                                                    const soyYo = msg.remitente_id === usuarioLogueado?.id;
-                                                    return (
-                                                        <div key={msg.id} className={`flex w-full ${soyYo ? 'justify-end' : 'justify-start'}`}>
-                                                            {!soyYo && (
-                                                                <div className="w-8 h-8 rounded-full overflow-hidden mr-2 shrink-0 bg-slate-200 border border-slate-300 flex items-center justify-center font-black text-[10px] text-slate-500 shadow-sm">
-                                                                    {msg.remitente?.avatar_url ? <img src={msg.remitente.avatar_url} className="w-full h-full object-cover"/> : msg.remitente?.nombre?.charAt(0)}
-                                                                </div>
-                                                            )}
-                                                            <div className={`flex flex-col ${soyYo ? 'items-end' : 'items-start'} max-w-[80%]`}>
-                                                                <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${soyYo ? 'text-slate-400 mr-2' : 'text-slate-400 ml-2'}`}>
-                                                                    {soyYo ? 'TÚ' : `${msg.remitente?.nombre}`}
-                                                                </span>
-                                                                <div className={`p-3 md:p-4 rounded-2xl shadow-sm text-[11px] md:text-xs font-medium leading-relaxed ${soyYo ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm'}`}>
-                                                                    
-                                                                    {msg.archivo_url && (
-                                                                        <div className="mb-2 border-b border-white/20 pb-2">
-                                                                            {msg.archivo_tipo?.includes('image') ? (
-                                                                                <img src={msg.archivo_url} onClick={() => abrirVisorArchivos(msg.archivo_nombre, [msg.archivo_url])} className="rounded-lg max-h-40 w-auto object-cover cursor-zoom-in hover:opacity-90 transition-opacity shadow-sm" alt="Adjunto"/>
-                                                                            ) : (
-                                                                                <button onClick={() => abrirVisorArchivos(msg.archivo_nombre, [msg.archivo_url])} className={`flex items-center gap-2 p-2 rounded-lg transition-colors font-bold text-[10px] uppercase w-full ${soyYo ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>
-                                                                                    <File size={14}/> {msg.archivo_nombre}
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-
-                                                                    {msg.mensaje && msg.mensaje.split(/(@[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)/).map((part:string, i:number) => part.startsWith('@') ? <span key={i} className={`font-black ${soyYo ? 'text-orange-200' : 'text-blue-500'}`}>{part}</span> : part)}
-                                                                </div>
-                                                                <span className="text-[8px] font-bold text-slate-400 mt-1 mx-1">{new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <form onSubmit={enviarMensaje} className="p-4 bg-white border-t border-slate-100 flex flex-col gap-2 shrink-0 relative shadow-[0_-10px_20px_rgba(0,0,0,0.03)]">
-                                        
-                                        <AnimatePresence>
-                                            {archivoChat && (
-                                                <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0, scale:0.9}} className="relative w-fit bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm mb-1">
-                                                    <button type="button" onClick={() => {setArchivoChat(null); setPreviewArchivoChat(null)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-md z-10"><X size={10}/></button>
-                                                    {previewArchivoChat === 'pdf_icon' ? (
-                                                        <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center flex-col gap-1 text-slate-500"><File size={20}/><span className="text-[7px] font-black uppercase truncate w-full px-1 text-center">{archivoChat.name}</span></div>
-                                                    ) : (
-                                                        <img src={previewArchivoChat!} className="h-16 w-auto rounded-lg object-cover" />
-                                                    )}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-
-                                        <AnimatePresence>
-                                            {mostrarMenciones && (
-                                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-40 overflow-y-auto">
-                                                    {usuariosDb.filter(u=>`${u.nombre} ${u.apellidos}`.toLowerCase().includes(busquedaMencion.toLowerCase())).map(u=>(
-                                                        <div key={u.id} onClick={()=>insertarMencion(u)} className="p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-3">
-                                                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-black text-[10px] overflow-hidden">{u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <span>{u.nombre.charAt(0)}</span>}</div>
-                                                            <p className="text-slate-900 font-black text-[10px] uppercase">{u.nombre} {u.apellidos}</p>
-                                                        </div>
-                                                    ))}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-
-                                        <div className="flex items-end gap-2">
-                                            <input type="file" ref={fileInputChatRef} onChange={handleSeleccionarArchivoChat} className="hidden" />
-                                            <button type="button" onClick={() => fileInputChatRef.current?.click()} disabled={chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado'} className="p-3 md:p-3.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-orange-100 hover:text-orange-500 transition-colors disabled:opacity-50 shrink-0">
-                                                <Paperclip size={18}/>
-                                            </button>
-
-                                            <textarea 
-                                                rows={1} placeholder="Escribe un mensaje... (@ para mencionar)" 
-                                                value={nuevoMensaje} onChange={handleMensajeChange}
-                                                disabled={chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado'}
-                                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(e); } }}
-                                                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner resize-none disabled:opacity-50 disabled:bg-slate-100" 
-                                            />
-                                            <button type="submit" disabled={(!nuevoMensaje.trim() && !archivoChat) || enviandoMensaje || (chatActivo.tipo === 'proyecto' && chatActivo.estatusProyecto === 'Cotizado')} className="p-3 md:p-3.5 bg-slate-900 text-white rounded-xl shadow-md hover:bg-orange-500 transition-colors disabled:opacity-50 shrink-0">
-                                                <Send size={18}/>
-                                            </button>
-                                        </div>
-                                    </form>
-                                </>
-                            )}
-                        </div>
-                    </motion.div>
-                </div>
-            )}
         </AnimatePresence>
 
         {/* ... MODALES RESTANTES (RECHAZO/APROBACIÓN) ... */}

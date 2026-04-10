@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  ArrowLeft, Search, X, Save, 
-  MapPin, FileText, CheckCircle2, AlertCircle, Clock, ChevronRight, History,
-  FileCheck, FileX, UploadCloud, Timer, Calendar as CalendarIcon, Phone, Mail, File,
-  ChevronLeft
+  Search, X, MapPin, FileText, CheckCircle2, AlertCircle, Clock, 
+  ChevronRight, History, FileCheck, FileX, UploadCloud, Timer, 
+  Calendar as CalendarIcon, Phone, Mail, File, ChevronLeft
 } from 'lucide-react'
 
-import solarisLogo from '../assets/solarislogo.png'
+// IMPORTAMOS NUESTROS COMPONENTES GLOBALES
+import Header from '../components/Header'
+import ChatGlobal from '../components/ChatGlobal'
+
 import degradadoBg from '../assets/degradado.png'
-import defaultProjectImg from '../assets/default.jpg'
 
 // --- HELPERS DE COLORES Y TIEMPOS ---
 const ESTADOS_SOLARIS: any = {
@@ -76,6 +77,10 @@ export default function Cotizaciones() {
   const [filesCotizacion, setFilesCotizacion] = useState<File[]>([])
   const [mensajeAprobacion, setMensajeAprobacion] = useState('')
   const [procesando, setProcesando] = useState(false)
+
+  // --- ESTADOS DEL CHAT GLOBAL ---
+  const [chatAbierto, setChatAbierto] = useState(false)
+  const [chatInicial, setChatInicial] = useState<any>(null)
 
   const usuarioLogueado = useMemo(() => {
     const data = localStorage.getItem('session_gea_solar')
@@ -207,31 +212,27 @@ export default function Cotizaciones() {
   }, [proyectos, busqueda, filtroEstatus])
 
   return (
-    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover" style={{ backgroundImage: `url(${degradadoBg})` }}>
+    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
       <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] pointer-events-none" />
 
-      {/* HEADER HOMOLOGADO */}
-      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 shadow-sm h-16 flex items-center relative">
-        <div className="max-w-[1700px] mx-auto px-6 w-full flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/home')} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
-            <img src={solarisLogo} alt="GEA" className="h-7 w-auto" />
-            <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
-            <h1 className="font-black text-sm md:text-base uppercase italic tracking-tighter text-slate-900 hidden sm:block">Bandeja de Cotizaciones</h1>
-          </div>
-          <div className="bg-white px-4 py-1.5 rounded-xl border border-slate-100 flex items-center gap-3">
-            <div className="text-right flex flex-col hidden sm:flex">
-              <span className="text-[11px] font-black text-slate-900 uppercase leading-none">{usuarioLogueado?.nombre}</span>
-              <span className="text-[9px] font-bold text-orange-500 uppercase mt-1 truncate max-w-[120px]">{usuarioLogueado?.puesto_actual}</span>
-            </div>
-            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-[10px] overflow-hidden">
-                {usuarioLogueado?.avatar_url ? <img src={usuarioLogueado.avatar_url} className="w-full h-full object-cover" /> : usuarioLogueado?.nombre?.charAt(0)}
-            </div>
-          </div>
-        </div>
-      </nav>
+      {/* --- COMPONENTE GLOBAL DE CHAT (POR ENCIMA DEL HEADER) --- */}
+      <ChatGlobal 
+          isOpen={chatAbierto} 
+          onClose={() => setChatAbierto(false)} 
+          usuarioLogueado={usuarioLogueado}
+          chatInicial={chatInicial}
+      />
 
-      <main className="max-w-[1700px] mx-auto px-4 md:px-8 py-6 md:py-8 relative z-10">
+      {/* HEADER GLOBAL HOMOLOGADO */}
+      <Header 
+        titulo="Bandeja de Cotizaciones" 
+        onAbrirChat={(chatInit) => {
+          setChatInicial(chatInit || null);
+          setChatAbierto(true);
+        }}
+      />
+
+      <main className="max-w-[1700px] mx-auto w-full px-4 md:px-8 py-6 md:py-8 relative z-10 flex-1">
         
         <div className="flex justify-end mb-8 md:mb-10">
           <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto items-center">
@@ -310,6 +311,10 @@ export default function Cotizaciones() {
                 onVerLogs={verLogs}
                 onRechazar={() => setModalRechazo(true)}
                 onAprobar={() => setModalAprobar(true)}
+                onChat={() => {
+                  setChatInicial({tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus});
+                  setChatAbierto(true);
+                }}
             />
           )}
         </AnimatePresence>
@@ -328,7 +333,7 @@ export default function Cotizaciones() {
         {/* SUB-MODAL DE RECHAZO */}
         <AnimatePresence>
           {modalRechazo && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
                  <div className="bg-red-50 p-6 flex justify-between items-center text-red-600 border-b border-red-100">
                     <div className="flex items-center gap-3">
@@ -356,7 +361,7 @@ export default function Cotizaciones() {
         {/* SUB-MODAL DE APROBACIÓN */}
         <AnimatePresence>
           {modalAprobar && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
                  <div className="bg-emerald-50 p-6 flex justify-between items-center text-emerald-700 border-b border-emerald-100">
                     <div className="flex items-center gap-3"> <FileCheck size={24} className="text-emerald-500 shrink-0"/> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Cargar Cotización</h3> </div>
@@ -391,7 +396,7 @@ export default function Cotizaciones() {
         {/* SUB-MODAL LISTA DE ARCHIVOS (VISOR PREVIO) */}
         <AnimatePresence>
             {modalListaArchivos && (
-               <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+               <div className="fixed inset-0 z-[1051] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-sm shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0 max-h-[70vh]">
                     <div className="bg-slate-50 p-5 md:p-6 flex justify-between items-center border-b border-slate-200 shrink-0">
                         <h3 className="font-black uppercase tracking-widest text-slate-900 text-xs md:text-sm flex items-center gap-2"><FileText className="text-orange-500 w-4 h-4 md:w-5 md:h-5"/> {modalListaArchivos.titulo}</h3>
@@ -412,7 +417,7 @@ export default function Cotizaciones() {
         {/* VISOR MULTI-ARCHIVO FINAL CON ZOOM */}
         <AnimatePresence>
             {docPreview && (
-                <div className="fixed inset-0 z-[1005] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
+                <div className="fixed inset-0 z-[1055] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-6xl h-[85vh] md:h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-white mt-12 md:mt-0 relative" onClick={e => e.stopPropagation()}>
                         
                         <div className="bg-white p-4 md:p-6 flex justify-between items-center border-b border-slate-100 z-10 shrink-0">
@@ -456,8 +461,9 @@ export default function Cotizaciones() {
   )
 }
 
-// --- MODAL DETALLE PROYECTO (Ficha Técnica y Botonera) ---
-const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, onRechazar, onAprobar }: any) => {
+// --- MODALES EXTRAÍDOS (Componentes Puros) ---
+
+const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, onRechazar, onAprobar, onChat }: any) => {
   const statusInfo = getEstiloEstatus(proyecto.estatus);
   const partesNombre = proyecto.nombre_proyecto.split('-');
   const idNum = partesNombre[0]?.trim() || '';
@@ -490,6 +496,7 @@ const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, o
             </p>
           </div>
           <div className="flex items-center gap-2">
+             <button onClick={onChat} className="p-2 bg-white shadow-sm border border-slate-100 text-orange-500 hover:text-white hover:bg-orange-500 rounded-full transition-colors"><MessageSquare className="w-4 h-4 md:w-5 md:h-5"/></button>
              <button onClick={() => onVerLogs(proyecto.id)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-500 hover:text-orange-500 rounded-full transition-colors"><History className="w-4 h-4 md:w-5 md:h-5"/></button>
              <button onClick={onClose} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors leading-none"><X className="w-4 h-4 md:w-5 md:h-5"/></button>
           </div>
@@ -535,7 +542,6 @@ const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, o
             </p>
           </div>
 
-          {/* BOTONERA ARCHIVOS HOMOLOGADA */}
           <div className="grid grid-cols-3 gap-2 px-1 pb-2 border-t border-slate-100 pt-4 mt-1">
             {botonesAccion.map((btn) => (
               <button key={btn.label} onClick={btn.action} disabled={!btn.hasData} className={`py-2.5 md:py-3 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[7px] md:text-[9px] uppercase tracking-widest transition-all shadow-sm tracking-tighter h-10 md:h-12 flex items-center justify-center text-center leading-tight ${btn.hasData ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600 opacity-90'}`}>
@@ -556,7 +562,6 @@ const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, o
   );
 };
 
-// --- MODAL LOG / BITÁCORA DEL PROYECTO ---
 const ModalLogProyecto = ({ logs, onClose, nombreProyecto }: any) => (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh] mt-12 md:mt-0">

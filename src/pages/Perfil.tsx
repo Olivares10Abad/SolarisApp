@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
 import { 
-  ArrowLeft, Camera, Calendar, MapPin, Fingerprint, 
-  Briefcase, Network, Save, Loader2, PlaneTakeoff, Clock, CheckCircle2, 
-  XCircle, FileBadge, Send, Eye, FileText, X, ChevronLeft, ChevronRight
+  Camera, Calendar, MapPin, Fingerprint, 
+  Briefcase, Network, Save, Loader2, PlaneTakeoff, 
+  CheckCircle2, XCircle, FileBadge, Send, Eye, FileText, 
+  X, ChevronLeft, ChevronRight, Clock
 } from 'lucide-react'
 
-import solarisLogo from '../assets/solarislogo.png'
+// IMPORTAR COMPONENTES GLOBALES
+import Header from '../components/Header'
+import ChatGlobal from '../components/ChatGlobal'
+
 import degradadoBg from '../assets/degradado.png'
 
 // --- LÓGICA LEY FEDERAL DEL TRABAJO (MÉXICO 2023) ---
@@ -62,6 +66,10 @@ export default function Perfil() {
   // Avatar
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [subiendoAvatar, setSubiendoAvatar] = useState(false)
+
+  // ESTADOS CHAT GLOBAL
+  const [chatAbierto, setChatAbierto] = useState(false)
+  const [chatInicial, setChatInicial] = useState<any>(null)
 
   useEffect(() => {
     const data = localStorage.getItem('session_gea_solar')
@@ -279,22 +287,27 @@ export default function Perfil() {
   const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
   return (
-    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover" style={{ backgroundImage: `url(${degradadoBg})` }}>
+    <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-none" />
 
-      {/* NAV BAR */}
-      <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 sticky top-0 z-50 shadow-lg h-16 flex items-center relative">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => navigate('/home')} className="p-1.5 md:p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-500"><ArrowLeft className="w-5 h-5 md:w-6 md:h-6"/></button>
-            <img src={solarisLogo} alt="GEA" className="h-6 md:h-8 w-auto drop-shadow-sm" />
-            <div className="h-6 w-px bg-slate-300 mx-1 md:mx-2 hidden sm:block" />
-            <h1 className="font-black text-sm md:text-lg tracking-tight text-slate-900 uppercase italic hidden sm:block">Gestión de Perfil</h1>
-          </div>
-        </div>
-      </nav>
+      {/* COMPONENTE GLOBAL DE CHAT */}
+      <ChatGlobal 
+          isOpen={chatAbierto} 
+          onClose={() => setChatAbierto(false)} 
+          usuarioLogueado={sessionUser}
+          chatInicial={chatInicial}
+      />
 
-      <main className="max-w-[1800px] mx-auto px-4 md:px-6 py-6 md:py-8 relative z-10">
+      {/* HEADER GLOBAL HOMOLOGADO */}
+      <Header 
+        titulo="Gestión de Perfil" 
+        onAbrirChat={(chatInit) => {
+          setChatInicial(chatInit || null);
+          setChatAbierto(true);
+        }}
+      />
+
+      <main className="max-w-[1800px] mx-auto w-full px-4 md:px-6 py-6 md:py-8 relative z-10 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
             
             {/* COLUMNA 1: TARJETA DE PERFIL */}
@@ -325,10 +338,10 @@ export default function Perfil() {
             </aside>
 
             {/* COLUMNA 2: CONTENIDO CENTRAL */}
-            <section className="col-span-1 lg:col-span-8 space-y-6">
+            <section className="col-span-1 lg:col-span-8 flex flex-col">
                 
-                {/* TABS DE NAVEGACION - RESPONSIVE SCROLL */}
-                <div className="overflow-x-auto pb-2 -mb-2 custom-scrollbar">
+                {/* TABS DE NAVEGACION - RESPONSIVE SCROLL CON MARGEN CORREGIDO */}
+                <div className="overflow-x-auto pb-4 mb-4 custom-scrollbar shrink-0">
                     <div className="flex bg-white/95 backdrop-blur-xl p-1.5 rounded-[20px] md:rounded-[24px] shadow-lg border border-white w-max min-w-full md:min-w-fit md:w-fit">
                         <button onClick={() => setTabActiva('informacion')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-[16px] md:rounded-[18px] text-[9px] md:text-[10px] font-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest whitespace-nowrap ${tabActiva === 'informacion' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:text-slate-900'}`}><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4" /> Info</button>
                         <button onClick={() => setTabActiva('documentos')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-[16px] md:rounded-[18px] text-[9px] md:text-[10px] font-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest whitespace-nowrap ${tabActiva === 'documentos' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:text-slate-900'}`}><FileBadge className="w-3.5 h-3.5 md:w-4 md:h-4" /> Expediente</button>
@@ -336,203 +349,205 @@ export default function Perfil() {
                     </div>
                 </div>
 
-                <AnimatePresence mode='wait'>
-                    
-                    {/* --- PESTAÑA 1: INFORMACIÓN GENERAL --- */}
-                    {tabActiva === 'informacion' && (
-                        <motion.div key="info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white">
-                            <h3 className="text-base md:text-lg font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-3"><Fingerprint className="w-5 h-5 md:w-6 md:h-6 text-purple-500"/> Ficha de Colaborador</h3>
-                            <form onSubmit={guardarInformacion} className="space-y-4 md:space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Nombre(s)</label><input type="text" value={editData.nombre || ''} onChange={e => setEditData({...editData, nombre: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors" required/></div>
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Apellidos</label><input type="text" value={editData.apellidos || ''} onChange={e => setEditData({...editData, apellidos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors" required/></div>
-                                    
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Nacimiento</label><input type="date" value={editData.fecha_nacimiento || ''} onChange={e => setEditData({...editData, fecha_nacimiento: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors"/></div>
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Teléfono Móvil</label><input type="text" value={editData.telefono_movil || ''} onChange={e => setEditData({...editData, telefono_movil: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors"/></div>
-                                    
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">RFC</label><input type="text" value={editData.rfc || ''} onChange={e => setEditData({...editData, rfc: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors uppercase"/></div>
-                                    <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">CURP</label><input type="text" value={editData.curp || ''} onChange={e => setEditData({...editData, curp: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors uppercase"/></div>
-                                    
-                                    <div className="md:col-span-2"><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Email Corporativo</label><input type="email" value={editData.email_corporativo || ''} onChange={e => setEditData({...editData, email_corporativo: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors"/></div>
-                                    <div className="md:col-span-2"><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Dirección Completa</label><textarea value={editData.direccion || ''} onChange={e => setEditData({...editData, direccion: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors resize-none h-20 md:h-24"/></div>
-                                </div>
-
-                                <div className="pt-4 flex justify-end">
-                                    <button type="submit" disabled={guardandoInfo} className="w-full md:w-auto bg-slate-900 text-white px-8 md:px-12 py-3.5 md:py-4 rounded-[16px] md:rounded-[20px] font-black text-xs hover:bg-purple-600 transition-all shadow-xl disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-3">
-                                        {guardandoInfo ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Save className="w-4 h-4"/> Guardar</>}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    )}
-
-                    {/* --- PESTAÑA 2: EXPEDIENTE PROFESIONAL --- */}
-                    {tabActiva === 'documentos' && (
-                        <motion.div key="docs" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white">
-                             <h3 className="text-base md:text-lg font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-3"><FileBadge className="w-5 h-5 md:w-6 md:h-6 text-blue-500"/> Expediente</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                {[
-                                    { k: 'doc_csf', n: 'Constancia Fiscal', i: <FileText className="w-5 h-5 md:w-6 md:h-6 text-blue-600"/>, b: 'blue' },
-                                    { k: 'doc_domicilio', n: 'Comp. de Domicilio', i: <MapPin className="w-5 h-5 md:w-6 md:h-6 text-orange-600"/>, b: 'orange' },
-                                    { k: 'doc_ine', n: 'Identificación (INE)', i: <Fingerprint className="w-5 h-5 md:w-6 md:h-6 text-emerald-600"/>, b: 'emerald' },
-                                    { k: 'doc_acta', n: 'Acta Nacimiento', i: <FileBadge className="w-5 h-5 md:w-6 md:h-6 text-pink-600"/>, b: 'pink' }
-                                ].map(doc => (
-                                    <div key={doc.k} className="bg-slate-50 border border-slate-200 rounded-[20px] md:rounded-3xl p-5 md:p-6 flex flex-col justify-between">
-                                        <div className="flex items-center gap-3 md:gap-4 mb-4">
-                                            <div className={`w-10 h-10 md:w-12 md:h-12 bg-${doc.b}-100 rounded-xl flex items-center justify-center shrink-0`}>{doc.i}</div>
-                                            <div><p className="font-black text-[11px] md:text-xs uppercase text-slate-900 leading-tight">{doc.n}</p><p className="text-[9px] md:text-[10px] font-bold text-slate-400 mt-0.5">{perfil?.[doc.k] ? 'Cargado' : 'Pendiente'}</p></div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <label className="flex-1 bg-white border border-slate-200 text-slate-600 py-2.5 md:py-3 rounded-xl font-black text-[9px] md:text-[10px] uppercase text-center hover:bg-slate-100 cursor-pointer transition-colors shadow-sm relative flex items-center justify-center">
-                                                {subiendoDoc === doc.k ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Subir Archivo'}
-                                                <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => handleSubirArchivo(e, doc.k as any)}/>
-                                            </label>
-                                            {perfil?.[doc.k] && <button type="button" onClick={() => setDocPreview({url: perfil[doc.k], nombre: doc.n})} className="px-3 md:px-4 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-colors shadow-sm"><Eye className="w-4 h-4"/></button>}
-                                        </div>
-                                    </div>
-                                ))}
-                             </div>
-                        </motion.div>
-                    )}
-
-                    {/* --- PESTAÑA 3: VACACIONES --- */}
-                    {tabActiva === 'vacaciones' && (
-                        <motion.div key="vacaciones" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-                            
-                            {!perfil?.fecha_ingreso ? (
-                                <div className="bg-orange-50 border border-orange-200 rounded-[20px] md:rounded-[30px] p-5 md:p-6 text-center text-orange-700 font-bold text-xs md:text-sm">
-                                    Pide a Recursos Humanos que registre tu Fecha de Ingreso en el sistema para habilitar el cálculo automático de vacaciones.
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                                    <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
-                                        <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-blue-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
-                                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Por Ley</p>
-                                        <p className="text-4xl md:text-5xl font-black italic text-slate-900">{resumenVacaciones.total}</p>
-                                    </div>
-                                    <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
-                                        <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-orange-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
-                                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Utilizados</p>
-                                        <p className="text-4xl md:text-5xl font-black italic text-slate-900">{resumenVacaciones.tomados}</p>
-                                    </div>
-                                    <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
-                                        <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-emerald-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
-                                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Disponibles</p>
-                                        <p className="text-4xl md:text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">{resumenVacaciones.restantes}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                
-                                {/* FORMULARIO: CALENDARIO VISUAL DE SELECCIÓN */}
-                                <div className="lg:col-span-7 bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white h-fit">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-2"><Calendar className="w-4 h-4 md:w-5 md:h-5 text-orange-500"/> Seleccionar Fechas</h3>
-                                    
-                                    <div className="bg-slate-50 border border-slate-200 rounded-[20px] md:rounded-3xl p-4 md:p-6 mb-6">
-                                        <div className="flex items-center justify-between mb-4 md:mb-6 px-1 md:px-2">
-                                            <button type="button" onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))} className="p-1 md:p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-orange-500 transition-colors"><ChevronLeft className="w-4 h-4 md:w-5 md:h-5"/></button>
-                                            <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-900">{mesesNombres[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}</h3>
-                                            <button type="button" onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))} className="p-1 md:p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-orange-500 transition-colors"><ChevronRight className="w-4 h-4 md:w-5 md:h-5"/></button>
-                                        </div>
-
-                                        <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                                            {['D','L','M','M','J','V','S'].map((d, i) => <div key={i} className="text-[9px] md:text-[10px] font-black text-slate-400">{d}</div>)}
-                                        </div>
+                <div className="flex-1 min-h-0">
+                    <AnimatePresence mode='wait'>
+                        
+                        {/* --- PESTAÑA 1: INFORMACIÓN GENERAL --- */}
+                        {tabActiva === 'informacion' && (
+                            <motion.div key="info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white">
+                                <h3 className="text-base md:text-lg font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-3"><Fingerprint className="w-5 h-5 md:w-6 md:h-6 text-purple-500"/> Ficha de Colaborador</h3>
+                                <form onSubmit={guardarInformacion} className="space-y-4 md:space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                        <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Nombre(s)</label><input type="text" value={editData.nombre || ''} onChange={e => setEditData({...editData, nombre: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors" required/></div>
+                                        <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Apellidos</label><input type="text" value={editData.apellidos || ''} onChange={e => setEditData({...editData, apellidos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors" required/></div>
                                         
-                                        <div className="grid grid-cols-7 gap-1 relative">
-                                            {Array.from({ length: diaInicioMes }).map((_, i) => <div key={`empty-${i}`} className="h-8 md:h-10" />)}
-                                            
-                                            {Array.from({ length: diasEnMes }).map((_, i) => {
-                                                const diaActual = i + 1;
-                                                const fecha = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), diaActual);
-                                                const hoy = new Date();
-                                                hoy.setHours(0,0,0,0);
-                                                
-                                                const esInhabil = isWeekend(fecha) || isHoliday(fecha);
-                                                const esStart = rangoSeleccionado.start?.getTime() === fecha.getTime();
-                                                const esEnd = rangoSeleccionado.end?.getTime() === fecha.getTime();
-                                                const isInRange = rangoSeleccionado.start && rangoSeleccionado.end && fecha >= rangoSeleccionado.start && fecha <= rangoSeleccionado.end;
-                                                
-                                                const estaOcupado = solicitudes.some(sol => {
-                                                    if (sol.estado === 'Rechazada') return false;
-                                                    const sStart = new Date(sol.fecha_inicio);
-                                                    const sEnd = new Date(sol.fecha_fin);
-                                                    return fecha >= sStart && fecha <= sEnd;
-                                                });
-
-                                                const esPasado = fecha < hoy;
-
-                                                let bgColor = "bg-white hover:bg-orange-50 cursor-pointer text-slate-700 border border-transparent hover:border-orange-200";
-                                                
-                                                if (isInRange || esStart || esEnd) {
-                                                    bgColor = "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-md border-transparent";
-                                                } else if (estaOcupado) {
-                                                    bgColor = "bg-blue-100 text-blue-600 cursor-not-allowed border-blue-200 opacity-60";
-                                                } else if (esInhabil) {
-                                                    bgColor = "bg-emerald-50 text-emerald-600 cursor-not-allowed border-emerald-100";
-                                                } else if (esPasado) {
-                                                    bgColor = "bg-slate-50 text-slate-300 cursor-not-allowed";
-                                                }
-
-                                                return (
-                                                    <div 
-                                                        key={diaActual} 
-                                                        onClick={() => handleDayClick(diaActual)}
-                                                        className={`h-8 md:h-10 flex items-center justify-center rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all select-none ${bgColor}`}
-                                                    >
-                                                        {diaActual}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
+                                        <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Nacimiento</label><input type="date" value={editData.fecha_nacimiento || ''} onChange={e => setEditData({...editData, fecha_nacimiento: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors"/></div>
+                                        <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Teléfono Móvil</label><input type="text" value={editData.telefono_movil || ''} onChange={e => setEditData({...editData, telefono_movil: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors"/></div>
+                                        
+                                        <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">RFC</label><input type="text" value={editData.rfc || ''} onChange={e => setEditData({...editData, rfc: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors uppercase"/></div>
+                                        <div><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">CURP</label><input type="text" value={editData.curp || ''} onChange={e => setEditData({...editData, curp: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors uppercase"/></div>
+                                        
+                                        <div className="md:col-span-2"><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Email Corporativo</label><input type="email" value={editData.email_corporativo || ''} onChange={e => setEditData({...editData, email_corporativo: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors"/></div>
+                                        <div className="md:col-span-2"><label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Dirección Completa</label><textarea value={editData.direccion || ''} onChange={e => setEditData({...editData, direccion: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 mt-1 md:mt-2 text-sm font-bold outline-none focus:border-purple-500 transition-colors resize-none h-20 md:h-24"/></div>
                                     </div>
 
-                                    <form onSubmit={handleSolicitarVacaciones} className="space-y-4 md:space-y-6">
-                                        <div className="bg-orange-50 border border-orange-200 rounded-[16px] md:rounded-2xl p-4 md:p-5 flex items-center justify-between">
-                                            <div>
-                                                <span className="block text-[9px] md:text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Días a Descontar:</span>
-                                                <span className="text-[11px] md:text-xs font-bold text-slate-600">{nuevaSolicitud.dias_solicitados === 0 ? 'Selecciona rango' : `${nuevaSolicitud.fecha_inicio} / ${nuevaSolicitud.fecha_fin}`}</span>
-                                            </div>
-                                            <span className="text-2xl md:text-3xl font-black italic text-orange-600">{nuevaSolicitud.dias_solicitados}</span>
-                                        </div>
-                                        <div><textarea value={nuevaSolicitud.motivo || ''} onChange={e => setNuevaSolicitud({...nuevaSolicitud, motivo: e.target.value})} placeholder="Motivo o destino (Opcional)..." className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 text-xs md:text-sm font-bold outline-none focus:border-orange-500 resize-none h-16 md:h-20" /></div>
-                                        <button type="submit" disabled={enviandoSolicitud} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-3.5 md:py-4 rounded-[16px] md:rounded-[20px] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 md:gap-3">
-                                            {enviandoSolicitud ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin"/> : <><Send className="w-4 h-4 md:w-5 md:h-5"/> Enviar Solicitud</>}
+                                    <div className="pt-4 flex justify-end">
+                                        <button type="submit" disabled={guardandoInfo} className="w-full md:w-auto bg-slate-900 text-white px-8 md:px-12 py-3.5 md:py-4 rounded-[16px] md:rounded-[20px] font-black text-xs hover:bg-purple-600 transition-all shadow-xl disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-3">
+                                            {guardandoInfo ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Save className="w-4 h-4"/> Guardar</>}
                                         </button>
-                                    </form>
-                                </div>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        )}
 
-                                {/* HISTORIAL */}
-                                <div className="lg:col-span-5 bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white flex flex-col max-h-[500px] md:max-h-[750px]">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-2 shrink-0"><Clock className="w-4 h-4 md:w-5 md:h-5 text-blue-500"/> Historial</h3>
-                                    <div className="overflow-y-auto pr-1 md:pr-2 space-y-3 md:space-y-4 custom-scrollbar flex-1">
-                                        {solicitudes.length === 0 ? <p className="text-[10px] md:text-xs text-slate-400 font-bold text-center py-6 md:py-10">No hay solicitudes.</p> : solicitudes.map(sol => (
-                                            <div key={sol.id} className="bg-slate-50 border border-slate-100 rounded-[20px] md:rounded-3xl p-4 md:p-5 relative shadow-sm">
-                                                <div className="flex justify-between items-start mb-2 md:mb-3">
-                                                    <div>
-                                                        <p className="text-xs md:text-sm font-black text-slate-900 uppercase">{sol.dias_solicitados} Días</p>
-                                                        <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 md:mt-1">{sol.fecha_inicio} al {sol.fecha_fin}</p>
-                                                    </div>
-                                                    <span className={`text-[7px] md:text-[8px] font-black px-2 md:px-3 py-1 md:py-1.5 rounded-md uppercase tracking-widest border
-                                                        ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
-                                                          sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700 border-red-200' : 
-                                                          'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                                                        {sol.estado === 'Aprobada' && <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-1 md:mr-1.5 -mt-0.5"/>}
-                                                        {sol.estado === 'Rechazada' && <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-1 md:mr-1.5 -mt-0.5"/>}
-                                                        {sol.estado}
-                                                    </span>
-                                                </div>
-                                                {sol.motivo && <p className="text-[10px] md:text-xs text-slate-600 font-medium italic mt-1 md:mt-2">"{sol.motivo}"</p>}
-                                                {sol.estado === 'Pendiente' && <button onClick={() => cancelarSolicitud(sol.id)} className="text-[9px] md:text-[10px] font-black text-red-500 uppercase hover:underline mt-3 md:mt-4 block text-right w-full">Cancelar</button>}
+                        {/* --- PESTAÑA 2: EXPEDIENTE PROFESIONAL --- */}
+                        {tabActiva === 'documentos' && (
+                            <motion.div key="docs" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white">
+                                 <h3 className="text-base md:text-lg font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-3"><FileBadge className="w-5 h-5 md:w-6 md:h-6 text-blue-500"/> Expediente</h3>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                    {[
+                                        { k: 'doc_csf', n: 'Constancia Fiscal', i: <FileText className="w-5 h-5 md:w-6 md:h-6 text-blue-600"/>, b: 'blue' },
+                                        { k: 'doc_domicilio', n: 'Comp. de Domicilio', i: <MapPin className="w-5 h-5 md:w-6 md:h-6 text-orange-600"/>, b: 'orange' },
+                                        { k: 'doc_ine', n: 'Identificación (INE)', i: <Fingerprint className="w-5 h-5 md:w-6 md:h-6 text-emerald-600"/>, b: 'emerald' },
+                                        { k: 'doc_acta', n: 'Acta Nacimiento', i: <FileBadge className="w-5 h-5 md:w-6 md:h-6 text-pink-600"/>, b: 'pink' }
+                                    ].map(doc => (
+                                        <div key={doc.k} className="bg-slate-50 border border-slate-200 rounded-[20px] md:rounded-3xl p-5 md:p-6 flex flex-col justify-between">
+                                            <div className="flex items-center gap-3 md:gap-4 mb-4">
+                                                <div className={`w-10 h-10 md:w-12 md:h-12 bg-${doc.b}-100 rounded-xl flex items-center justify-center shrink-0`}>{doc.i}</div>
+                                                <div><p className="font-black text-[11px] md:text-xs uppercase text-slate-900 leading-tight">{doc.n}</p><p className="text-[9px] md:text-[10px] font-bold text-slate-400 mt-0.5">{perfil?.[doc.k] ? 'Cargado' : 'Pendiente'}</p></div>
                                             </div>
-                                        ))}
+                                            <div className="flex gap-2">
+                                                <label className="flex-1 bg-white border border-slate-200 text-slate-600 py-2.5 md:py-3 rounded-xl font-black text-[9px] md:text-[10px] uppercase text-center hover:bg-slate-100 cursor-pointer transition-colors shadow-sm relative flex items-center justify-center">
+                                                    {subiendoDoc === doc.k ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Subir Archivo'}
+                                                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => handleSubirArchivo(e, doc.k as any)}/>
+                                                </label>
+                                                {perfil?.[doc.k] && <button type="button" onClick={() => setDocPreview({url: perfil[doc.k], nombre: doc.n})} className="px-3 md:px-4 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-colors shadow-sm"><Eye className="w-4 h-4"/></button>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                 </div>
+                            </motion.div>
+                        )}
+
+                        {/* --- PESTAÑA 3: VACACIONES --- */}
+                        {tabActiva === 'vacaciones' && (
+                            <motion.div key="vacaciones" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6 pb-10">
+                                
+                                {!perfil?.fecha_ingreso ? (
+                                    <div className="bg-orange-50 border border-orange-200 rounded-[20px] md:rounded-[30px] p-5 md:p-6 text-center text-orange-700 font-bold text-xs md:text-sm">
+                                        Pide a Recursos Humanos que registre tu Fecha de Ingreso en el sistema para habilitar el cálculo automático de vacaciones.
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                        <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
+                                            <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-blue-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
+                                            <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Por Ley</p>
+                                            <p className="text-4xl md:text-5xl font-black italic text-slate-900">{resumenVacaciones.total}</p>
+                                        </div>
+                                        <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
+                                            <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-orange-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
+                                            <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Utilizados</p>
+                                            <p className="text-4xl md:text-5xl font-black italic text-slate-900">{resumenVacaciones.tomados}</p>
+                                        </div>
+                                        <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
+                                            <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-emerald-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
+                                            <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Disponibles</p>
+                                            <p className="text-4xl md:text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">{resumenVacaciones.restantes}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                    
+                                    {/* FORMULARIO: CALENDARIO VISUAL DE SELECCIÓN */}
+                                    <div className="lg:col-span-7 bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white h-fit">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-2"><Calendar className="w-4 h-4 md:w-5 md:h-5 text-orange-500"/> Seleccionar Fechas</h3>
+                                        
+                                        <div className="bg-slate-50 border border-slate-200 rounded-[20px] md:rounded-3xl p-4 md:p-6 mb-6">
+                                            <div className="flex items-center justify-between mb-4 md:mb-6 px-1 md:px-2">
+                                                <button type="button" onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))} className="p-1 md:p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-orange-500 transition-colors"><ChevronLeft className="w-4 h-4 md:w-5 md:h-5"/></button>
+                                                <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-900">{mesesNombres[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}</h3>
+                                                <button type="button" onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))} className="p-1 md:p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-orange-500 transition-colors"><ChevronRight className="w-4 h-4 md:w-5 md:h-5"/></button>
+                                            </div>
+
+                                            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                                                {['D','L','M','M','J','V','S'].map((d, i) => <div key={i} className="text-[9px] md:text-[10px] font-black text-slate-400">{d}</div>)}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-7 gap-1 relative">
+                                                {Array.from({ length: diaInicioMes }).map((_, i) => <div key={`empty-${i}`} className="h-8 md:h-10" />)}
+                                                
+                                                {Array.from({ length: diasEnMes }).map((_, i) => {
+                                                    const diaActual = i + 1;
+                                                    const fecha = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), diaActual);
+                                                    const hoy = new Date();
+                                                    hoy.setHours(0,0,0,0);
+                                                    
+                                                    const esInhabil = isWeekend(fecha) || isHoliday(fecha);
+                                                    const esStart = rangoSeleccionado.start?.getTime() === fecha.getTime();
+                                                    const esEnd = rangoSeleccionado.end?.getTime() === fecha.getTime();
+                                                    const isInRange = rangoSeleccionado.start && rangoSeleccionado.end && fecha >= rangoSeleccionado.start && fecha <= rangoSeleccionado.end;
+                                                    
+                                                    const estaOcupado = solicitudes.some(sol => {
+                                                        if (sol.estado === 'Rechazada') return false;
+                                                        const sStart = new Date(sol.fecha_inicio);
+                                                        const sEnd = new Date(sol.fecha_fin);
+                                                        return fecha >= sStart && fecha <= sEnd;
+                                                    });
+
+                                                    const esPasado = fecha < hoy;
+
+                                                    let bgColor = "bg-white hover:bg-orange-50 cursor-pointer text-slate-700 border border-transparent hover:border-orange-200";
+                                                    
+                                                    if (isInRange || esStart || esEnd) {
+                                                        bgColor = "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-md border-transparent";
+                                                    } else if (estaOcupado) {
+                                                        bgColor = "bg-blue-100 text-blue-600 cursor-not-allowed border-blue-200 opacity-60";
+                                                    } else if (esInhabil) {
+                                                        bgColor = "bg-emerald-50 text-emerald-600 cursor-not-allowed border-emerald-100";
+                                                    } else if (esPasado) {
+                                                        bgColor = "bg-slate-50 text-slate-300 cursor-not-allowed";
+                                                    }
+
+                                                    return (
+                                                        <div 
+                                                            key={diaActual} 
+                                                            onClick={() => handleDayClick(diaActual)}
+                                                            className={`h-8 md:h-10 flex items-center justify-center rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all select-none ${bgColor}`}
+                                                        >
+                                                            {diaActual}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <form onSubmit={handleSolicitarVacaciones} className="space-y-4 md:space-y-6">
+                                            <div className="bg-orange-50 border border-orange-200 rounded-[16px] md:rounded-2xl p-4 md:p-5 flex items-center justify-between">
+                                                <div>
+                                                    <span className="block text-[9px] md:text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Días a Descontar:</span>
+                                                    <span className="text-[11px] md:text-xs font-bold text-slate-600">{nuevaSolicitud.dias_solicitados === 0 ? 'Selecciona rango' : `${nuevaSolicitud.fecha_inicio} / ${nuevaSolicitud.fecha_fin}`}</span>
+                                                </div>
+                                                <span className="text-2xl md:text-3xl font-black italic text-orange-600">{nuevaSolicitud.dias_solicitados}</span>
+                                            </div>
+                                            <div><textarea value={nuevaSolicitud.motivo || ''} onChange={e => setNuevaSolicitud({...nuevaSolicitud, motivo: e.target.value})} placeholder="Motivo o destino (Opcional)..." className="w-full bg-slate-50 border border-slate-200 rounded-[14px] md:rounded-2xl px-4 py-3 md:px-5 md:py-4 text-xs md:text-sm font-bold outline-none focus:border-orange-500 resize-none h-16 md:h-20" /></div>
+                                            <button type="submit" disabled={enviandoSolicitud} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-3.5 md:py-4 rounded-[16px] md:rounded-[20px] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 md:gap-3">
+                                                {enviandoSolicitud ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin"/> : <><Send className="w-4 h-4 md:w-5 md:h-5"/> Enviar Solicitud</>}
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                    {/* HISTORIAL */}
+                                    <div className="lg:col-span-5 bg-white/95 backdrop-blur-xl rounded-[30px] md:rounded-[40px] p-6 md:p-8 shadow-2xl border border-white flex flex-col max-h-[500px] md:max-h-[750px]">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b border-slate-100 pb-3 md:pb-4 mb-4 md:mb-6 flex items-center gap-2 shrink-0"><Clock className="w-4 h-4 md:w-5 md:h-5 text-blue-500"/> Historial</h3>
+                                        <div className="overflow-y-auto pr-1 md:pr-2 space-y-3 md:space-y-4 custom-scrollbar flex-1">
+                                            {solicitudes.length === 0 ? <p className="text-[10px] md:text-xs text-slate-400 font-bold text-center py-6 md:py-10">No hay solicitudes.</p> : solicitudes.map(sol => (
+                                                <div key={sol.id} className="bg-slate-50 border border-slate-100 rounded-[20px] md:rounded-3xl p-4 md:p-5 relative shadow-sm">
+                                                    <div className="flex justify-between items-start mb-2 md:mb-3">
+                                                        <div>
+                                                            <p className="text-xs md:text-sm font-black text-slate-900 uppercase">{sol.dias_solicitados} Días</p>
+                                                            <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 md:mt-1">{sol.fecha_inicio} al {sol.fecha_fin}</p>
+                                                        </div>
+                                                        <span className={`text-[7px] md:text-[8px] font-black px-2 md:px-3 py-1 md:py-1.5 rounded-md uppercase tracking-widest border
+                                                            ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
+                                                              sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700 border-red-200' : 
+                                                              'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                                                            {sol.estado === 'Aprobada' && <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-1 md:mr-1.5 -mt-0.5"/>}
+                                                            {sol.estado === 'Rechazada' && <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-1 md:mr-1.5 -mt-0.5"/>}
+                                                            {sol.estado}
+                                                        </span>
+                                                    </div>
+                                                    {sol.motivo && <p className="text-[10px] md:text-xs text-slate-600 font-medium italic mt-1 md:mt-2">"{sol.motivo}"</p>}
+                                                    {sol.estado === 'Pendiente' && <button onClick={() => cancelarSolicitud(sol.id)} className="text-[9px] md:text-[10px] font-black text-red-500 uppercase hover:underline mt-3 md:mt-4 block text-right w-full">Cancelar</button>}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </section>
         </div>
       </main>

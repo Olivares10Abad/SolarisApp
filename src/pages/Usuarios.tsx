@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  ArrowLeft, Plus, Pencil, Trash2, Search, X, Save, 
+  Plus, Pencil, Trash2, Search, X, Save, 
   Building2, Briefcase, UserPlus, Mail, Phone, Users, 
   Network, ShieldCheck, Check, Award, 
   GitGraph, Minimize2, MapPin, Calendar, Fingerprint,
@@ -12,6 +12,10 @@ import {
 
 import solarisLogo from '../assets/solarislogo.png'
 import degradadoBg from '../assets/degradado.png'
+
+// IMPORTAR COMPONENTES GLOBALES
+import Header from '../components/Header'
+import ChatGlobal from '../components/ChatGlobal'
 
 // --- HELPER PARA COLORES DE ROLES ---
 const getEstiloRol = (rol: string) => {
@@ -85,6 +89,10 @@ export default function Usuarios() {
   const [buscadorJefe, setBuscadorJefe] = useState('')
   const [mostrarListaJefes, setMostrarListaJefes] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // ESTADOS DEL CHAT GLOBAL
+  const [chatAbierto, setChatAbierto] = useState(false)
+  const [chatInicial, setChatInicial] = useState<any>(null)
 
   const initialFormState = {
     nombre: '', apellidos: '', fecha_nacimiento: '', rfc: '', curp: '', direccion: '', 
@@ -195,26 +203,22 @@ export default function Usuarios() {
     <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover" style={{ backgroundImage: `url(${degradadoBg})` }}>
       <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] pointer-events-none" />
 
-      {/* HEADER HOMOLOGADO */}
-      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 shadow-sm h-16 flex items-center relative">
-        <div className="max-w-[1700px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => navigate('/home')} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
-            <img src={solarisLogo} alt="GEA" className="h-5 md:h-7 w-auto" />
-            <div className="hidden md:block h-6 w-px bg-slate-200 mx-2" />
-            <h1 className="font-black text-sm md:text-base uppercase italic tracking-tighter text-slate-900 truncate hidden sm:block">Capital Humano</h1>
-          </div>
-          <div className="bg-white px-3 md:px-4 py-1 md:py-1.5 rounded-xl border border-slate-100 flex items-center gap-2 md:gap-3">
-            <div className="text-right flex flex-col hidden sm:flex">
-              <span className="text-[10px] md:text-[11px] font-black text-slate-900 uppercase leading-none">{usuarioLogueado?.nombre}</span>
-              <span className="text-[8px] md:text-[9px] font-bold text-orange-500 uppercase mt-1 truncate max-w-[100px]">{usuarioLogueado?.puesto_actual}</span>
-            </div>
-            <div className="w-6 h-6 md:w-8 md:h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-[10px] overflow-hidden">
-                {usuarioLogueado?.avatar_url ? <img src={usuarioLogueado.avatar_url} className="w-full h-full object-cover" /> : usuarioLogueado?.nombre?.charAt(0)}
-            </div>
-          </div>
-        </div>
-      </nav>
+      {/* --- COMPONENTE GLOBAL DE CHAT (POR ENCIMA DEL HEADER) --- */}
+      <ChatGlobal 
+          isOpen={chatAbierto} 
+          onClose={() => setChatAbierto(false)} 
+          usuarioLogueado={usuarioLogueado}
+          chatInicial={chatInicial}
+      />
+
+      {/* HEADER GLOBAL HOMOLOGADO */}
+      <Header 
+        titulo="Usuarios" 
+        onAbrirChat={(chatInit) => {
+          setChatInicial(chatInit || null);
+          setChatAbierto(true);
+        }}
+      />
 
       <main className="max-w-[1700px] mx-auto px-4 md:px-8 py-6 md:py-8 relative z-10">
         
@@ -240,7 +244,9 @@ export default function Usuarios() {
         {/* LISTA EMPLEADOS */}
         {tabActiva === 'empleados' && (
           <div className="space-y-8 md:space-y-12">
-            {Object.keys(usuariosAgrupados).map(depto => (
+            {cargando ? (
+                <div className="py-20 text-center flex flex-col items-center gap-4 text-slate-400 font-black uppercase tracking-widest text-xs">Cargando usuarios...</div>
+            ) : Object.keys(usuariosAgrupados).map(depto => (
               <div key={depto}>
                 <div className="mb-4 md:mb-6 ml-1 md:ml-2">
                     <h3 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2 md:gap-3 uppercase italic tracking-tighter"><div className="w-1.5 md:w-2 h-5 md:h-6 bg-orange-500 rounded-full shadow-sm" /> {depto}</h3>
@@ -315,7 +321,6 @@ export default function Usuarios() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Controles de Zoom */}
                     <div className="flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200 mr-2">
                         <button onClick={zoomOut} className="p-1.5 md:p-2 text-slate-500 hover:text-orange-500 hover:bg-white rounded-lg transition-all"><ZoomOut size={16}/></button>
                         <span className="text-[10px] font-black text-slate-500 w-10 text-center">{Math.round(zoomOrg * 100)}%</span>
@@ -325,7 +330,6 @@ export default function Usuarios() {
                   </div>
               </div>
 
-              {/* Área de arrastre y renderizado */}
               <div ref={scrollRef} onMouseDown={handleMouseDown} onMouseLeave={() => setIsDragging(false)} onMouseUp={() => setIsDragging(false)} onMouseMove={handleMouseMove} className="flex-1 overflow-auto custom-scrollbar cursor-grab active:cursor-grabbing p-10 md:p-20 relative">
                   <div className="min-w-max flex justify-center pb-40 transition-transform origin-top" style={{ transform: `scale(${zoomOrg})` }}>
                     <div className="flex flex-col items-center">
@@ -367,10 +371,13 @@ export default function Usuarios() {
                     <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
                         <div className="col-span-1">Nombre(s) <input type="text" value={formData.nombre || ''} onChange={e => setFormData({...formData, nombre: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
                         <div className="col-span-1">Apellidos <input type="text" value={formData.apellidos || ''} onChange={e => setFormData({...formData, apellidos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
+                        
                         <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> Nacimiento</span><input type="date" value={formData.fecha_nacimiento || ''} onChange={e => setFormData({...formData, fecha_nacimiento: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
                         <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> Tel. Móvil</span><input type="text" value={formData.telefono_movil || ''} onChange={e => setFormData({...formData, telefono_movil: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
-                        <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> RFC</span><input type="text" value={formData.rfc || ''} onChange={e => setFormData({...formData, rfc: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
-                        <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> CURP</span><input type="text" value={formData.curp || ''} onChange={e => setFormData({...formData, curp: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
+                        
+                        <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> RFC</span><input type="text" value={formData.rfc || ''} onChange={e => setFormData({...formData, rfc: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
+                        <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> CURP</span><input type="text" value={formData.curp || ''} onChange={e => setFormData({...formData, curp: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
+                        
                         <div className="col-span-1 sm:col-span-2 flex flex-col"><span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400"/> Dirección Completa</span><input type="text" value={formData.direccion || ''} onChange={e => setFormData({...formData, direccion: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
                     </motion.div>
                   )}
