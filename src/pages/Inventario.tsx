@@ -4,11 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
 import { 
   Search, Plus, Package, ArrowDownRight, ArrowUpRight, 
-  ClipboardSignature, FolderKanban, ShieldAlert, Camera, Barcode,
-  AlertTriangle, CheckCircle2, History, Filter, X, Save,
+  ClipboardSignature, FolderKanban, Camera, Barcode,
+  AlertTriangle, CheckCircle2, History, X, Save,
   Wrench, Car, Laptop, Zap, Settings2, LayoutGrid, ScanLine,
-  Trash2, FileText, MapPin, Eye, Gauge, ShieldCheck, PenTool, Calendar,
-  DownloadCloud, RotateCcw, Loader2
+  Trash2, FileText, MapPin, Eye, Gauge, PenTool, DownloadCloud, RotateCcw, Loader2
 } from 'lucide-react'
 
 // IMPORTAR COMPONENTES GLOBALES
@@ -88,19 +87,22 @@ export default function Inventario() {
 
   useEffect(() => { fetchData() }, [])
 
-  // --- LÓGICA DE DEVOLUCIÓN DE RESPONSIVAS ---
   const handleDevolverResponsiva = async (responsiva: any) => {
       if(!confirm(`¿Confirmas la devolución y liberación de: ${responsiva.serie?.catalogo?.nombre}?`)) return;
-      
       try {
           setCargando(true);
-          await supabase.from('inventario_responsivas').update({ estatus: 'Devuelta', fecha_devolucion: new Date().toISOString() }).eq('id', responsiva.id);
-          await supabase.from('inventario_series').update({ estatus: 'Disponible' }).eq('id', responsiva.serie_id);
-          await supabase.from('inventario_movimientos').insert([{
+          const { error: e1 } = await supabase.from('inventario_responsivas').update({ estatus: 'Devuelta', fecha_devolucion: new Date().toISOString() }).eq('id', responsiva.id);
+          if (e1) throw e1;
+
+          const { error: e2 } = await supabase.from('inventario_series').update({ estatus: 'Disponible' }).eq('id', responsiva.serie_id);
+          if (e2) throw e2;
+
+          const { error: e3 } = await supabase.from('inventario_movimientos').insert([{
               tipo: 'Devolución Activo', catalogo_id: responsiva.serie?.catalogo_id, cantidad: 1, 
               usuario_id: usuarioLogueado?.id, referencia: `Devuelto por: ${responsiva.asignado?.nombre} ${responsiva.asignado?.apellidos}`
           }]);
-          
+          if (e3) throw e3;
+
           alert("Activo liberado correctamente. Ya está disponible en stock.");
           fetchData();
       } catch (error: any) {
@@ -108,7 +110,6 @@ export default function Inventario() {
       } finally { setCargando(false); }
   }
 
-  // --- FILTROS GLOBALES ---
   const filtrarPorFechaYBusqueda = (arr: any[], dateField: string, searchFields: string[], catField?: string) => {
       return arr.filter(item => {
           const matchBusqueda = searchFields.some(field => getNestedValue(item, field)?.toLowerCase().includes(busqueda.toLowerCase()));
@@ -127,27 +128,22 @@ export default function Inventario() {
   const despachoFiltrado = useMemo(() => filtrarPorFechaYBusqueda(seriesEnObra, 'created_at', ['catalogo.nombre', 'numero_serie', 'proyecto.nombre_proyecto'], 'catalogo.categoria'), [seriesEnObra, busqueda, filtroCat, fechaInicio, fechaFin]);
   const responsivasFiltradas = useMemo(() => filtrarPorFechaYBusqueda(responsivasDb, 'created_at', ['serie.catalogo.nombre', 'serie.numero_serie', 'asignado.nombre'], 'serie.catalogo.categoria'), [responsivasDb, busqueda, filtroCat, fechaInicio, fechaFin]);
 
-  // --- EXPORTACIÓN A EXCEL ---
   const exportarCSV = () => {
       let dataToExport: any[] = [];
       let columns: {key: string, label: string}[] = [];
       let filename = '';
 
       if (tabActiva === 'catalogo') {
-          dataToExport = catalogoFiltrado;
-          filename = 'Catalogo_Inventario';
-          columns = [ {key: 'sku', label: 'SKU'}, {key: 'nombre', label: 'Articulo'}, {key: 'categoria', label: 'Categoria'}, {key: 'stock_actual', label: 'Stock Actual'}, {key: 'stock_minimo', label: 'Stock Minimo'}, {key: 'created_at', label: 'Fecha de Alta'} ];
+          dataToExport = catalogoFiltrado; filename = 'Catalogo_Inventario';
+          columns = [ {key: 'sku', label: 'SKU'}, {key: 'nombre', label: 'Articulo'}, {key: 'categoria', label: 'Categoria'}, {key: 'stock_actual', label: 'Stock Actual'}, {key: 'created_at', label: 'Fecha de Alta'} ];
       } else if (tabActiva === 'movimientos') {
-          dataToExport = movimientosFiltrados;
-          filename = 'Kardex_Movimientos';
+          dataToExport = movimientosFiltrados; filename = 'Kardex_Movimientos';
           columns = [ {key: 'created_at', label: 'Fecha'}, {key: 'tipo', label: 'Tipo Movimiento'}, {key: 'catalogo.sku', label: 'SKU'}, {key: 'catalogo.nombre', label: 'Articulo'}, {key: 'cantidad', label: 'Cantidad'}, {key: 'usuario.nombre', label: 'Responsable'}, {key: 'referencia', label: 'Referencia / Proyecto'} ];
       } else if (tabActiva === 'despacho') {
-          dataToExport = despachoFiltrado;
-          filename = 'Material_En_Obra';
+          dataToExport = despachoFiltrado; filename = 'Material_En_Obra';
           columns = [ {key: 'proyecto.nombre_proyecto', label: 'Proyecto'}, {key: 'catalogo.sku', label: 'SKU'}, {key: 'catalogo.nombre', label: 'Articulo'}, {key: 'numero_serie', label: 'Num. Serie'}, {key: 'created_at', label: 'Fecha Salida'} ];
       } else if (tabActiva === 'responsivas') {
-          dataToExport = responsivasFiltradas;
-          filename = 'Responsivas_Activos';
+          dataToExport = responsivasFiltradas; filename = 'Responsivas_Activos';
           columns = [ {key: 'created_at', label: 'Fecha Asignacion'}, {key: 'serie.catalogo.nombre', label: 'Activo'}, {key: 'serie.numero_serie', label: 'Serie/Placa'}, {key: 'asignado.nombre', label: 'Asignado A'}, {key: 'estatus', label: 'Estatus'} ];
       }
 
@@ -168,9 +164,7 @@ export default function Inventario() {
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
       link.setAttribute("download", `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   return (
@@ -180,51 +174,53 @@ export default function Inventario() {
       <ChatGlobal isOpen={chatAbierto} onClose={() => setChatAbierto(false)} usuarioLogueado={usuarioLogueado} chatInicial={chatInicial} />
       <Header titulo="Control de Inventarios" onAbrirChat={(c) => { setChatInicial(c || null); setChatAbierto(true); }} />
 
-      <main className="max-w-[1800px] mx-auto w-full px-4 md:px-8 py-6 md:py-8 relative z-10 flex-1 flex flex-col">
+      <main className="max-w-[1800px] mx-auto w-full px-4 md:px-8 py-6 md:py-8 relative z-10 flex-1 flex flex-col overflow-hidden">
         
         {/* --- TABS REDISEÑADAS --- */}
-        <div className="flex bg-white/90 backdrop-blur-md p-1.5 rounded-[20px] shadow-sm border border-slate-200 w-max min-w-full xl:min-w-fit overflow-x-auto scrollbar-hide mb-4 shrink-0">
-            <button onClick={() => setTabActiva('catalogo')} className={`px-6 py-2.5 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'catalogo' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}><Package className="w-4 h-4" /> STOCK / CATÁLOGO</button>
-            <button onClick={() => setTabActiva('movimientos')} className={`px-6 py-2.5 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'movimientos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}><History className="w-4 h-4" /> KARDEX (MOVS)</button>
-            <button onClick={() => setTabActiva('despacho')} className={`px-6 py-2.5 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'despacho' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:text-orange-500 hover:bg-orange-50'}`}><FolderKanban className="w-4 h-4" /> SALIDAS A OBRA</button>
-            <button onClick={() => setTabActiva('responsivas')} className={`px-6 py-2.5 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'responsivas' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`}><ClipboardSignature className="w-4 h-4" /> ACTIVOS Y AUTOS</button>
+        <div className="flex bg-white/90 backdrop-blur-md p-1.5 rounded-[20px] shadow-sm border border-slate-200 w-full md:w-max overflow-x-auto custom-scrollbar mb-4 shrink-0">
+            <button onClick={() => setTabActiva('catalogo')} className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'catalogo' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}><Package className="w-4 h-4" /> STOCK / CATÁLOGO</button>
+            <button onClick={() => setTabActiva('movimientos')} className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'movimientos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}><History className="w-4 h-4" /> KARDEX (MOVS)</button>
+            <button onClick={() => setTabActiva('despacho')} className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'despacho' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:text-orange-500 hover:bg-orange-50'}`}><FolderKanban className="w-4 h-4" /> SALIDAS A OBRA</button>
+            <button onClick={() => setTabActiva('responsivas')} className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center gap-2 whitespace-nowrap ${tabActiva === 'responsivas' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`}><ClipboardSignature className="w-4 h-4" /> ACTIVOS Y AUTOS</button>
         </div>
 
-        {/* --- BARRA DE FILTROS Y ACCIONES --- */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-6 bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-slate-200 shadow-sm shrink-0">
-            <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
-                <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 flex items-center gap-2 w-full sm:w-64 shrink-0 shadow-sm">
+        {/* --- BARRA DE FILTROS Y ACCIONES REDISEÑADA --- */}
+        <div className="bg-white/80 backdrop-blur-sm p-3 md:p-4 rounded-2xl border border-slate-200 shadow-sm shrink-0 mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 flex items-center gap-2 w-full sm:w-64 shadow-inner">
                     <Search className="text-slate-400 w-4 h-4 shrink-0" />
-                    <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="bg-transparent outline-none w-full font-bold text-xs" />
+                    <input type="text" placeholder="Buscar por Serie, Nombre..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="bg-transparent outline-none w-full font-bold text-xs" />
                 </div>
-                {(tabActiva === 'catalogo' || tabActiva === 'movimientos') && (
-                    <div className="flex gap-2 flex-1 sm:flex-none">
-                        <input type="date" value={fechaInicio} onChange={e=>setFechaInicio(e.target.value)} className="w-1/2 sm:w-auto bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold outline-none text-slate-500 shadow-sm" title="Ingresado Desde"/>
-                        <input type="date" value={fechaFin} onChange={e=>setFechaFin(e.target.value)} className="w-1/2 sm:w-auto bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold outline-none text-slate-500 shadow-sm" title="Ingresado Hasta"/>
+                
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex flex-col flex-1">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-0.5">Desde</span>
+                        <input type="date" value={fechaInicio} onChange={e=>setFechaInicio(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold outline-none text-slate-600 shadow-sm"/>
                     </div>
-                )}
+                    <div className="flex flex-col flex-1">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-0.5">Hasta</span>
+                        <input type="date" value={fechaFin} onChange={e=>setFechaFin(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold outline-none text-slate-600 shadow-sm"/>
+                    </div>
+                </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
                 <button onClick={exportarCSV} className="w-full sm:w-auto bg-green-50 text-green-700 px-5 py-3 md:py-2 rounded-xl font-black text-[9px] md:text-[10px] flex items-center justify-center gap-2 hover:bg-green-100 transition-all shadow-sm border border-green-200 uppercase tracking-widest whitespace-nowrap"><DownloadCloud className="w-4 h-4" /> Exportar Excel</button>
-                
                 {tabActiva === 'catalogo' && <button onClick={() => setModalIngreso(true)} className="w-full sm:w-auto bg-slate-900 text-white px-5 py-3 md:py-2 rounded-xl font-black text-[9px] md:text-[10px] flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-md uppercase tracking-widest whitespace-nowrap"><ArrowDownRight className="w-4 h-4" /> Ingreso Material</button>}
                 {tabActiva === 'despacho' && <button onClick={() => setModalDespacho(true)} className="w-full sm:w-auto bg-orange-500 text-white px-5 py-3 md:py-2 rounded-xl font-black text-[9px] md:text-[10px] flex items-center justify-center gap-2 hover:bg-slate-900 transition-all shadow-md uppercase tracking-widest whitespace-nowrap"><ArrowUpRight className="w-4 h-4" /> Nuevo Despacho</button>}
                 {tabActiva === 'responsivas' && <button onClick={() => setModalResponsiva(true)} className="w-full sm:w-auto bg-blue-600 text-white px-5 py-3 md:py-2 rounded-xl font-black text-[9px] md:text-[10px] flex items-center justify-center gap-2 hover:bg-slate-900 transition-all shadow-md uppercase tracking-widest whitespace-nowrap"><ClipboardSignature className="w-4 h-4" /> Nueva Responsiva</button>}
             </div>
         </div>
 
-        {/* --- BOTONES DE CATEGORÍA (FILTROS RAPIDOS) --- */}
-        {(tabActiva === 'catalogo' || tabActiva === 'movimientos' || tabActiva === 'despacho' || tabActiva === 'responsivas') && (
-            <div className="flex items-center gap-2 mb-4 overflow-x-auto custom-scrollbar shrink-0 pb-2">
-                {CATEGORIAS.map(cat => (
-                    <button key={cat.id} onClick={() => setFiltroCat(cat.id)} className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap flex items-center gap-2 shadow-sm ${filtroCat === cat.id ? `${cat.bg} ${cat.color} ${cat.border} border-2` : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}>
-                        {cat.icono} {cat.nombre}
-                    </button>
-                ))}
-                <button className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap shadow-sm ml-auto ${filtroCat === 'Todas' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`} onClick={() => setFiltroCat('Todas')}>Mostrar Todas</button>
-            </div>
-        )}
+        {/* --- BOTONES DE CATEGORÍA --- */}
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto custom-scrollbar shrink-0 pb-2">
+            {CATEGORIAS.map(cat => (
+                <button key={cat.id} onClick={() => setFiltroCat(cat.id)} className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap flex items-center gap-2 shadow-sm ${filtroCat === cat.id ? `${cat.bg} ${cat.color} ${cat.border} border-2` : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}>
+                    {cat.icono} {cat.nombre}
+                </button>
+            ))}
+            <button className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap shadow-sm ml-auto ${filtroCat === 'Todas' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`} onClick={() => setFiltroCat('Todas')}>Mostrar Todas</button>
+        </div>
 
         {/* ======================================================================================= */}
         {/* VISTAS DE LAS PESTAÑAS */}
@@ -233,19 +229,18 @@ export default function Inventario() {
         {/* 1. CATÁLOGO / STOCK */}
         {tabActiva === 'catalogo' && (
             <div className="bg-white/95 backdrop-blur-xl rounded-[20px] md:rounded-[30px] shadow-2xl border border-white flex flex-col flex-1 overflow-hidden">
-                <div className="flex-1 overflow-auto custom-scrollbar">
+                <div className="flex-1 overflow-x-auto custom-scrollbar">
                     {cargando ? (
-                        <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div></div>
+                        <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin w-8 h-8 text-orange-500"/></div>
                     ) : catalogoFiltrado.length === 0 ? (
                         <div className="text-center py-20 text-slate-400">
                             <Package size={48} className="mx-auto mb-4 opacity-30 text-slate-500"/>
                             <p className="font-black uppercase tracking-widest text-[11px] md:text-xs">Sin Resultados</p>
-                            <p className="text-[10px] font-medium mt-2 max-w-sm mx-auto">No hay artículos que coincidan con los filtros aplicados.</p>
                         </div>
                     ) : (
                         <table className="w-full text-left border-collapse min-w-[600px]">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase tracking-widest text-slate-400 sticky top-0 z-10">
+                                <tr className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase tracking-widest text-slate-400 sticky top-0 z-10 shadow-sm">
                                     <th className="p-4 font-black whitespace-nowrap">SKU / Artículo</th>
                                     <th className="p-4 font-black whitespace-nowrap">Categoría</th>
                                     <th className="p-4 font-black text-center whitespace-nowrap">Stock Actual</th>
@@ -287,19 +282,19 @@ export default function Inventario() {
 
         {/* 2. MOVIMIENTOS (KARDEX) */}
         {tabActiva === 'movimientos' && (
-            <div className="bg-white/95 backdrop-blur-xl rounded-[20px] md:rounded-[30px] shadow-2xl border border-white overflow-hidden flex flex-col flex-1">
+            <div className="bg-white/95 backdrop-blur-xl rounded-[20px] md:rounded-[30px] shadow-2xl border border-white flex flex-col flex-1 overflow-hidden">
                 <div className="flex-1 overflow-x-auto custom-scrollbar">
                     {cargando ? (
-                        <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div></div>
+                        <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin w-8 h-8 text-orange-500"/></div>
                     ) : movimientosFiltrados.length === 0 ? (
                         <div className="text-center py-20 text-slate-400">
                             <History size={48} className="mx-auto mb-4 opacity-30 text-slate-500"/>
                             <p className="font-black uppercase tracking-widest text-[11px] md:text-xs">Sin Movimientos</p>
                         </div>
                     ) : (
-                        <table className="w-full text-left border-collapse min-w-[700px]">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase tracking-widest text-slate-400 sticky top-0 z-10">
+                                <tr className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase tracking-widest text-slate-400 sticky top-0 z-10 shadow-sm">
                                     <th className="p-4 font-black">Fecha</th>
                                     <th className="p-4 font-black">Movimiento</th>
                                     <th className="p-4 font-black">Artículo</th>
@@ -313,7 +308,7 @@ export default function Inventario() {
                                     <tr key={mov.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                                         <td className="p-4 text-[9px] md:text-[10px] font-bold text-slate-500 whitespace-nowrap">{new Date(mov.created_at).toLocaleString('es-MX', {dateStyle:'short', timeStyle:'short'})}</td>
                                         <td className="p-4 whitespace-nowrap">
-                                            <span className={`text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest ${mov.tipo.includes('Entrada') || mov.tipo.includes('Devolución') ? 'bg-emerald-50 text-emerald-600' : mov.tipo.includes('Salida') ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                                            <span className={`text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest ${mov.tipo.includes('Entrada') || mov.tipo.includes('Devolución') ? 'bg-emerald-50 text-emerald-600' : mov.tipo.includes('Salida') ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
                                                 {mov.tipo}
                                             </span>
                                         </td>
@@ -335,19 +330,19 @@ export default function Inventario() {
 
         {/* 3. DESPACHO (MATERIAL EN OBRA) */}
         {tabActiva === 'despacho' && (
-            <div className="bg-white/95 backdrop-blur-xl rounded-[20px] md:rounded-[30px] shadow-2xl border border-white overflow-hidden flex flex-col flex-1">
-                <div className="flex-1 overflow-auto custom-scrollbar">
+            <div className="bg-white/95 backdrop-blur-xl rounded-[20px] md:rounded-[30px] shadow-2xl border border-white flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-x-auto custom-scrollbar">
                     {cargando ? (
-                        <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div></div>
+                        <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin w-8 h-8 text-orange-500"/></div>
                     ) : despachoFiltrado.length === 0 ? (
                         <div className="text-center py-20 text-slate-400">
                             <FolderKanban size={48} className="mx-auto mb-4 opacity-30 text-slate-500"/>
-                            <p className="font-black uppercase tracking-widest text-[11px] md:text-xs">No hay material instalado</p>
+                            <p className="font-black uppercase tracking-widest text-[11px] md:text-xs">No hay material en obra</p>
                         </div>
                     ) : (
                         <table className="w-full text-left border-collapse min-w-[700px]">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase tracking-widest text-slate-400 sticky top-0 z-10">
+                                <tr className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase tracking-widest text-slate-400 sticky top-0 z-10 shadow-sm">
                                     <th className="p-4 font-black">Proyecto / Obra</th>
                                     <th className="p-4 font-black">Artículo Instalado</th>
                                     <th className="p-4 font-black text-center">No. de Serie</th>
@@ -376,47 +371,48 @@ export default function Inventario() {
         {/* 4. RESPONSIVAS (ACTIVOS FIJOS) */}
         {tabActiva === 'responsivas' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {responsivasFiltradas.filter(r => r.estatus === 'Activa').map(resp => {
-                        const esAuto = resp.serie?.catalogo?.categoria === 'vehiculos';
-                        const esPC = resp.serie?.catalogo?.categoria === 'computo';
-                        return (
-                            <div key={resp.id} className="bg-white border border-slate-200 rounded-[20px] md:rounded-[24px] p-5 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all flex flex-col justify-between">
-                                <div>
-                                    <div className="flex justify-between items-start mb-4 gap-2">
-                                        <div className="flex gap-3 overflow-hidden">
-                                            <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 rounded-xl flex items-center justify-center shrink-0 border border-slate-200 text-slate-600">
-                                                {esAuto ? <Car size={18}/> : esPC ? <Laptop size={18}/> : <Wrench size={18}/>}
-                                            </div>
-                                            <div className="overflow-hidden">
-                                                <p className="font-black text-[11px] md:text-xs uppercase text-slate-900 leading-tight truncate" title={resp.serie?.catalogo?.nombre}>{resp.serie?.catalogo?.nombre}</p>
-                                                <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest truncate">SERIE/PLACA: {resp.serie?.numero_serie}</p>
-                                                <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase mt-0.5 tracking-widest truncate">SKU: {resp.serie?.catalogo?.sku}</p>
+                {cargando ? (
+                    <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin w-8 h-8 text-orange-500"/></div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+                        {responsivasFiltradas.filter(r => r.estatus === 'Activa').map(resp => {
+                            const cat = CATEGORIAS.find(c => c.id === resp.serie?.catalogo?.categoria);
+                            return (
+                                <div key={resp.id} className="bg-white/95 backdrop-blur-xl border border-slate-200 rounded-[20px] md:rounded-[24px] p-5 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex justify-between items-start mb-4 gap-2">
+                                            <div className="flex gap-3 overflow-hidden">
+                                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0 border ${cat?.bg} ${cat?.color} ${cat?.border}`}>
+                                                    {cat?.icono}
+                                                </div>
+                                                <div className="overflow-hidden">
+                                                    <p className="font-black text-[11px] md:text-xs uppercase text-slate-900 leading-tight truncate" title={resp.serie?.catalogo?.nombre}>{resp.serie?.catalogo?.nombre}</p>
+                                                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest truncate">SERIE: {resp.serie?.numero_serie}</p>
+                                                </div>
                                             </div>
                                         </div>
+                                        <div className="bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-100 shadow-inner">
+                                            <p className="text-[8px] font-black uppercase text-slate-400 mb-1.5 tracking-widest">Resguardo Asignado A:</p>
+                                            <p className="text-[10px] md:text-[11px] font-black text-slate-800 uppercase leading-none truncate">👤 {resp.asignado?.nombre} {resp.asignado?.apellidos}</p>
+                                        </div>
                                     </div>
-                                    <div className="bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-100 shadow-inner">
-                                        <p className="text-[8px] font-black uppercase text-slate-400 mb-1.5 md:mb-2 tracking-widest">Resguardo Asignado A:</p>
-                                        <p className="text-[10px] md:text-[11px] font-black text-slate-800 uppercase leading-none truncate">👤 {resp.asignado?.nombre} {resp.asignado?.apellidos}</p>
-                                        <p className="text-[8px] font-bold text-slate-500 mt-1 uppercase truncate">{resp.asignado?.puesto_actual}</p>
+                                    <div className="flex justify-between items-center pt-4 mt-4 border-t border-slate-100">
+                                        <button onClick={() => handleDevolverResponsiva(resp)} className="text-[8px] md:text-[9px] font-black uppercase text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 px-3 py-1.5 md:py-2 rounded-lg transition-colors flex items-center gap-1.5"><RotateCcw size={12}/> Liberar / Devolver</button>
+                                        <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Calendar size={12}/> {new Date(resp.created_at).toLocaleDateString('es-MX')}</span>
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center pt-4 mt-4 border-t border-slate-100">
-                                    <button onClick={() => handleDevolverResponsiva(resp)} className="text-[8px] md:text-[9px] font-black uppercase text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 px-3 py-1.5 md:py-2 rounded-lg transition-colors flex items-center gap-1.5"><RotateCcw size={12}/> Liberar (Devolver)</button>
-                                    <span className="bg-blue-50 text-blue-600 px-2.5 py-1 md:py-1.5 rounded-md border border-blue-200 text-[8px] font-black uppercase">{resp.estatus}</span>
-                                </div>
-                            </div>
-                        )
-                    })}
-                    {responsivasFiltradas.filter(r => r.estatus === 'Activa').length === 0 && <p className="col-span-full text-center py-10 text-xs font-bold text-slate-400 uppercase">No hay responsivas activas en esta categoría.</p>}
-                </div>
+                            )
+                        })}
+                        {responsivasFiltradas.filter(r => r.estatus === 'Activa').length === 0 && <p className="col-span-full text-center py-10 text-xs font-bold text-slate-400 uppercase">No hay responsivas activas.</p>}
+                    </div>
+                )}
             </div>
         )}
 
       </main>
 
       {/* ================================================================================================= */}
-      {/* ZONA DE MODALES CON COMBOBOXES MEJORADOS (UI LIMPIA)                                              */}
+      {/* ZONA DE MODALES (Unificados e Inteligentes)                                                       */}
       {/* ================================================================================================= */}
       
       <AnimatePresence>
@@ -460,28 +456,28 @@ export default function Inventario() {
 }
 
 // ============================================================================
-// COMPONENTES DE MODALES (Aislados con Custom Combobox)
+// COMPONENTES DE MODALES AISLADOS (Lógica Limpia y Selectores Inteligentes)
 // ============================================================================
 
 function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLogueado }: any) {
-    const [tipoIngreso, setTipoIngreso] = useState<'existente' | 'nuevo'>('existente');
+    const [modo, setModo] = useState<'seleccionar' | 'crear'>('seleccionar');
     const [procesando, setProcesando] = useState(false);
 
-    // Formulario
-    const [catalogoId, setCatalogoId] = useState('');
+    // Formulario General
     const [cantidad, setCantidad] = useState(1);
     const [series, setSeries] = useState<string[]>(['']);
     
-    // Combobox Estado
+    // Si selecciona existente
     const [busquedaCat, setBusquedaCat] = useState('');
+    const [catalogoId, setCatalogoId] = useState('');
     const [showDrop, setShowDrop] = useState(false);
     const dropRef = useRef<HTMLDivElement>(null);
     
-    // Si es nuevo
+    // Si crea nuevo
     const [sku, setSku] = useState('');
     const [nombre, setNombre] = useState('');
     const [categoriaId, setCategoriaId] = useState('ferreteria');
-    const [stockMinimo, setStockMinimo] = useState<number | ''>('');
+    const [stockMinimo, setStockMinimo] = useState<number>(0);
     const [unidad, setUnidad] = useState('PZA');
 
     useEffect(() => {
@@ -496,63 +492,57 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
     }, [cantidad]);
 
     const reqSerie = useMemo(() => {
-        if (tipoIngreso === 'nuevo') return categorias.find((c:any) => c.id === categoriaId)?.reqSerie;
-        if (catalogoId) {
-            const cat = catalogo.find((c:any) => c.id === catalogoId);
-            return categorias.find((c:any) => c.id === cat?.categoria)?.reqSerie;
-        }
+        if (modo === 'crear') return categorias.find((c:any) => c.id === categoriaId)?.reqSerie;
+        if (catalogoId) return categorias.find((c:any) => c.id === catalogo.find((cat:any)=>cat.id===catalogoId)?.categoria)?.reqSerie;
         return false;
-    }, [tipoIngreso, categoriaId, catalogoId, categorias, catalogo]);
+    }, [modo, categoriaId, catalogoId, categorias, catalogo]);
 
-    const catalogoFiltradoOpciones = useMemo(() => {
-        return catalogo.filter((c:any) => `${c.nombre} ${c.sku}`.toLowerCase().includes(busquedaCat.toLowerCase()));
-    }, [catalogo, busquedaCat]);
-
+    const catalogoFiltrado = useMemo(() => catalogo.filter((c:any) => `${c.nombre} ${c.sku}`.toLowerCase().includes(busquedaCat.toLowerCase())), [catalogo, busquedaCat]);
     const itemSeleccionado = catalogo.find((c:any) => c.id === catalogoId);
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (tipoIngreso === 'existente' && !catalogoId) return alert("Selecciona un artículo del buscador.");
+        if (modo === 'seleccionar' && !catalogoId) return alert("Selecciona un artículo del buscador o crea uno nuevo.");
         
         const seriesCapturadas = series.filter(s => s.trim() !== '');
-        
         setProcesando(true);
         try {
             let targetCatalogoId = catalogoId;
 
-            if (tipoIngreso === 'nuevo') {
+            if (modo === 'crear') {
                 const { data: newCat, error: errCat } = await supabase.from('inventario_catalogo').insert([{
-                    sku: sku.toUpperCase().trim(),
-                    nombre: nombre.trim(),
-                    categoria: categoriaId,
-                    stock_minimo: stockMinimo || 0,
-                    unidad_medida: unidad,
-                    stock_actual: 0
+                    sku: sku.toUpperCase().trim(), nombre: nombre.trim(), categoria: categoriaId,
+                    stock_minimo: stockMinimo, unidad_medida: unidad, stock_actual: 0
                 }]).select().single();
-                
                 if (errCat) throw errCat;
                 targetCatalogoId = newCat.id;
             }
 
-            const { data: currentCat } = await supabase.from('inventario_catalogo').select('stock_actual').eq('id', targetCatalogoId).single();
-            await supabase.from('inventario_catalogo').update({ stock_actual: (currentCat?.stock_actual || 0) + cantidad }).eq('id', targetCatalogoId);
+            const { data: currentCat, error: errFetch } = await supabase.from('inventario_catalogo').select('stock_actual').eq('id', targetCatalogoId).single();
+            if (errFetch) throw errFetch;
 
-            await supabase.from('inventario_movimientos').insert([{
+            const { error: errUpd } = await supabase.from('inventario_catalogo').update({ stock_actual: (currentCat?.stock_actual || 0) + cantidad }).eq('id', targetCatalogoId);
+            if (errUpd) throw errUpd;
+
+            const { error: errMov } = await supabase.from('inventario_movimientos').insert([{
                 tipo: 'Entrada', catalogo_id: targetCatalogoId, cantidad: cantidad, 
                 usuario_id: usuarioLogueado?.id, referencia: 'Ingreso Manual al Almacén'
             }]);
+            if (errMov) throw errMov;
 
             if (reqSerie && seriesCapturadas.length > 0) {
                 const payloadSeries = seriesCapturadas.map(s => ({
                     catalogo_id: targetCatalogoId, numero_serie: s.trim().toUpperCase(), estatus: 'Disponible'
                 }));
-                await supabase.from('inventario_series').upsert(payloadSeries, { onConflict: 'numero_serie' });
+                const { error: errSer } = await supabase.from('inventario_series').upsert(payloadSeries, { onConflict: 'numero_serie' });
+                if (errSer) throw errSer;
             }
 
-            alert("Ingreso registrado correctamente en el Kardex.");
+            alert("Ingreso registrado correctamente.");
             onSave();
         } catch (err: any) {
-            alert("Error al registrar: " + err.message);
+            console.error(err);
+            alert("Error al registrar: Verifica que el SKU o las Series no estén duplicadas.");
         } finally { setProcesando(false); }
     }
 
@@ -563,71 +553,64 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
                     <h3 className="font-black uppercase text-sm tracking-widest flex items-center gap-3"><ArrowDownRight size={18} className="text-emerald-500"/> Ingreso de Material</h3>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={18}/></button>
                 </div>
-                
-                <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
-                    <button type="button" onClick={() => setTipoIngreso('existente')} className={`flex-1 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-2 transition-colors ${tipoIngreso === 'existente' ? 'border-emerald-500 text-emerald-600 bg-white' : 'border-transparent text-slate-500'}`}>A Existente</button>
-                    <button type="button" onClick={() => setTipoIngreso('nuevo')} className={`flex-1 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-2 transition-colors ${tipoIngreso === 'nuevo' ? 'border-emerald-500 text-emerald-600 bg-white' : 'border-transparent text-slate-500'}`}>Nuevo SKU</button>
-                </div>
 
                 <form onSubmit={handleGuardar} className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-8 bg-slate-50 flex flex-col gap-6">
                     
-                    <div className="bg-white p-5 md:p-6 rounded-[20px] md:rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {tipoIngreso === 'existente' ? (
-                            <div className="sm:col-span-2 relative" ref={dropRef}>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Buscar y Seleccionar del Catálogo</label>
-                                <div className="relative mt-1.5">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input 
-                                        type="text" 
-                                        placeholder="Escribe para buscar..." 
-                                        value={showDrop ? busquedaCat : (itemSeleccionado ? `[${itemSeleccionado.sku}] ${itemSeleccionado.nombre}` : '')} 
-                                        onFocus={() => setShowDrop(true)}
-                                        onChange={e => { setBusquedaCat(e.target.value); setShowDrop(true); setCatalogoId(''); }}
-                                        className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 text-slate-700 shadow-inner"
-                                    />
-                                    <AnimatePresence>
-                                        {showDrop && (
-                                            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
-                                                {catalogoFiltradoOpciones.length === 0 ? (
-                                                    <div className="p-4 text-center text-slate-400 text-[10px] font-bold">No se encontraron artículos.</div>
-                                                ) : (
-                                                    catalogoFiltradoOpciones.map((c:any) => (
-                                                        <div key={c.id} onClick={() => { setCatalogoId(c.id); setShowDrop(false); setBusquedaCat(''); }} className="p-3 border-b border-slate-50 hover:bg-emerald-50 cursor-pointer flex flex-col gap-0.5">
-                                                            <p className="text-[11px] font-black text-slate-800 uppercase leading-none truncate">{c.nombre}</p>
-                                                            <p className="text-[9px] font-bold text-slate-500 uppercase truncate">SKU: {c.sku} | Stock Disp: {c.stock_actual}</p>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                    <div className="bg-white p-5 md:p-6 rounded-[20px] md:rounded-3xl border border-slate-200 shadow-sm">
+                        {modo === 'seleccionar' ? (
+                            <div className="relative" ref={dropRef}>
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Buscar Artículo Existente</label>
+                                <div className="relative mt-1.5 flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input type="text" placeholder="Escribe nombre o SKU..." value={showDrop ? busquedaCat : (itemSeleccionado ? `[${itemSeleccionado.sku}] ${itemSeleccionado.nombre}` : '')} onFocus={() => setShowDrop(true)} onChange={e => { setBusquedaCat(e.target.value); setShowDrop(true); setCatalogoId(''); }} className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 text-slate-700 shadow-inner"/>
+                                    </div>
+                                    <button type="button" onClick={() => setModo('crear')} className="px-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase whitespace-nowrap hover:bg-emerald-500 transition-colors shadow-md">Crear Nuevo</button>
                                 </div>
+                                <AnimatePresence>
+                                    {showDrop && (
+                                        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
+                                            {catalogoFiltrado.length === 0 ? (
+                                                <div className="p-4 text-center text-slate-400 text-[10px] font-bold">No se encontró. <button type="button" onClick={() => setModo('crear')} className="text-emerald-500 hover:underline">Crear "{busquedaCat}"</button></div>
+                                            ) : catalogoFiltrado.map((c:any) => (
+                                                <div key={c.id} onClick={() => { setCatalogoId(c.id); setShowDrop(false); setBusquedaCat(''); }} className="p-3 border-b border-slate-50 hover:bg-emerald-50 cursor-pointer flex flex-col gap-0.5">
+                                                    <p className="text-[11px] font-black text-slate-800 uppercase leading-none truncate">{c.nombre}</p>
+                                                    <p className="text-[9px] font-bold text-slate-500 uppercase truncate">SKU: {c.sku} | Stock Actual: {c.stock_actual}</p>
+                                                </div>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         ) : (
-                            <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="sm:col-span-2 flex justify-between items-center mb-2">
+                                    <h4 className="text-[11px] font-black uppercase text-slate-900 tracking-widest">Crear Nuevo Artículo</h4>
+                                    <button type="button" onClick={() => setModo('seleccionar')} className="text-[9px] font-bold text-slate-400 hover:text-emerald-500 hover:underline">Volver a Búsqueda</button>
+                                </div>
                                 <div><label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">SKU / Modelo</label><input required type="text" value={sku} onChange={e=>setSku(e.target.value)} placeholder="Ej: JKM550M" className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner uppercase"/></div>
                                 <div>
                                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Categoría</label>
                                     <select required value={categoriaId} onChange={e=>setCategoriaId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner text-slate-700">
-                                        {CATEGORIAS.map((c:any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                        {categorias.map((c:any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                                     </select>
                                 </div>
-                                <div className="sm:col-span-2"><label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Nombre del Artículo</label><input required type="text" value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej: Panel Solar 550W..." className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner"/></div>
-                                <div><label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Stock Mínimo (Opcional)</label><input type="number" min="0" value={stockMinimo} onChange={e=>setStockMinimo(e.target.value ? parseInt(e.target.value) : '')} placeholder="Dejar vacío si no aplica" className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner"/></div>
+                                <div className="sm:col-span-2"><label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Descripción Completa</label><input required type="text" value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej: Panel Solar 550W Monocristalino..." className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner"/></div>
+                                <div><label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Stock Mínimo (Opcional)</label><input type="number" min="0" value={stockMinimo} onChange={e=>setStockMinimo(e.target.value ? parseInt(e.target.value) : 0)} placeholder="0 por defecto" className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner"/></div>
                                 <div>
                                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Unidad Medida</label>
                                     <select required value={unidad} onChange={e=>setUnidad(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-3 md:p-3.5 rounded-xl mt-1 text-xs font-bold outline-none focus:border-emerald-500 shadow-inner text-slate-700">
-                                        <option value="PZA">Pieza (PZA)</option>
+                                        <option value="PZA">Piezas (PZA)</option>
                                         <option value="MTS">Metros (MTS)</option>
                                         <option value="KGS">Kilos (KGS)</option>
                                     </select>
                                 </div>
-                            </>
+                            </div>
                         )}
                         
-                        <div className="sm:col-span-2 pt-4 border-t border-slate-100">
+                        <div className="mt-6 pt-4 border-t border-slate-100">
                             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Cantidad a Ingresar</label>
-                            <div className="flex items-center mt-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-inner w-full sm:w-1/2">
+                            <div className="flex items-center mt-1.5 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-inner w-full sm:w-1/2">
                                 <button type="button" onClick={() => setCantidad(c => Math.max(1, c - 1))} className="px-5 py-3 md:py-3.5 font-black text-slate-400 hover:text-emerald-500 hover:bg-slate-100 transition-colors">-</button>
                                 <input type="number" required min="1" value={cantidad} onChange={(e) => setCantidad(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 w-full bg-transparent text-center text-sm font-black outline-none text-slate-800" />
                                 <button type="button" onClick={() => setCantidad(c => c + 1)} className="px-5 py-3 md:py-3.5 font-black text-slate-400 hover:text-emerald-500 hover:bg-slate-100 transition-colors">+</button>
@@ -638,12 +621,12 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
                     {reqSerie && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 md:p-6 shadow-inner shrink-0">
                             <h4 className="font-black text-[11px] uppercase tracking-widest text-emerald-800 flex items-center gap-2 mb-2"><ScanLine size={16}/> Escaneo de Series <span className="text-emerald-500 font-bold ml-2">(Opcional en Ingreso)</span></h4>
-                            <p className="text-[9px] font-bold text-emerald-600/80 uppercase mb-4 leading-relaxed">Si la caja viene sellada, puedes dejar las series vacías y escanearlas al momento de dar salida a Obra.</p>
+                            <p className="text-[9px] font-bold text-emerald-600/80 uppercase mb-4 leading-relaxed">Si la caja viene sellada, déjalas vacías y escanéalas al dar salida a Obra.</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto custom-scrollbar pr-1 md:pr-2">
                                 {series.map((serie, idx) => (
                                     <div key={idx} className="flex items-center relative">
                                         <div className="absolute left-0 top-0 bottom-0 w-10 flex items-center justify-center bg-white border border-slate-200 rounded-l-lg z-10 shadow-sm border-r-0"><Barcode className="w-4 h-4 text-slate-400"/></div>
-                                        <input type="text" placeholder={`Serie #${idx + 1} (Opcional)...`} value={serie} onChange={(e) => {const n = [...series]; n[idx] = e.target.value; setSeries(n);}} className="w-full bg-white border border-slate-200 p-2.5 md:p-3 pl-12 rounded-lg text-xs font-black outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-slate-700 shadow-sm uppercase tracking-wider transition-all"/>
+                                        <input type="text" placeholder={`Serie #${idx + 1}...`} value={serie} onChange={(e) => {const n = [...series]; n[idx] = e.target.value; setSeries(n);}} className="w-full bg-white border border-slate-200 p-2.5 md:p-3 pl-12 rounded-lg text-xs font-black outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-slate-700 shadow-sm uppercase tracking-wider transition-all"/>
                                     </div>
                                 ))}
                             </div>
@@ -654,7 +637,7 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
                 <div className="p-4 md:p-6 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row justify-end gap-3 shrink-0">
                     <button type="button" onClick={onClose} className="w-full sm:w-auto px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
                     <button type="submit" onClick={handleGuardar} disabled={procesando} className="w-full sm:w-auto bg-emerald-600 text-white px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-lg disabled:opacity-50">
-                        {procesando ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Save size={14}/> Registrar Ingreso</>}
+                        {procesando ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Save size={14}/> Guardar Ingreso</>}
                     </button>
                 </div>
             </motion.div>
@@ -694,16 +677,10 @@ function DespachoItemRow({ item, idxItem, catalogo, items, setItems }: any) {
             {items.length > 1 && <button onClick={() => setItems(items.filter((_:any,i:number)=>i!==idxItem))} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2 relative" ref={dropRef}>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">SKU a Enviar (Solo disponibles)</label>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">SKU a Enviar (Solo en Stock)</label>
                     <div className="relative mt-1.5">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                            type="text" placeholder="Buscar insumo en Stock..." 
-                            value={showDrop ? busqueda : (catSelect ? `[${catSelect.sku}] ${catSelect.nombre}` : '')} 
-                            onFocus={() => setShowDrop(true)}
-                            onChange={e => { setBusqueda(e.target.value); setShowDrop(true); const n=[...items]; n[idxItem].catalogo_id=''; setItems(n); }}
-                            className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-orange-500 text-slate-700 shadow-inner"
-                        />
+                        <input type="text" placeholder="Buscar insumo..." value={showDrop ? busqueda : (catSelect ? `[${catSelect.sku}] ${catSelect.nombre}` : '')} onFocus={() => setShowDrop(true)} onChange={e => { setBusqueda(e.target.value); setShowDrop(true); const n=[...items]; n[idxItem].catalogo_id=''; setItems(n); }} className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-orange-500 text-slate-700 shadow-inner" />
                         <AnimatePresence>
                             {showDrop && (
                                 <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
@@ -754,7 +731,6 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
     const [proyectoId, setProyectoId] = useState('');
     const [items, setItems] = useState<any[]>([{ catalogo_id: '', cantidad: 1, series: [''] }]);
     
-    // Combobox Proyectos
     const [busquedaProy, setBusquedaProy] = useState('');
     const [showProyDrop, setShowProyDrop] = useState(false);
     const proyRef = useRef<HTMLDivElement>(null);
@@ -790,24 +766,28 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
                 const cat = catalogo.find((c:any) => c.id === item.catalogo_id);
                 if (cat.stock_actual < item.cantidad) throw new Error(`Stock insuficiente para ${cat.nombre}`);
                 
-                await supabase.from('inventario_catalogo').update({ stock_actual: cat.stock_actual - item.cantidad }).eq('id', cat.id);
+                const { error: e1 } = await supabase.from('inventario_catalogo').update({ stock_actual: cat.stock_actual - item.cantidad }).eq('id', cat.id);
+                if (e1) throw e1;
 
-                await supabase.from('inventario_movimientos').insert([{
+                const { error: e2 } = await supabase.from('inventario_movimientos').insert([{
                     tipo: 'Salida a Obra', catalogo_id: cat.id, cantidad: item.cantidad, 
                     usuario_id: usuarioLogueado?.id, referencia: proySeleccionado?.nombre_proyecto
                 }]);
+                if (e2) throw e2;
 
                 if (CATEGORIAS.find(c => c.id === cat.categoria)?.reqSerie && item.series.length > 0) {
                     const seriesLimpio = item.series.map((s:string) => ({
                         catalogo_id: cat.id, numero_serie: s.trim().toUpperCase(), estatus: 'En Proyecto', proyecto_id: proyectoId
                     }));
-                    await supabase.from('inventario_series').upsert(seriesLimpio, { onConflict: 'numero_serie' });
+                    const { error: e3 } = await supabase.from('inventario_series').upsert(seriesLimpio, { onConflict: 'numero_serie' });
+                    if (e3) throw e3;
                 }
             }
             alert("Salida a obra y series registradas en Kardex con éxito.");
             onSave();
         } catch (err: any) {
-            alert("Error al despachar: " + err.message);
+            console.error(err);
+            alert("Error al despachar: Verifica que las series ingresadas sean correctas.");
         } finally { setProcesando(false); }
     }
 
@@ -823,18 +803,11 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-slate-50 p-5 md:p-8 flex flex-col gap-4 md:gap-6 custom-scrollbar">
-                    
                     <div className="bg-white p-5 md:p-6 rounded-[20px] md:rounded-3xl border border-slate-200 shadow-sm shrink-0" ref={proyRef}>
                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Buscar Proyecto Destino</label>
                         <div className="relative mt-1.5">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <input 
-                                type="text" placeholder="Filtrar proyectos..." 
-                                value={showProyDrop ? busquedaProy : (proySeleccionado ? proySeleccionado.nombre_proyecto : '')} 
-                                onFocus={() => setShowProyDrop(true)}
-                                onChange={e => { setBusquedaProy(e.target.value); setShowProyDrop(true); setProyectoId(''); }}
-                                className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-orange-500 text-slate-700 shadow-inner"
-                            />
+                            <input type="text" placeholder="Filtrar proyectos..." value={showProyDrop ? busquedaProy : (proySeleccionado ? proySeleccionado.nombre_proyecto : '')} onFocus={() => setShowProyDrop(true)} onChange={e => { setBusquedaProy(e.target.value); setShowProyDrop(true); setProyectoId(''); }} className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-orange-500 text-slate-700 shadow-inner" />
                             <AnimatePresence>
                                 {showProyDrop && (
                                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
@@ -862,7 +835,7 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
                 
                 <div className="p-5 md:p-6 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="w-full sm:w-auto px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
-                    <button disabled={!checkValid() || procesando} onClick={handleGuardar} className="w-full sm:w-auto bg-orange-500 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-900 transition-all disabled:opacity-50 disabled:bg-slate-300 shadow-lg">
+                    <button disabled={!checkValid() || procesando} onClick={handleGuardar} className="w-full sm:w-auto bg-orange-500 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-900 transition-all disabled:opacity-50 shadow-lg">
                         {procesando ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Save size={16}/> Registrar Salida</>}
                     </button>
                 </div>
@@ -916,25 +889,29 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, series, usuarioL
             // PROCESAMIENTO PARALELO = SÚPER RÁPIDO
             const uploadPromises = fotos.map(async (file, i) => {
                 const path = `responsivas/${Date.now()}_${i}.jpg`;
-                await supabase.storage.from('expedientes').upload(path, file as File);
+                const { error } = await supabase.storage.from('expedientes').upload(path, file as File);
+                if(error) throw error;
                 const {data} = supabase.storage.from('expedientes').getPublicUrl(path);
                 return data.publicUrl;
             });
             const urls = await Promise.all(uploadPromises);
 
-            await supabase.from('inventario_responsivas').insert([{
+            const { error: e1 } = await supabase.from('inventario_responsivas').insert([{
                 serie_id: serieId, asignado_a: asignadoId, entregado_por: usuarioLogueado?.id,
                 fotos_entrega: urls, estatus: 'Activa'
             }]);
+            if (e1) throw e1;
 
-            await supabase.from('inventario_series').update({ estatus: 'Asignado' }).eq('id', serieId);
+            const { error: e2 } = await supabase.from('inventario_series').update({ estatus: 'Asignado' }).eq('id', serieId);
+            if (e2) throw e2;
 
             const serieInfo = series.find((s:any) => s.id === serieId);
             const colaboradorInfo = colaboradores.find((c:any) => c.id === asignadoId);
-            await supabase.from('inventario_movimientos').insert([{
+            const { error: e3 } = await supabase.from('inventario_movimientos').insert([{
                 tipo: 'Asignación Activo', catalogo_id: serieInfo?.catalogo_id, cantidad: 1, 
                 usuario_id: usuarioLogueado?.id, referencia: `Responsiva a: ${colaboradorInfo?.nombre} ${colaboradorInfo?.apellidos}`
             }]);
+            if (e3) throw e3;
 
             alert("Responsiva y Kardex registrados exitosamente.");
             onSave();
@@ -960,13 +937,7 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, series, usuarioL
                             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Colaborador Destinatario</label>
                             <div className="relative mt-1.5">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input 
-                                    type="text" placeholder="Filtrar empleado..." 
-                                    value={showColab ? bColab : (colabSelect ? `${colabSelect.nombre} ${colabSelect.apellidos}` : '')} 
-                                    onFocus={() => setShowColab(true)}
-                                    onChange={e => { setBColab(e.target.value); setShowColab(true); setAsignadoId(''); }}
-                                    className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-blue-500 text-slate-700 shadow-inner"
-                                />
+                                <input type="text" placeholder="Filtrar empleado..." value={showColab ? bColab : (colabSelect ? `${colabSelect.nombre} ${colabSelect.apellidos}` : '')} onFocus={() => setShowColab(true)} onChange={e => { setBColab(e.target.value); setShowColab(true); setAsignadoId(''); }} className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-blue-500 text-slate-700 shadow-inner border-b-0"/>
                                 <AnimatePresence>
                                     {showColab && (
                                         <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
@@ -985,13 +956,7 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, series, usuarioL
                             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Activo a Entregar</label>
                             <div className="relative mt-1.5">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input 
-                                    type="text" placeholder="Filtrar por serie o nombre..." 
-                                    value={showSerie ? bSerie : (serieSelect ? `${serieSelect.catalogo?.nombre} (S/N: ${serieSelect.numero_serie})` : '')} 
-                                    onFocus={() => setShowSerie(true)}
-                                    onChange={e => { setBSerie(e.target.value); setShowSerie(true); setSerieId(''); }}
-                                    className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-blue-500 text-slate-700 shadow-inner"
-                                />
+                                <input type="text" placeholder="Filtrar por serie o nombre..." value={showSerie ? bSerie : (serieSelect ? `${serieSelect.catalogo?.nombre} (S/N: ${serieSelect.numero_serie})` : '')} onFocus={() => setShowSerie(true)} onChange={e => { setBSerie(e.target.value); setShowSerie(true); setSerieId(''); }} className="w-full bg-slate-50 border border-slate-200 p-3.5 pl-10 rounded-xl text-xs font-bold outline-none focus:border-blue-500 text-slate-700 shadow-inner border-b-0"/>
                                 <AnimatePresence>
                                     {showSerie && (
                                         <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
@@ -1025,11 +990,6 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, series, usuarioL
                                 </label>
                             ))}
                         </div>
-                    </div>
-
-                    <div className="bg-blue-50 p-4 md:p-5 rounded-2xl border border-blue-200 flex items-start gap-3 shadow-inner">
-                        <AlertTriangle className="w-5 h-5 text-blue-600 shrink-0"/>
-                        <p className="text-blue-800 text-[9px] md:text-xs font-bold leading-relaxed">Las 4 fotos se subirán al servidor de forma simultánea. El colaborador deberá firmar desde su panel después.</p>
                     </div>
                 </div>
                 <div className="p-5 md:p-6 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row justify-end gap-3 shrink-0 shadow-[0_-10px_15px_rgba(0,0,0,0.03)]">
