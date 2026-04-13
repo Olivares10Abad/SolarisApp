@@ -41,9 +41,11 @@ export default function NotificacionesGlobales({ usuarioLogueado, onClickNotific
         setMostrarMenu(false);
     };
 
-    const handleNotifClick = (notif: any) => {
+    const handleNotifClick = async (notif: any) => {
         if (onClickNotificacion) onClickNotificacion(notif);
         setMostrarMenu(false);
+        await supabase.from('notificaciones').delete().eq('id', notif.id);
+        setNotificaciones(prev => prev.filter(n => n.id !== notif.id));
     };
 
     return (
@@ -58,13 +60,13 @@ export default function NotificacionesGlobales({ usuarioLogueado, onClickNotific
                         <div className="bg-slate-900 p-4 text-white font-black text-xs uppercase flex justify-between items-center shrink-0">Notificaciones <button onClick={() => setMostrarMenu(false)}><X size={16}/></button></div>
                         <div className="overflow-y-auto flex-1 custom-scrollbar">
                             {notificaciones.length === 0 ? <div className="p-6 text-center text-slate-400 text-xs font-bold">Sin alertas.</div> : notificaciones.map(notif => (
-                                <div key={notif.id} onClick={() => handleNotifClick(notif)} className="p-4 border-b border-slate-50 relative group hover:bg-orange-50 cursor-pointer transition-colors">
-                                    <p className="text-xs text-slate-800 leading-tight font-bold pr-6"><span className="text-orange-600">{notif.autor?.nombre}</span> {notif.mensaje}</p>
-                                    <button onClick={(e) => eliminarNotificacion(notif.id, e)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={14}/></button>
+                                <div key={notif.id} onClick={() => handleNotifClick(notif)} className="p-4 border-b border-slate-50 relative group hover:bg-orange-50 cursor-pointer transition-colors pr-12">
+                                    <p className="text-xs text-slate-800 leading-tight font-bold"><span className="text-orange-600">{notif.autor?.nombre}</span> {notif.mensaje.split('|||')[0]}</p>
+                                    <button onClick={(e) => eliminarNotificacion(notif.id, e)} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-1.5 rounded-lg transition-all shadow-sm"><X size={14}/></button>
                                 </div>
                             ))}
                         </div>
-                        {notificaciones.length > 0 && <div className="p-3 bg-slate-50 border-t border-slate-100 shrink-0"><button onClick={limpiarNotificaciones} className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 flex items-center justify-center gap-2 transition-colors"><Trash size={14}/> Limpiar Todas</button></div>}
+                        {notificaciones.length > 0 && <div className="p-3 bg-white border-t border-slate-200 shrink-0"><button onClick={limpiarNotificaciones} className="w-full py-2.5 rounded-xl bg-slate-900 border-2 border-slate-900 text-[10px] font-black uppercase tracking-widest text-white hover:bg-red-600 hover:border-red-600 flex items-center justify-center gap-2 transition-all shadow-md"><Trash size={14}/> Limpiar Todas</button></div>}
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../supabaseClient'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { supabase, enviarNotificacionRoles } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Plus, Search, X, Save, 
@@ -69,7 +69,9 @@ const comprimirImagen = (file: File): Promise<File> => {
   });
 };
 
-export default function Proyectos() {
+export default function ProyectosList() {
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [proyectos, setProyectos] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -127,6 +129,19 @@ export default function Proyectos() {
 
   useEffect(() => { fetchInicial() }, [])
 
+  // --- AUTO-OPEN DEEP LINK ---
+  useEffect(() => {
+    const pId = searchParams.get('proyecto_id')
+    if (pId && proyectos.length > 0) {
+      const p = proyectos.find(x => x.id === pId)
+      if (p) {
+        handleAbrirEdicion(p)
+        searchParams.delete('proyecto_id')
+        setSearchParams(searchParams, { replace: true })
+      }
+    }
+  }, [proyectos, searchParams, setSearchParams])
+
   const handleAbrirEdicion = (proyecto: any) => {
     setProyectoEditando(proyecto);
     setFormNuevo({ nombre: proyecto.nombre_proyecto, giro: proyecto.giro_proyecto, comentarios: proyecto.comentarios_iniciales || '' });
@@ -165,6 +180,7 @@ export default function Proyectos() {
           proyecto_id: proyectoEditando.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoEditando.estatus, estado_nuevo: 'Cotización', accion: 'Corrección Enviada',
           mensaje: formNuevo.comentarios ? `Nuevos comentarios: ${formNuevo.comentarios}` : 'Se actualizó la información de la solicitud.'
         }]);
+        await enviarNotificacionRoles('notif_cotizaciones', `Se envió corrección del proyecto: ${formNuevo.nombre}|||/cotizaciones?proyecto_id=${proyectoEditando.id}`, usuarioLogueado?.id);
       } else {
         const payload = {
           nombre_proyecto: formNuevo.nombre, giro_proyecto: formNuevo.giro, comentarios_iniciales: formNuevo.comentarios, archivo_url: primeraUrl, archivos_adjuntos: urlsGeneradas, vendedor_id: usuarioLogueado?.id || null, estatus: 'Cotización'
@@ -175,6 +191,7 @@ export default function Proyectos() {
             proyecto_id: nuevoProyecto.id, usuario_id: usuarioLogueado?.id, estado_anterior: 'Nuevo', estado_nuevo: 'Cotización', accion: 'Proyecto Creado',
             mensaje: formNuevo.comentarios ? `Contexto inicial: ${formNuevo.comentarios}` : 'Solicitud creada.'
           }]);
+          await enviarNotificacionRoles('notif_cotizaciones', `Nueva solicitud de cotización recibida: ${formNuevo.nombre}|||/cotizaciones?proyecto_id=${nuevoProyecto.id}`, usuarioLogueado?.id);
         }
       }
       setModalNuevo(false); setProyectoEditando(null); setFormNuevo({ nombre: '', giro: 'Residencial', comentarios: '' }); setFilesAdjuntos([]); fetchInicial();
@@ -215,7 +232,6 @@ export default function Proyectos() {
 
   return (
     <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
-      <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] pointer-events-none" />
 
       {/* COMPONENTE HEADER GLOBAL (z-[60] por defecto) */}
       <Header 

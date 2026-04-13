@@ -28,9 +28,12 @@ export default function Header({ titulo, onAbrirChat }: HeaderProps) {
 
   // MANEJADOR DE CLICS EN NOTIFICACIONES (DEEP LINKING AL CHAT)
   const handleNotifClick = (notif: any) => {
-      if (notif.mensaje.includes('mensaje directo')) {
+      if (notif.mensaje.includes('|||')) {
+          const [textoOriginal, ruta] = notif.mensaje.split('|||');
+          navigate(ruta);
+      } else if (notif.mensaje.includes('mensaje directo')) {
           onAbrirChat({ tipo: 'dm', id: notif.autor_id, nombre: `${notif.autor?.nombre} ${notif.autor?.apellidos}` });
-      } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('proyecto') || notif.mensaje.includes('grupo')) {
+      } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('grupo')) {
           onAbrirChat(); 
       }
   };
@@ -45,8 +48,8 @@ export default function Header({ titulo, onAbrirChat }: HeaderProps) {
             <ArrowLeft className="w-5 h-5"/>
           </button>
           <img src={solarisLogo} alt="GEA" className="h-6 md:h-7 w-auto" />
-          <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
-          <h1 className="font-black text-sm md:text-base uppercase italic tracking-tighter text-slate-900 hidden sm:block">{titulo}</h1>
+          <div className="h-4 sm:h-6 w-px bg-slate-200 mx-1 sm:mx-2" />
+          <h1 className="font-black text-[10px] sm:text-sm md:text-base uppercase italic tracking-tighter text-slate-900 truncate max-w-[110px] sm:max-w-none">{titulo}</h1>
         </div>
         
         {/* DERECHA: Controles */}
@@ -65,9 +68,8 @@ export default function Header({ titulo, onAbrirChat }: HeaderProps) {
 
           {/* Perfil Usuario */}
           <div className="bg-white px-3 md:px-4 py-1 md:py-1.5 rounded-xl border border-slate-100 flex items-center gap-2 md:gap-3 shadow-sm">
-            <div className="text-right flex flex-col hidden sm:flex">
+            <div className="text-right flex flex-col hidden sm:flex justify-center">
               <span className="text-[11px] font-black text-slate-900 uppercase leading-none">{usuarioLogueado?.nombre}</span>
-              <span className="text-[9px] font-bold text-orange-500 uppercase mt-1 truncate max-w-[120px]">{usuarioLogueado?.puesto_actual}</span>
             </div>
             <div className="w-6 h-6 md:w-8 md:h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-[10px] overflow-hidden shadow-inner">
                 {usuarioLogueado?.avatar_url ? <img src={usuarioLogueado.avatar_url} className="w-full h-full object-cover" /> : usuarioLogueado?.nombre?.charAt(0)}

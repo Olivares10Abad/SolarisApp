@@ -7,6 +7,7 @@ import ProyectosList from './pages/Proyectos'
 import Cotizaciones from './pages/Cotizaciones'
 import Revision from './pages/Revisión'
 import Inventario from './pages/Inventario'
+import RutaProtegida from './components/RutaProtegida'
 
 function App() {
   return (
@@ -14,16 +15,15 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/home" element={<Home />} />
-        <Route path='/perfil' element={<Perfil />} />
-        <Route path="/usuarios" element={<Usuarios />} />
-        <Route path="/cotizaciones" element={<Cotizaciones />} />
-        <Route path="/revision" element={<Revision />} />
-        <Route path="/inventario" element={<Inventario />} />
-
         
-        {/* Nueva ruta de Gestión de Proyectos */}
-        <Route path="/proyectos" element={<ProyectosList />} />
+        {/* Rutas Privadas / RBAC */}
+        <Route path="/home" element={<RutaProtegida><Home /></RutaProtegida>} />
+        <Route path='/perfil' element={<RutaProtegida><Perfil /></RutaProtegida>} />
+        <Route path="/usuarios" element={<RutaProtegida permisoRequerido="usuarios"><Usuarios /></RutaProtegida>} />
+        <Route path="/cotizaciones" element={<RutaProtegida permisoRequerido="cotizaciones"><Cotizaciones /></RutaProtegida>} />
+        <Route path="/revision" element={<RutaProtegida permisoRequerido="revision_cotizaciones"><Revision /></RutaProtegida>} />
+        <Route path="/inventario" element={<RutaProtegida permisoRequerido="inventario"><Inventario /></RutaProtegida>} />
+        <Route path="/proyectos" element={<RutaProtegida permisoRequerido="proyectos"><ProyectosList /></RutaProtegida>} />
       </Routes>
     </BrowserRouter>
   )

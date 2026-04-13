@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../supabaseClient'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { supabase, enviarNotificacionRoles, enviarNotificacionVendedor } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Search, X, MapPin, FileText, CheckCircle2, AlertCircle, Clock, 
@@ -45,6 +45,7 @@ const calcularHorasHabiles = (fechaCreacion: string) => {
 }
 
 export default function Revision() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [proyectos, setProyectos] = useState<any[]>([])
   const [usuariosDb, setUsuariosDb] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
@@ -89,6 +90,20 @@ export default function Revision() {
 
   useEffect(() => { fetchInicial() }, [])
 
+  // --- AUTO-OPEN DEEP LINK ---
+  useEffect(() => {
+    const pId = searchParams.get('proyecto_id')
+    if (pId && proyectos.length > 0) {
+      const p = proyectos.find(x => x.id === pId)
+      if (p) {
+        setProyectoSeleccionado(p)
+        setModalDetalle(true)
+        searchParams.delete('proyecto_id')
+        setSearchParams(searchParams, { replace: true })
+      }
+    }
+  }, [proyectos, searchParams, setSearchParams])
+
   const handleRechazar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mensajeRechazo.trim()) return alert("Debes ingresar un motivo.");
@@ -96,6 +111,8 @@ export default function Revision() {
     try {
       await supabase.from('proyectos').update({ estatus: 'Cotización' }).eq('id', proyectoSeleccionado.id);
       await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: 'Cotización', accion: 'Revisión Rechazada', mensaje: mensajeRechazo }]);
+      await enviarNotificacionRoles('notif_cotizaciones', `Revisión rechazada: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+      await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `🚨 Corrección solicitada desde área de Revisión a Cotizadores para ${proyectoSeleccionado.nombre_proyecto}`, usuarioLogueado?.id);
       setModalRechazo(false); setModalDetalle(false); setMensajeRechazo(''); fetchInicial();
     } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
   }
@@ -106,6 +123,8 @@ export default function Revision() {
     try {
       await supabase.from('proyectos').update({ estatus: 'Cotizado', fecha_revision: new Date().toISOString() }).eq('id', proyectoSeleccionado.id);
       await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: 'Cotizado', accion: 'Revisión Aprobada', mensaje: mensajeAprobacion || 'Cotización validada y liberada para Ventas.' }]);
+      await enviarNotificacionRoles('notif_cotizaciones', `Revisión validada y aprobada: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+      await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✨ ¡Tu proyecto ha sido Cotizado exitosamente! Míralo y descárgalo aquí.`, usuarioLogueado?.id);
       setModalAprobar(false); setModalDetalle(false); setMensajeAprobacion(''); fetchInicial();
     } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
   }
@@ -134,7 +153,6 @@ export default function Revision() {
 
   return (
     <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
-      <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] pointer-events-none" />
 
       {/* --- COMPONENTE GLOBAL DE CHAT (POR ENCIMA DEL HEADER) --- */}
       <ChatGlobal 

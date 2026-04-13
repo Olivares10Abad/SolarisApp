@@ -60,6 +60,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
   const [proyectosSilenciados, setProyectosSilenciados] = useState<string[]>([]);
   
   const [usuariosOnline, setUsuariosOnline] = useState<string[]>([]);
+  const [usuariosDeVacaciones, setUsuariosDeVacaciones] = useState<string[]>([]);
 
   const [mensajesChat, setMensajesChat] = useState<any[]>([]);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
@@ -141,6 +142,10 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
         }
 
         const resGrupos = await supabase.from('chat_grupo_miembros').select('grupo_id, chat_grupos(id, nombre)').eq('usuario_id', usuarioLogueado.id);
+
+        const today = new Date().toISOString().split('T')[0];
+        const resVacaciones = await supabase.from('solicitudes_ausencia').select('user_id').eq('estado', 'Aprobada').lte('fecha_inicio', today).gte('fecha_fin', today);
+        if (resVacaciones.data) setUsuariosDeVacaciones(resVacaciones.data.map(v => v.user_id));
 
         const [resProyectos, resUsuarios] = await Promise.all([
             queryProyectos,
@@ -490,6 +495,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
   };
 
   const getStatusPersona = (uId: string) => {
+      if (usuariosDeVacaciones.includes(uId)) return <span className="text-[8px] text-amber-500 font-black">🌴 De Vacaciones</span>;
       if (usuariosOnline.includes(uId)) return <span className="text-[8px] text-emerald-500 font-black">En línea</span>;
       const u = usuariosDb.find(x=>x.id === uId);
       if (u?.ultima_conexion) return <span className="text-[8px] text-slate-400">Últ. vez {new Date(u.ultima_conexion).toLocaleDateString([], {day:'2-digit', month:'2-digit'})} {new Date(u.ultima_conexion).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>;
@@ -554,7 +560,11 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                  avatarChatActual ? <img src={avatarChatActual} className="w-full h-full object-cover" /> :
                                  <div className="font-black text-white">{chatActivo.nombre.charAt(0)}</div>}
                             </div>
-                            {chatActivo.tipo === 'dm' && usuariosOnline.includes(chatActivo.id) && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>}
+                            {chatActivo.tipo === 'dm' && usuariosDeVacaciones.includes(chatActivo.id) ? (
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-100 text-amber-600 text-[10px] flex items-center justify-center border-2 border-slate-900 rounded-full z-10 shadow-sm leading-none">🌴</div>
+                            ) : chatActivo.tipo === 'dm' && usuariosOnline.includes(chatActivo.id) && (
+                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+                            )}
                         </div>
                         <div className="overflow-hidden flex-1">
                             <h3 className="font-black text-[13px] md:text-sm uppercase truncate">{chatActivo.nombre}</h3>
@@ -698,7 +708,11 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                             <button key={u.id} onClick={() => setChatActivo({tipo: 'dm', id: u.id, nombre: `${u.nombre} ${u.apellidos}`})} className="w-full bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-3 text-left">
                                                 <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-black shrink-0 relative overflow-hidden shadow-inner">
                                                     {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <span>{u.nombre.charAt(0)}</span>}
-                                                    {usuariosOnline.includes(u.id) && <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full z-10"></div>}
+                                                    {usuariosDeVacaciones.includes(u.id) ? (
+                                                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-amber-100 text-amber-600 text-[10px] flex items-center justify-center border-2 border-white rounded-full z-10 leading-none shadow-sm">🌴</div>
+                                                    ) : usuariosOnline.includes(u.id) && (
+                                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full z-10"></div>
+                                                    )}
                                                     {ult && ult.unread > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 rounded-bl-lg text-[8px] flex items-center justify-center font-black z-10">{ult.unread}</span>}
                                                 </div>
                                                 <div className="overflow-hidden flex-1">

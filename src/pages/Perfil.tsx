@@ -288,7 +288,6 @@ export default function Perfil() {
 
   return (
     <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-none" />
 
       {/* COMPONENTE GLOBAL DE CHAT */}
       <ChatGlobal 

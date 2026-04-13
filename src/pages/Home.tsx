@@ -28,17 +28,17 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 const modulosMenu = [
-    { nombre: 'Proyectos', icono: LayoutGrid, ruta: '/proyectos', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-    { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revision', color: 'text-red-500', bg: 'hover:bg-red-50' },
-    { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
-    { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-    { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/agendar-viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
-    { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
-    { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-    { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
-    { nombre: 'Finanzas', icono: Banknote, ruta: '/finanzas', color: 'text-purple-500', bg: 'hover:bg-purple-50' },
-    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
-    { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50' }
+    { nombre: 'Proyectos', icono: LayoutGrid, ruta: '/proyectos', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'proyectos' },
+    { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revision', color: 'text-red-500', bg: 'hover:bg-red-50', permiso: 'revision_cotizaciones' },
+    { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'ventas' },
+    { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'cotizaciones' },
+    { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/agendar-viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'agendar_viabilidad' },
+    { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'instalacion' },
+    { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'interconexion' },
+    { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'inventario' },
+    { nombre: 'Finanzas', icono: Banknote, ruta: '/finanzas', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: 'finanzas' },
+    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' },
+    { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' }
 ]
 
 const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -182,11 +182,18 @@ export default function Home() {
 
   const cargarDatosIniciales = async (userId: string) => {
     setCargandoFeed(true);
-    const { data: users } = await supabase.from('perfiles').select('id, nombre, apellidos, rol_sistema, avatar_url, jefe_id, fecha_nacimiento');
+    // Solicitamos todo ('*') para que la sesión se actualice automáticamente de la DB
+    const { data: users } = await supabase.from('perfiles').select('*');
     if (users) {
         setUsuariosDb(users);
         const me = users.find(u => u.id === userId);
-        if (me) setUsuario(me);
+        if (me) {
+            // Refrescar permisos actualizados
+            const savedSession = JSON.parse(localStorage.getItem('session_gea_solar') || '{}');
+            const freshSession = { ...savedSession, ...me };
+            localStorage.setItem('session_gea_solar', JSON.stringify(freshSession));
+            setUsuario(freshSession);
+        }
     }
     await cargarPosts();
     await cargarSolicitudes();
@@ -195,10 +202,13 @@ export default function Home() {
   }
 
   const handleNotifClick = (notif: any) => {
-      if (notif.mensaje.includes('mensaje directo')) {
+      if (notif.mensaje.includes('|||')) {
+          const [textoOriginal, ruta] = notif.mensaje.split('|||');
+          navigate(ruta);
+      } else if (notif.mensaje.includes('mensaje directo')) {
           setChatInicial({ tipo: 'dm', id: notif.autor_id, nombre: `${notif.autor?.nombre} ${notif.autor?.apellidos}` });
           setChatAbierto(true);
-      } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('proyecto') || notif.mensaje.includes('grupo')) {
+      } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('grupo')) {
           setChatInicial(null); 
           setChatAbierto(true);
       }
@@ -446,7 +456,6 @@ export default function Home() {
 
   return (
     <div className="h-screen w-full text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col overflow-hidden" style={{ backgroundImage: `url(${degradadoBg})` }}>
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-none" />
 
       {/* NAV BAR PERSONALIZADA DEL HOME */}
       <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 shadow-sm h-16 shrink-0 flex items-center relative z-50">
@@ -469,9 +478,8 @@ export default function Home() {
             <div className="flex items-center gap-2">
                 <div onClick={() => navigate('/perfil')} className="bg-white px-2 md:px-4 py-1.5 rounded-xl border border-slate-200 flex items-center gap-3 shadow-sm cursor-pointer hover:bg-orange-50 transition-colors">
                     {renderAvatar(usuario, "w-8 h-8 rounded-lg")}
-                    <div className="text-right flex flex-col hidden sm:flex">
+                    <div className="text-right flex flex-col hidden sm:flex justify-center">
                         <span className="text-[10px] font-black text-slate-900 uppercase leading-none">{usuario?.nombre}</span>
-                        <span className="text-[8px] font-bold text-slate-500 uppercase mt-1 tracking-widest">{usuario?.rol_sistema || 'GEA'}</span>
                     </div>
                 </div>
                 <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-xl border border-slate-200 shadow-sm"><LogOut size={20}/></button>
@@ -489,7 +497,7 @@ export default function Home() {
                     <div className="p-6 flex justify-between items-center border-b border-slate-50"><img src={solarisLogo} alt="GEA" className="h-6" /><button onClick={() => setMenuMovilAbierto(false)} className="p-2 bg-slate-100 rounded-lg"><X size={20}/></button></div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
-                        {modulosMenu.map((mod) => (<button key={mod.nombre} onClick={() => {navigate(mod.ruta); setMenuMovilAbierto(false)}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${mod.bg}`}><div className={`p-2 rounded-lg bg-white shadow-sm border border-slate-100 ${mod.color}`}><mod.icono size={16} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600">{mod.nombre}</span></button>))}
+                        {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => {navigate(mod.ruta); setMenuMovilAbierto(false)}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${mod.bg}`}><div className={`p-2 rounded-lg bg-white shadow-sm border border-slate-100 ${mod.color}`}><mod.icono size={16} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600">{mod.nombre}</span></button>))}
                     </div>
                 </motion.div>
             </div>
@@ -552,7 +560,7 @@ export default function Home() {
             <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
                 <div className="space-y-1">
-                    {modulosMenu.map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${mod.bg}`}><div className={`p-1.5 rounded-lg bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={14} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
+                    {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${mod.bg}`}><div className={`p-1.5 rounded-lg bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={14} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
                 </div>
             </div>
         </aside>
