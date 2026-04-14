@@ -12,6 +12,7 @@ import Header from '../components/Header'
 import ChatGlobal from '../components/ChatGlobal'
 import ModalLineaTiempo from '../components/ModalLineaTiempo'
 import ModalViabilidadDetalle from '../components/ModalViabilidadDetalle'
+import ModalCalendarioViabilidad from '../components/ModalCalendarioViabilidad'
 import degradadoBg from '../assets/degradado.png'
 
 const STEPS = [
@@ -54,6 +55,7 @@ export default function Viabilidad() {
 
    // MODALES
    const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
+   const [modalCalendarioAbierto, setModalCalendarioAbierto] = useState(false)
    const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | null>(null)
    const [showBitacora, setShowBitacora] = useState(false)
 
@@ -290,6 +292,12 @@ export default function Viabilidad() {
                         <input type="text" placeholder="Buscar por nombre, ID o vendedor..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="bg-white border border-slate-200 rounded-xl py-2.5 pl-9 pr-4 w-full font-bold text-xs outline-none focus:border-slate-400 shadow-inner" />
                      </div>
                   </div>
+                  <button 
+                     onClick={() => setModalCalendarioAbierto(true)}
+                     className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-xl px-4 py-2.5 font-black text-xs flex items-center justify-center gap-2 transition-all shadow-sm shrink-0 uppercase tracking-widest min-w-max"
+                  >
+                     <Calendar size={16} /> Calendario
+                  </button>
                </div>
 
                {cargando ? (
@@ -392,6 +400,13 @@ export default function Viabilidad() {
                onBitacoraClick={() => setShowBitacora(true)}
             />
          )}
+
+         <ModalCalendarioViabilidad
+            isOpen={modalCalendarioAbierto}
+            onClose={() => setModalCalendarioAbierto(false)}
+            viabilidades={viabilidades}
+            onAbrirProyecto={setProyectoSeleccionado}
+         />
 
          {/* MODAL INFO DETALLADA (MODO VISTA DE LO CAPTURADO EN PROYECTO) */}
          <AnimatePresence>
