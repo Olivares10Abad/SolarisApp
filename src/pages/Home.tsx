@@ -2,11 +2,11 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
-import { 
-  BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, CalendarCheck, 
-  Banknote, FileText, LogOut, Image as ImageIcon, Send, Heart, Cake, 
-  Calendar as CalendarIcon, X, Loader2, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2,
-  CheckCircle2, Clock, PlaneTakeoff, Menu, ChevronDown, ChevronUp, MessageSquare
+import {
+    BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, CalendarCheck,
+    Banknote, FileText, LogOut, Image as ImageIcon, Send, Heart, Cake,
+    Calendar as CalendarIcon, X, Loader2, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2,
+    CheckCircle2, Clock, PlaneTakeoff, Menu, ChevronDown, ChevronUp, MessageSquare
 } from 'lucide-react'
 
 // IMPORTAR COMPONENTES GLOBALES
@@ -16,15 +16,15 @@ import NotificacionesGlobales from '../components/NotificacionesGlobales'
 import solarisLogo from '../assets/solarislogo.png'
 import degradadoBg from '../assets/degradado.png'
 
-const PUBLIC_VAPID_KEY = 'BKOZjVBbf2CGGp0-WewaZYN-CjyHJAlApE2iX19T7OZxTdr5C3-x89CYu6pDpMnbKRaKYQccunTi4IattIom_Is'; 
+const PUBLIC_VAPID_KEY = 'BKOZjVBbf2CGGp0-WewaZYN-CjyHJAlApE2iX19T7OZxTdr5C3-x89CYu6pDpMnbKRaKYQccunTi4IattIom_Is';
 
 function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
-  return outputArray;
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    return outputArray;
 }
 
 const modulosMenu = [
@@ -54,778 +54,849 @@ const festivosMexico = [
 ]
 
 export default function Home() {
-  const navigate = useNavigate()
-  const [usuario, setUsuario] = useState<any>(null)
-  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
-  const [mostrarPanelDerecho, setMostrarPanelDerecho] = useState(false)
-  
-  const [usuariosDb, setUsuariosDb] = useState<any[]>([])
-  const [posts, setPosts] = useState<any[]>([])
-  const [solicitudesVacaciones, setSolicitudesVacaciones] = useState<any[]>([])
-  const [cargandoFeed, setCargandoFeed] = useState(true)
-  
-  const [visiblePosts, setVisiblePosts] = useState(5)
+    const navigate = useNavigate()
+    const [usuario, setUsuario] = useState<any>(null)
+    const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
+    const [mostrarPanelDerecho, setMostrarPanelDerecho] = useState(false)
 
-  const [nuevoPost, setNuevoPost] = useState('')
-  const [publicando, setPublicando] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [imagenSeleccionada, setImagenSeleccionada] = useState<File | null>(null)
-  const [previewImagen, setPreviewImagen] = useState<string | null>(null)
-  const [modoEncuesta, setModoEncuesta] = useState(false)
-  const [opcionesEncuesta, setOpcionesEncuesta] = useState(['', ''])
-  
-  const [mostrarMenciones, setMostrarMenciones] = useState(false)
-  const [busquedaMencion, setBusquedaMencion] = useState('')
-  const [posicionCursor, setPosicionCursor] = useState(0)
-  const [idsMencionados, setIdsMencionados] = useState<string[]>([])
-  
-  const [likesUsuarios, setLikesUsuarios] = useState<Record<string, string[]>>({})
-  const [votosEncuestas, setVotosEncuestas] = useState<Record<string, any[]>>({})
-  const [postEditandoId, setPostEditandoId] = useState<string | null>(null)
-  const [textoEditado, setTextoEditado] = useState('')
-  const [comentariosVisibles, setComentariosVisibles] = useState<Record<string, boolean>>({})
-  const [comentariosData, setComentariosData] = useState<Record<string, any[]>>({})
-  const [comentariosCounts, setComentariosCounts] = useState<Record<string, number>>({})
-  const [nuevoComentario, setNuevoComentario] = useState<Record<string, string>>({})
-  const [verLikesModal, setVerLikesModal] = useState<string[] | null>(null)
-  
-  const [fechaCalendario, setFechaCalendario] = useState(new Date())
-  const [hoveredDay, setHoveredDay] = useState<number | null>(null)
+    const [usuariosDb, setUsuariosDb] = useState<any[]>([])
+    const [viabilidadesDb, setViabilidadesDb] = useState<any[]>([])
+    const [posts, setPosts] = useState<any[]>([])
+    const [solicitudesVacaciones, setSolicitudesVacaciones] = useState<any[]>([])
+    const [cargandoFeed, setCargandoFeed] = useState(true)
 
-  const [chatAbierto, setChatAbierto] = useState(false)
-  const [chatInicial, setChatInicial] = useState<any>(null)
+    const [visiblePosts, setVisiblePosts] = useState(5)
 
-  const [widgetSolicitudesAbierto, setWidgetSolicitudesAbierto] = useState(() => JSON.parse(localStorage.getItem('widget_solicitudes') ?? 'true'))
-  const [widgetProximosAbierto, setWidgetProximosAbierto] = useState(() => JSON.parse(localStorage.getItem('widget_proximos') ?? 'true'))
+    const [nuevoPost, setNuevoPost] = useState('')
+    const [publicando, setPublicando] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const [imagenSeleccionada, setImagenSeleccionada] = useState<File | null>(null)
+    const [previewImagen, setPreviewImagen] = useState<string | null>(null)
+    const [modoEncuesta, setModoEncuesta] = useState(false)
+    const [opcionesEncuesta, setOpcionesEncuesta] = useState(['', ''])
 
-  useEffect(() => { localStorage.setItem('widget_solicitudes', JSON.stringify(widgetSolicitudesAbierto)) }, [widgetSolicitudesAbierto])
-  useEffect(() => { localStorage.setItem('widget_proximos', JSON.stringify(widgetProximosAbierto)) }, [widgetProximosAbierto])
+    const [mostrarMenciones, setMostrarMenciones] = useState(false)
+    const [busquedaMencion, setBusquedaMencion] = useState('')
+    const [posicionCursor, setPosicionCursor] = useState(0)
+    const [idsMencionados, setIdsMencionados] = useState<string[]>([])
 
-  const formatearFechaPost = (fechaStr: string) => {
-    const d = new Date(fechaStr);
-    return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  }
+    const [likesUsuarios, setLikesUsuarios] = useState<Record<string, string[]>>({})
+    const [votosEncuestas, setVotosEncuestas] = useState<Record<string, any[]>>({})
+    const [postEditandoId, setPostEditandoId] = useState<string | null>(null)
+    const [textoEditado, setTextoEditado] = useState('')
+    const [comentariosVisibles, setComentariosVisibles] = useState<Record<string, boolean>>({})
+    const [comentariosData, setComentariosData] = useState<Record<string, any[]>>({})
+    const [comentariosCounts, setComentariosCounts] = useState<Record<string, number>>({})
+    const [nuevoComentario, setNuevoComentario] = useState<Record<string, string>>({})
+    const [verLikesModal, setVerLikesModal] = useState<string[] | null>(null)
 
-  const solicitarPermisoPush = async () => {
-    if ('Notification' in window) {
-      const permiso = await Notification.requestPermission();
-      if (permiso === 'granted') console.log('Push habilitado');
+    const [fechaCalendario, setFechaCalendario] = useState(new Date())
+    const [hoveredDay, setHoveredDay] = useState<number | null>(null)
+
+    const [chatAbierto, setChatAbierto] = useState(false)
+    const [chatInicial, setChatInicial] = useState<any>(null)
+
+    const [widgetSolicitudesAbierto, setWidgetSolicitudesAbierto] = useState(() => JSON.parse(localStorage.getItem('widget_solicitudes') ?? 'true'))
+    const [widgetProximosAbierto, setWidgetProximosAbierto] = useState(() => JSON.parse(localStorage.getItem('widget_proximos') ?? 'true'))
+
+    useEffect(() => { localStorage.setItem('widget_solicitudes', JSON.stringify(widgetSolicitudesAbierto)) }, [widgetSolicitudesAbierto])
+    useEffect(() => { localStorage.setItem('widget_proximos', JSON.stringify(widgetProximosAbierto)) }, [widgetProximosAbierto])
+
+    const formatearFechaPost = (fechaStr: string) => {
+        const d = new Date(fechaStr);
+        return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     }
-  }
 
-  const registrarSuscripcionPush = async (userId: string) => {
-    if (!userId) return; 
-    try {
-      if (!('serviceWorker' in navigator)) return;
-      const registro = await navigator.serviceWorker.ready;
-      const suscripcion = await registro.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-      });
-      const subJson = suscripcion.toJSON();
-      await supabase.from('push_subscriptions').upsert({
-        user_id: userId, endpoint: subJson.endpoint, subscription_json: subJson
-      }, { onConflict: 'endpoint' });
-    } catch (err) { console.warn("Aviso de Push:", err); }
-  }
-
-  useEffect(() => {
-    const sessionData = localStorage.getItem('session_gea_solar')
-    if (!sessionData) navigate('/login')
-    else {
-      const user = JSON.parse(sessionData);
-      setUsuario(user);
-      cargarDatosIniciales(user.id);
-      solicitarPermisoPush();
-      registrarSuscripcionPush(user.id);
-
-      const channel = supabase.channel('solaris-updates')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'muro_social' }, () => { cargarPosts(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_ausencia' }, () => { cargarSolicitudes(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'likes_muro' }, () => { cargarInteracciones(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'comentarios_muro' }, () => { cargarInteracciones(); })
-        .subscribe();
-
-      return () => { supabase.removeChannel(channel); }
-    }
-  }, [navigate])
-
-  const cargarPosts = async () => {
-    const { data: feed } = await supabase.from('muro_social').select(`*, autor:perfiles!user_id(id, nombre, apellidos, rol_sistema, avatar_url)`).order('creado_at', { ascending: false });
-    if (feed) setPosts(feed);
-  }
-
-  const cargarSolicitudes = async () => {
-    const { data: solicitudes } = await supabase.from('solicitudes_ausencia').select(`*, empleado:perfiles!user_id(id, nombre, apellidos, avatar_url, jefe_id)`).order('creado_at', { ascending: false });
-    if (solicitudes) setSolicitudesVacaciones(solicitudes);
-  }
-
-  const cargarInteracciones = async () => {
-    const { data: comms } = await supabase.from('comentarios_muro').select('post_id');
-    if (comms) {
-        const counts: Record<string, number> = {};
-        comms.forEach(c => { counts[c.post_id] = (counts[c.post_id] || 0) + 1; });
-        setComentariosCounts(counts);
-    }
-    const { data: likes } = await supabase.from('likes_muro').select('*');
-    if (likes) {
-        const map: Record<string, string[]> = {};
-        likes.forEach(l => { if(!map[l.post_id]) map[l.post_id] = []; map[l.post_id].push(l.user_id); });
-        setLikesUsuarios(map);
-    }
-    const { data: votos } = await supabase.from('votos_encuesta').select('*');
-    if (votos) {
-        const map: Record<string, any[]> = {};
-        votos.forEach(v => { if(!map[v.post_id]) map[v.post_id] = []; map[v.post_id].push(v); });
-        setVotosEncuestas(map);
-    }
-  }
-
-  const cargarDatosIniciales = async (userId: string) => {
-    setCargandoFeed(true);
-    // Solicitamos todo ('*') para que la sesión se actualice automáticamente de la DB
-    const { data: users } = await supabase.from('perfiles').select('*');
-    if (users) {
-        setUsuariosDb(users);
-        const me = users.find(u => u.id === userId);
-        if (me) {
-            // Refrescar permisos actualizados
-            const savedSession = JSON.parse(localStorage.getItem('session_gea_solar') || '{}');
-            const freshSession = { ...savedSession, ...me };
-            localStorage.setItem('session_gea_solar', JSON.stringify(freshSession));
-            setUsuario(freshSession);
+    const solicitarPermisoPush = async () => {
+        if ('Notification' in window) {
+            const permiso = await Notification.requestPermission();
+            if (permiso === 'granted') console.log('Push habilitado');
         }
     }
-    await cargarPosts();
-    await cargarSolicitudes();
-    await cargarInteracciones();
-    setCargandoFeed(false);
-  }
 
-  const handleNotifClick = (notif: any) => {
-      if (notif.mensaje.includes('|||')) {
-          const [textoOriginal, ruta] = notif.mensaje.split('|||');
-          navigate(ruta);
-      } else if (notif.mensaje.includes('mensaje directo')) {
-          setChatInicial({ tipo: 'dm', id: notif.autor_id, nombre: `${notif.autor?.nombre} ${notif.autor?.apellidos}` });
-          setChatAbierto(true);
-      } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('grupo')) {
-          setChatInicial(null); 
-          setChatAbierto(true);
-      }
-  }
+    const registrarSuscripcionPush = async (userId: string) => {
+        if (!userId) return;
+        try {
+            if (!('serviceWorker' in navigator)) return;
+            const registro = await navigator.serviceWorker.ready;
+            const suscripcion = await registro.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+            });
+            const subJson = suscripcion.toJSON();
+            await supabase.from('push_subscriptions').upsert({
+                user_id: userId, endpoint: subJson.endpoint, subscription_json: subJson
+            }, { onConflict: 'endpoint' });
+        } catch (err) { console.warn("Aviso de Push:", err); }
+    }
 
-  const renderAvatar = (userObj: any, size: string = "w-10 h-10 md:w-12 md:h-12 rounded-2xl") => {
-      if (userObj?.avatar_url) return <img src={userObj.avatar_url} alt="Avatar" className={`${size} object-cover shadow-sm shrink-0`} />;
-      return <div className={`${size} bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-black shadow-sm shrink-0 uppercase text-xs`}>{userObj?.nombre?.charAt(0)}</div>;
-  }
+    useEffect(() => {
+        const sessionData = localStorage.getItem('session_gea_solar')
+        if (!sessionData) navigate('/login')
+        else {
+            const user = JSON.parse(sessionData);
+            setUsuario(user);
+            cargarDatosIniciales(user.id);
+            solicitarPermisoPush();
+            registrarSuscripcionPush(user.id);
 
-  const responderSolicitud = async (id: string, estado: 'Aprobada' | 'Rechazada') => {
-      await supabase.from('solicitudes_ausencia').update({ estado, revisado_por: usuario.id }).eq('id', id);
-      setSolicitudesVacaciones(solicitudesVacaciones.map(s => s.id === id ? { ...s, estado } : s));
-      const sol = solicitudesVacaciones.find(s => s.id === id);
-      if (sol && sol.user_id) {
-          await supabase.from('notificaciones').insert([{ usuario_id: sol.user_id, autor_id: usuario.id, mensaje: `ha ${estado.toLowerCase()} tu solicitud de vacaciones.` }]);
-      }
-  }
+            const channel = supabase.channel('solaris-updates')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'muro_social' }, () => { cargarPosts(); })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_ausencia' }, () => { cargarSolicitudes(); })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'likes_muro' }, () => { cargarInteracciones(); })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comentarios_muro' }, () => { cargarInteracciones(); })
+                .subscribe();
 
-  const handleLogout = async () => {
-    try {
-      const registro = await navigator.serviceWorker.ready;
-      const suscripcion = await registro.pushManager.getSubscription();
-      if (suscripcion) {
-        await supabase.from('push_subscriptions').delete().eq('endpoint', suscripcion.toJSON().endpoint);
-        await suscripcion.unsubscribe();
-      }
-    } catch (error) { console.error(error); }
-    await supabase.auth.signOut();
-    window.location.href = "/login"; 
-  };
-
-  const solicitudesVisibles = useMemo(() => {
-      if (!usuario) return [];
-      return solicitudesVacaciones.filter(sol => {
-          if (sol.estado === 'Rechazada') return false; 
-          const isMine = sol.user_id === usuario.id;
-          const isMyTeam = sol.empleado?.jefe_id === usuario.id;
-          const isMyBoss = sol.user_id === usuario.jefe_id;
-          return isMine || isMyTeam || isMyBoss;
-      });
-  }, [solicitudesVacaciones, usuario]);
-
-  const solPendientesCount = solicitudesVisibles.filter(s => s.estado === 'Pendiente' && s.empleado?.jefe_id === usuario?.id).length;
-
-  const diaInicioMes = new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth(), 1).getDay();
-  const diasEnMes = new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() + 1, 0).getDate();
-
-  const eventosCombinados = useMemo(() => {
-    const añoActual = new Date().getFullYear();
-    const arr: any[] = [];
-    festivosMexico.forEach(f => {
-        const date = new Date(añoActual, f.mes, f.dia);
-        arr.push({ id: `F${f.mes}${f.dia}`, tipo: 'festivo', titulo: f.titulo, date, mes: f.mes, dia: f.dia, iniciales: '🇲🇽' });
-    });
-    usuariosDb.forEach(u => {
-        if (u.fecha_nacimiento && u.fecha_nacimiento.includes('-')) {
-            const [, m, d] = u.fecha_nacimiento.split('-');
-            const date = new Date(añoActual, parseInt(m)-1, parseInt(d));
-            arr.push({ id: `C${u.id}`, tipo: 'cumple', titulo: `Cumpleaños ${u.nombre}`, date, mes: parseInt(m)-1, dia: parseInt(d), iniciales: <Cake size={10}/> });
+            return () => { supabase.removeChannel(channel); }
         }
-    });
-    solicitudesVacaciones.filter(s => s.user_id === usuario?.id && s.estado !== 'Rechazada').forEach(sol => {
-        const start = new Date(sol.fecha_inicio + 'T12:00:00');
-        const end = new Date(sol.fecha_fin + 'T12:00:00');
-        const iter = new Date(start);
-        while (iter <= end) {
-            if (iter.getFullYear() === añoActual) {
-                arr.push({ id: `V${sol.id}-${iter.getTime()}`, tipo: 'vacaciones', titulo: 'Tus Vacaciones', date: new Date(iter), mes: iter.getMonth(), dia: iter.getDate(), iniciales: '✈️' });
+    }, [navigate])
+
+    const cargarPosts = async () => {
+        const { data: feed } = await supabase.from('muro_social').select(`*, autor:perfiles!user_id(id, nombre, apellidos, rol_sistema, avatar_url)`).order('creado_at', { ascending: false });
+        if (feed) setPosts(feed);
+    }
+
+    const cargarSolicitudes = async () => {
+        const { data: solicitudes } = await supabase.from('solicitudes_ausencia').select(`*, empleado:perfiles!user_id(id, nombre, apellidos, avatar_url, jefe_id)`).order('creado_at', { ascending: false });
+        if (solicitudes) setSolicitudesVacaciones(solicitudes);
+    }
+
+    const cargarInteracciones = async () => {
+        const { data: comms } = await supabase.from('comentarios_muro').select('post_id');
+        if (comms) {
+            const counts: Record<string, number> = {};
+            comms.forEach(c => { counts[c.post_id] = (counts[c.post_id] || 0) + 1; });
+            setComentariosCounts(counts);
+        }
+        const { data: likes } = await supabase.from('likes_muro').select('*');
+        if (likes) {
+            const map: Record<string, string[]> = {};
+            likes.forEach(l => { if (!map[l.post_id]) map[l.post_id] = []; map[l.post_id].push(l.user_id); });
+            setLikesUsuarios(map);
+        }
+        const { data: votos } = await supabase.from('votos_encuesta').select('*');
+        if (votos) {
+            const map: Record<string, any[]> = {};
+            votos.forEach(v => { if (!map[v.post_id]) map[v.post_id] = []; map[v.post_id].push(v); });
+            setVotosEncuestas(map);
+        }
+    }
+
+    const cargarDatosIniciales = async (userId: string) => {
+        setCargandoFeed(true);
+        const { data: users } = await supabase.from('perfiles').select('*');
+        if (users) {
+            setUsuariosDb(users);
+            const me = users.find(u => u.id === userId);
+            if (me) {
+                // Refrescar permisos actualizados
+                const savedSession = JSON.parse(localStorage.getItem('session_gea_solar') || '{}');
+                const freshSession = { ...savedSession, ...me };
+                localStorage.setItem('session_gea_solar', JSON.stringify(freshSession));
+                setUsuario(freshSession);
             }
-            iter.setDate(iter.getDate() + 1);
         }
-    });
-    return arr.sort((a,b) => a.date.getTime() - b.date.getTime());
-  }, [usuariosDb, solicitudesVacaciones, usuario]);
+        const { data: viabilidades } = await supabase.from('viabilidad_control').select(`id, fecha_agendada, hora_agendada_inicio, ingeniero_id, proyecto:proyecto_id(nombre_proyecto, vendedor_id)`).not('fecha_agendada', 'is', null);
+        if (viabilidades) setViabilidadesDb(viabilidades);
 
-  const eventosFuturos = useMemo(() => {
-    const hoy = new Date(); hoy.setHours(0,0,0,0);
-    return eventosCombinados.filter(e => e.date >= hoy);
-  }, [eventosCombinados]);
-
-  const handleSelectImagen = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImagenSeleccionada(file);
-      const reader = new FileReader();
-      reader.onloadend = () => { setPreviewImagen(reader.result as string); };
-      reader.readAsDataURL(file);
+        await cargarPosts();
+        await cargarSolicitudes();
+        await cargarInteracciones();
+        setCargandoFeed(false);
     }
-  }
 
-  const cancelarImagen = () => {
-    setImagenSeleccionada(null); setPreviewImagen(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const texto = e.target.value; setNuevoPost(texto);
-    const cursor = e.target.selectionStart;
-    const match = texto.substring(0, cursor).match(/@([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*)$/);
-    if (match && !texto.toLowerCase().includes('@todos')) {
-        setBusquedaMencion(match[1]); setPosicionCursor(cursor || 0); setMostrarMenciones(true);
-    } else { setMostrarMenciones(false); }
-  }
-
-  const insertarMencion = (u: any) => {
-    const textoAntes = nuevoPost.substring(0, posicionCursor).replace(/@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/, '');
-    const textoDespues = nuevoPost.substring(posicionCursor);
-    setNuevoPost(`${textoAntes}@${u.nombre} ${u.apellidos} ${textoDespues}`);
-    setMostrarMenciones(false);
-    if (!idsMencionados.includes(u.id)) setIdsMencionados([...idsMencionados, u.id]);
-  }
-
-  const handlePublicarPost = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!nuevoPost.trim() || publicando || !usuario?.id) return;
-    if (modoEncuesta && opcionesEncuesta.some(op => !op.trim())) return alert('Llena las opciones de la encuesta.');
-    setPublicando(true);
-    try {
-        let url = null;
-        if (imagenSeleccionada) {
-            const path = `${usuario.id}_${Date.now()}`;
-            await supabase.storage.from('post_images').upload(path, imagenSeleccionada);
-            url = supabase.storage.from('post_images').getPublicUrl(path).data.publicUrl;
+    const handleNotifClick = (notif: any) => {
+        if (notif.mensaje.includes('|||')) {
+            const [textoOriginal, ruta] = notif.mensaje.split('|||');
+            navigate(ruta);
+        } else if (notif.mensaje.includes('mensaje directo')) {
+            setChatInicial({ tipo: 'dm', id: notif.autor_id, nombre: `${notif.autor?.nombre} ${notif.autor?.apellidos}` });
+            setChatAbierto(true);
+        } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('grupo')) {
+            setChatInicial(null);
+            setChatAbierto(true);
         }
+    }
 
-        const postTemp = {
-            id: `temp-${Date.now()}`, user_id: usuario.id, contenido: nuevoPost, imagen_url: url,
-            tipo: modoEncuesta ? 'encuesta' : 'texto', opciones: modoEncuesta ? opcionesEncuesta.filter(o => o.trim() !== '') : [],
-            creado_at: new Date().toISOString(), autor: { id: usuario.id, nombre: usuario.nombre, apellidos: usuario.apellidos, avatar_url: usuario.avatar_url, rol_sistema: usuario.rol_sistema }
-        };
-        setPosts(prev => [postTemp, ...prev]);
+    const renderAvatar = (userObj: any, size: string = "w-10 h-10 md:w-12 md:h-12 rounded-2xl") => {
+        if (userObj?.avatar_url) return <img src={userObj.avatar_url} alt="Avatar" className={`${size} object-cover shadow-sm shrink-0`} />;
+        return <div className={`${size} bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-black shadow-sm shrink-0 uppercase text-xs`}>{userObj?.nombre?.charAt(0)}</div>;
+    }
 
-        const payload = { user_id: usuario.id, contenido: nuevoPost, imagen_url: url, tipo: modoEncuesta ? 'encuesta' : 'texto', opciones: modoEncuesta ? opcionesEncuesta.filter(o => o.trim() !== '') : [] };
-        await supabase.from('muro_social').insert([payload]);
-        
-        let targets = [...idsMencionados];
-        if (nuevoPost.toLowerCase().includes('@todos')) targets = usuariosDb.map(u => u.id);
-        targets = [...new Set(targets)];
-        for (const tid of targets) {
-            await supabase.from('notificaciones').insert([{ usuario_id: tid, autor_id: usuario.id, mensaje: nuevoPost.toLowerCase().includes('@todos') ? 'envió un comunicado a @Todos.' : 'te etiquetó en una publicación.' }]);
+    const responderSolicitud = async (id: string, estado: 'Aprobada' | 'Rechazada') => {
+        await supabase.from('solicitudes_ausencia').update({ estado, revisado_por: usuario.id }).eq('id', id);
+        setSolicitudesVacaciones(solicitudesVacaciones.map(s => s.id === id ? { ...s, estado } : s));
+        const sol = solicitudesVacaciones.find(s => s.id === id);
+        if (sol && sol.user_id) {
+            await supabase.from('notificaciones').insert([{ usuario_id: sol.user_id, autor_id: usuario.id, mensaje: `ha ${estado.toLowerCase()} tu solicitud de vacaciones.` }]);
         }
-        
-        setNuevoPost(''); setImagenSeleccionada(null); setPreviewImagen(null); setModoEncuesta(false); setOpcionesEncuesta(['','']); setIdsMencionados([]);
-    } catch (err) { console.error(err); } finally { setPublicando(false); }
-  }
+    }
 
-  const toggleLike = async (postId: string) => {
-      if (postId.startsWith('temp-')) return; 
-      const myLikes = likesUsuarios[postId] || [];
-      const hasLiked = myLikes.includes(usuario.id);
-      if (hasLiked) { 
-          await supabase.from('likes_muro').delete().match({ post_id: postId, user_id: usuario.id }); 
-          setLikesUsuarios({...likesUsuarios, [postId]: myLikes.filter(id => id !== usuario.id)});
-      } 
-      else { 
-          await supabase.from('likes_muro').insert([{ post_id: postId, user_id: usuario.id }]); 
-          setLikesUsuarios({...likesUsuarios, [postId]: [...myLikes, usuario.id]});
-          const post = posts.find(p => p.id === postId);
-          if (post && post.user_id && post.user_id !== usuario.id) {
-              await supabase.from('notificaciones').insert([{ usuario_id: post.user_id, autor_id: usuario.id, mensaje: 'le dio "Me gusta" a tu publicación.' }]);
-          }
-      }
-  }
+    const handleLogout = async () => {
+        try {
+            const registro = await navigator.serviceWorker.ready;
+            const suscripcion = await registro.pushManager.getSubscription();
+            if (suscripcion) {
+                await supabase.from('push_subscriptions').delete().eq('endpoint', suscripcion.toJSON().endpoint);
+                await suscripcion.unsubscribe();
+            }
+        } catch (error) { console.error(error); }
+        await supabase.auth.signOut();
+        window.location.href = "/login";
+    };
 
-  const guardarEdicion = async (id: string) => {
-    if (!textoEditado.trim()) return;
-    await supabase.from('muro_social').update({ contenido: textoEditado }).eq('id', id);
-    setPostEditandoId(null); cargarPosts(); 
-  }
+    const solicitudesVisibles = useMemo(() => {
+        if (!usuario) return [];
+        return solicitudesVacaciones.filter(sol => {
+            if (sol.estado === 'Rechazada') return false;
+            const isMine = sol.user_id === usuario.id;
+            const isMyTeam = sol.empleado?.jefe_id === usuario.id;
+            const isMyBoss = sol.user_id === usuario.jefe_id;
+            return isMine || isMyTeam || isMyBoss;
+        });
+    }, [solicitudesVacaciones, usuario]);
 
-  const borrarPost = async (id: string) => {
-    if(!confirm('¿Eliminar publicación?')) return;
-    await supabase.from('muro_social').delete().eq('id', id);
-    cargarPosts(); 
-  }
+    const solPendientesCount = solicitudesVisibles.filter(s => s.estado === 'Pendiente' && s.empleado?.jefe_id === usuario?.id).length;
 
-  const toggleComentarios = async (postId: string) => {
-      const visible = !comentariosVisibles[postId];
-      setComentariosVisibles({ ...comentariosVisibles, [postId]: visible });
-      if (visible && !comentariosData[postId]) {
-          const { data } = await supabase.from('comentarios_muro').select('*, autor:perfiles!user_id(nombre, apellidos, avatar_url)').eq('post_id', postId).order('creado_at', { ascending: true });
-          if(data) setComentariosData({ ...comentariosData, [postId]: data });
-      }
-  }
+    const diaInicioMes = new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth(), 1).getDay();
+    const diasEnMes = new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() + 1, 0).getDate();
 
-  const publicarComentario = async (postId: string) => {
-      if (postId.startsWith('temp-')) return;
-      const text = nuevoComentario[postId]; if(!text?.trim()) return;
-      await supabase.from('comentarios_muro').insert([{ post_id: postId, user_id: usuario.id, contenido: text }]);
-      setNuevoComentario({ ...nuevoComentario, [postId]: '' });
-      const post = posts.find(p => p.id === postId);
-      if (post && post.user_id && post.user_id !== usuario.id) {
-          await supabase.from('notificaciones').insert([{ usuario_id: post.user_id, autor_id: usuario.id, mensaje: 'comentó tu publicación.' }]);
-      }
-  }
+    const eventosCombinados = useMemo(() => {
+        const añoActual = new Date().getFullYear();
+        const arr: any[] = [];
+        festivosMexico.forEach(f => {
+            const date = new Date(añoActual, f.mes, f.dia);
+            arr.push({ id: `F${f.mes}${f.dia}`, tipo: 'festivo', titulo: f.titulo, date, mes: f.mes, dia: f.dia, iniciales: '🇲🇽' });
+        });
+        usuariosDb.forEach(u => {
+            if (u.fecha_nacimiento && u.fecha_nacimiento.includes('-')) {
+                const [, m, d] = u.fecha_nacimiento.split('-');
+                const date = new Date(añoActual, parseInt(m) - 1, parseInt(d));
+                arr.push({ id: `C${u.id}`, tipo: 'cumple', titulo: `Cumpleaños ${u.nombre}`, date, mes: parseInt(m) - 1, dia: parseInt(d), iniciales: <Cake size={10} /> });
+            }
+        });
+        solicitudesVacaciones.filter(s => s.user_id === usuario?.id && s.estado !== 'Rechazada').forEach(sol => {
+            const start = new Date(sol.fecha_inicio + 'T12:00:00');
+            const end = new Date(sol.fecha_fin + 'T12:00:00');
+            const iter = new Date(start);
+            while (iter <= end) {
+                if (iter.getFullYear() === añoActual) {
+                    arr.push({ id: `V${sol.id}-${iter.getTime()}`, tipo: 'vacaciones', titulo: 'Tus Vacaciones', date: new Date(iter), mes: iter.getMonth(), dia: iter.getDate(), iniciales: '✈️' });
+                }
+                iter.setDate(iter.getDate() + 1);
+            }
+        });
 
-  const votarEncuesta = async (postId: string, opcionIndex: number) => {
-      if (postId.startsWith('temp-')) return;
-      const misVotos = votosEncuestas[postId] || [];
-      if (misVotos.some(v => v.user_id === usuario.id)) return; 
-      await supabase.from('votos_encuesta').insert([{ post_id: postId, user_id: usuario.id, opcion_index: opcionIndex }]);
-      const post = posts.find(p => p.id === postId);
-      if (post && post.user_id && post.user_id !== usuario.id) {
-          await supabase.from('notificaciones').insert([{ usuario_id: post.user_id, autor_id: usuario.id, mensaje: 'votó en tu encuesta.' }]);
-      }
-  }
+        viabilidadesDb.forEach(v => {
+            if (!v.fecha_agendada) return;
+            const [y, m, d] = v.fecha_agendada.split('-');
+            const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+            if (date.getFullYear() === añoActual) {
+                const soyDueno = typeof v.proyecto?.vendedor_id === 'object' ? v.proyecto?.vendedor_id?.id === usuario?.id : v.proyecto?.vendedor_id === usuario?.id;
+                const soyIngeniero = v.ingeniero_id === usuario?.id;
 
-  const WidgetCalendario = () => (
-      <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
-          <div className="flex items-center justify-between mb-4 px-2">
-              <button onClick={() => setFechaCalendario(new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() - 1, 1))} className="hover:bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-orange-500"><ChevronLeft size={16}/></button>
-              <h3 className="text-[11px] font-black uppercase tracking-widest">{mesesNombres[fechaCalendario.getMonth()]} {fechaCalendario.getFullYear()}</h3>
-              <button onClick={() => setFechaCalendario(new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() + 1, 1))} className="hover:bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-orange-500"><ChevronRight size={16}/></button>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center">
-              {['D','L','M','M','J','V','S'].map((d, i) => <div key={`dn-${i}`} className="text-[8px] font-black text-slate-400">{d}</div>)}
-              {Array.from({ length: diaInicioMes }).map((_, i) => <div key={`empty-${i}`} />)}
-              {Array.from({ length: diasEnMes }).map((_, i) => {
-                  const dia = i + 1;
-                  const evs = eventosCombinados.filter(e => e.mes === fechaCalendario.getMonth() && e.dia === dia);
-                  const esVacaciones = evs.some(e => e.tipo === 'vacaciones');
-                  const esHoy = new Date().getDate() === dia && new Date().getMonth() === fechaCalendario.getMonth() && new Date().getFullYear() === fechaCalendario.getFullYear();
-                  
-                  let bgColor = 'text-slate-600 hover:bg-slate-50';
-                  if (esHoy) bgColor = 'bg-slate-900 text-white shadow-md';
-                  else if (esVacaciones) bgColor = 'bg-blue-100 text-blue-600 border border-blue-200 cursor-pointer hover:scale-110';
-                  else if (evs.length > 0) bgColor = 'bg-orange-100 text-orange-600 border border-orange-200 cursor-pointer hover:scale-110';
+                if (!soyDueno && !soyIngeniero) return; // Skip if user is not related
 
-                  return (
-                    <div key={`d-${i}`} onMouseEnter={() => setHoveredDay(dia)} onMouseLeave={() => setHoveredDay(null)} className={`h-7 flex items-center justify-center rounded-lg text-[10px] font-bold relative transition-all ${bgColor}`}>
-                        {dia}
-                        <AnimatePresence>
-                          {hoveredDay === dia && evs.length > 0 && (
-                            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute bottom-full mb-2 bg-slate-900 text-white p-2 rounded-xl z-50 w-max min-w-[120px] pointer-events-none text-[9px] font-bold shadow-2xl border border-slate-700">
-                              {evs.map((ev, idx) => (<div key={idx} className="flex items-center gap-1.5 mb-1.5 last:mb-0"><div className="flex-shrink-0 text-xs">{ev.iniciales}</div> <span>{ev.titulo}</span></div>))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                    </div>
-                  )
-              })}
-          </div>
-      </div>
-  );
+                const horaStr = v.hora_agendada_inicio ? v.hora_agendada_inicio.substring(0, 5) : '';
+                if (soyDueno) {
+                    arr.push({
+                        id: `VIAB-DUE-${v.id}`,
+                        tipo: 'viabilidad_dueno',
+                        esMio: false, // Indicates relationship style
+                        titulo: `Viabilidad: ${v.proyecto?.nombre_proyecto || 'S/N'}`,
+                        hora: horaStr,
+                        date,
+                        mes: parseInt(m) - 1,
+                        dia: parseInt(d),
+                        iniciales: '🛠️'
+                    });
+                }
+                if (soyIngeniero) {
+                    arr.push({
+                        id: `VIAB-ING-${v.id}`,
+                        tipo: 'viabilidad_ingeniero',
+                        esMio: true,
+                        titulo: `Visita Asignada: ${v.proyecto?.nombre_proyecto || 'S/N'}`,
+                        hora: horaStr,
+                        date,
+                        mes: parseInt(m) - 1,
+                        dia: parseInt(d),
+                        iniciales: '🛠️'
+                    });
+                }
+            }
+        });
 
-  return (
-    <div className="h-screen w-full text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col overflow-hidden" style={{ backgroundImage: `url(${degradadoBg})` }}>
+        return arr.sort((a, b) => a.date.getTime() - b.date.getTime());
+    }, [usuariosDb, solicitudesVacaciones, viabilidadesDb, usuario]);
 
-      {/* NAV BAR PERSONALIZADA DEL HOME */}
-      <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 shadow-sm h-16 shrink-0 flex items-center relative z-50">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => setMenuMovilAbierto(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"><Menu size={24} /></button>
-            <img src={solarisLogo} alt="GEA" className="h-6 md:h-8 w-auto drop-shadow-sm" />
-            <h1 className="font-black text-sm md:text-lg tracking-tight text-slate-900 uppercase italic hidden sm:block tracking-tighter">Sistema Solaris</h1>
-          </div>
-          
-          <div className="flex items-center gap-2 md:gap-5">
-            <button onClick={() => setMostrarPanelDerecho(!mostrarPanelDerecho)} className="p-2 text-slate-500 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all relative lg:hidden"><LayoutGrid size={24} /><span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" /></button>
-            
-            <button onClick={() => { setChatInicial(null); setChatAbierto(true); }} className="p-2 text-slate-500 hover:text-orange-500 rounded-full transition-all relative">
-                <MessageSquare size={24} />
-            </button>
+    const eventosFuturos = useMemo(() => {
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        return eventosCombinados.filter(e => e.date >= hoy);
+    }, [eventosCombinados]);
 
-            <NotificacionesGlobales usuarioLogueado={usuario} onClickNotificacion={handleNotifClick} />
+    const handleSelectImagen = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setImagenSeleccionada(file);
+            const reader = new FileReader();
+            reader.onloadend = () => { setPreviewImagen(reader.result as string); };
+            reader.readAsDataURL(file);
+        }
+    }
 
-            <div className="flex items-center gap-2">
-                <div onClick={() => navigate('/perfil')} className="bg-white px-2 md:px-4 py-1.5 rounded-xl border border-slate-200 flex items-center gap-3 shadow-sm cursor-pointer hover:bg-orange-50 transition-colors">
-                    {renderAvatar(usuario, "w-8 h-8 rounded-lg")}
-                    <div className="text-right flex flex-col hidden sm:flex justify-center">
-                        <span className="text-[10px] font-black text-slate-900 uppercase leading-none">{usuario?.nombre}</span>
-                    </div>
-                </div>
-                <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-xl border border-slate-200 shadow-sm"><LogOut size={20}/></button>
+    const cancelarImagen = () => {
+        setImagenSeleccionada(null); setPreviewImagen(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+
+    const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const texto = e.target.value; setNuevoPost(texto);
+        const cursor = e.target.selectionStart;
+        const match = texto.substring(0, cursor).match(/@([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*)$/);
+        if (match && !texto.toLowerCase().includes('@todos')) {
+            setBusquedaMencion(match[1]); setPosicionCursor(cursor || 0); setMostrarMenciones(true);
+        } else { setMostrarMenciones(false); }
+    }
+
+    const insertarMencion = (u: any) => {
+        const textoAntes = nuevoPost.substring(0, posicionCursor).replace(/@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/, '');
+        const textoDespues = nuevoPost.substring(posicionCursor);
+        setNuevoPost(`${textoAntes}@${u.nombre} ${u.apellidos} ${textoDespues}`);
+        setMostrarMenciones(false);
+        if (!idsMencionados.includes(u.id)) setIdsMencionados([...idsMencionados, u.id]);
+    }
+
+    const handlePublicarPost = async (e: React.FormEvent) => {
+        e.preventDefault(); if (!nuevoPost.trim() || publicando || !usuario?.id) return;
+        if (modoEncuesta && opcionesEncuesta.some(op => !op.trim())) return alert('Llena las opciones de la encuesta.');
+        setPublicando(true);
+        try {
+            let url = null;
+            if (imagenSeleccionada) {
+                const path = `${usuario.id}_${Date.now()}`;
+                await supabase.storage.from('post_images').upload(path, imagenSeleccionada);
+                url = supabase.storage.from('post_images').getPublicUrl(path).data.publicUrl;
+            }
+
+            const postTemp = {
+                id: `temp-${Date.now()}`, user_id: usuario.id, contenido: nuevoPost, imagen_url: url,
+                tipo: modoEncuesta ? 'encuesta' : 'texto', opciones: modoEncuesta ? opcionesEncuesta.filter(o => o.trim() !== '') : [],
+                creado_at: new Date().toISOString(), autor: { id: usuario.id, nombre: usuario.nombre, apellidos: usuario.apellidos, avatar_url: usuario.avatar_url, rol_sistema: usuario.rol_sistema }
+            };
+            setPosts(prev => [postTemp, ...prev]);
+
+            const payload = { user_id: usuario.id, contenido: nuevoPost, imagen_url: url, tipo: modoEncuesta ? 'encuesta' : 'texto', opciones: modoEncuesta ? opcionesEncuesta.filter(o => o.trim() !== '') : [] };
+            await supabase.from('muro_social').insert([payload]);
+
+            let targets = [...idsMencionados];
+            if (nuevoPost.toLowerCase().includes('@todos')) targets = usuariosDb.map(u => u.id);
+            targets = [...new Set(targets)];
+            for (const tid of targets) {
+                await supabase.from('notificaciones').insert([{ usuario_id: tid, autor_id: usuario.id, mensaje: nuevoPost.toLowerCase().includes('@todos') ? 'envió un comunicado a @Todos.' : 'te etiquetó en una publicación.' }]);
+            }
+
+            setNuevoPost(''); setImagenSeleccionada(null); setPreviewImagen(null); setModoEncuesta(false); setOpcionesEncuesta(['', '']); setIdsMencionados([]);
+        } catch (err) { console.error(err); } finally { setPublicando(false); }
+    }
+
+    const toggleLike = async (postId: string) => {
+        if (postId.startsWith('temp-')) return;
+        const myLikes = likesUsuarios[postId] || [];
+        const hasLiked = myLikes.includes(usuario.id);
+        if (hasLiked) {
+            await supabase.from('likes_muro').delete().match({ post_id: postId, user_id: usuario.id });
+            setLikesUsuarios({ ...likesUsuarios, [postId]: myLikes.filter(id => id !== usuario.id) });
+        }
+        else {
+            await supabase.from('likes_muro').insert([{ post_id: postId, user_id: usuario.id }]);
+            setLikesUsuarios({ ...likesUsuarios, [postId]: [...myLikes, usuario.id] });
+            const post = posts.find(p => p.id === postId);
+            if (post && post.user_id && post.user_id !== usuario.id) {
+                await supabase.from('notificaciones').insert([{ usuario_id: post.user_id, autor_id: usuario.id, mensaje: 'le dio "Me gusta" a tu publicación.' }]);
+            }
+        }
+    }
+
+    const guardarEdicion = async (id: string) => {
+        if (!textoEditado.trim()) return;
+        await supabase.from('muro_social').update({ contenido: textoEditado }).eq('id', id);
+        setPostEditandoId(null); cargarPosts();
+    }
+
+    const borrarPost = async (id: string) => {
+        if (!confirm('¿Eliminar publicación?')) return;
+        await supabase.from('muro_social').delete().eq('id', id);
+        cargarPosts();
+    }
+
+    const toggleComentarios = async (postId: string) => {
+        const visible = !comentariosVisibles[postId];
+        setComentariosVisibles({ ...comentariosVisibles, [postId]: visible });
+        if (visible && !comentariosData[postId]) {
+            const { data } = await supabase.from('comentarios_muro').select('*, autor:perfiles!user_id(nombre, apellidos, avatar_url)').eq('post_id', postId).order('creado_at', { ascending: true });
+            if (data) setComentariosData({ ...comentariosData, [postId]: data });
+        }
+    }
+
+    const publicarComentario = async (postId: string) => {
+        if (postId.startsWith('temp-')) return;
+        const text = nuevoComentario[postId]; if (!text?.trim()) return;
+        await supabase.from('comentarios_muro').insert([{ post_id: postId, user_id: usuario.id, contenido: text }]);
+        setNuevoComentario({ ...nuevoComentario, [postId]: '' });
+        const post = posts.find(p => p.id === postId);
+        if (post && post.user_id && post.user_id !== usuario.id) {
+            await supabase.from('notificaciones').insert([{ usuario_id: post.user_id, autor_id: usuario.id, mensaje: 'comentó tu publicación.' }]);
+        }
+    }
+
+    const votarEncuesta = async (postId: string, opcionIndex: number) => {
+        if (postId.startsWith('temp-')) return;
+        const misVotos = votosEncuestas[postId] || [];
+        if (misVotos.some(v => v.user_id === usuario.id)) return;
+        await supabase.from('votos_encuesta').insert([{ post_id: postId, user_id: usuario.id, opcion_index: opcionIndex }]);
+        const post = posts.find(p => p.id === postId);
+        if (post && post.user_id && post.user_id !== usuario.id) {
+            await supabase.from('notificaciones').insert([{ usuario_id: post.user_id, autor_id: usuario.id, mensaje: 'votó en tu encuesta.' }]);
+        }
+    }
+
+    const WidgetCalendario = () => (
+        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
+            <div className="flex items-center justify-between mb-4 px-2">
+                <button onClick={() => setFechaCalendario(new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() - 1, 1))} className="hover:bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-orange-500"><ChevronLeft size={16} /></button>
+                <h3 className="text-[11px] font-black uppercase tracking-widest">{mesesNombres[fechaCalendario.getMonth()]} {fechaCalendario.getFullYear()}</h3>
+                <button onClick={() => setFechaCalendario(new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() + 1, 1))} className="hover:bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-orange-500"><ChevronRight size={16} /></button>
             </div>
-          </div>
-        </div>
-      </nav>
+            <div className="grid grid-cols-7 gap-1 text-center">
+                {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => <div key={`dn-${i}`} className="text-[8px] font-black text-slate-400">{d}</div>)}
+                {Array.from({ length: diaInicioMes }).map((_, i) => <div key={`empty-${i}`} />)}
+                {Array.from({ length: diasEnMes }).map((_, i) => {
+                    const dia = i + 1;
+                    const evs = eventosCombinados.filter(e => e.mes === fechaCalendario.getMonth() && e.dia === dia);
+                    const esVacaciones = evs.some(e => e.tipo === 'vacaciones');
+                    const esHoy = new Date().getDate() === dia && new Date().getMonth() === fechaCalendario.getMonth() && new Date().getFullYear() === fechaCalendario.getFullYear();
 
-      {/* --- MENU MOVIL IZQUIERDO --- */}
-      <AnimatePresence>
-        {menuMovilAbierto && (
-            <div className="fixed inset-0 z-[100] lg:hidden">
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMenuMovilAbierto(false)} />
-                <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="absolute inset-y-0 left-0 w-72 bg-white shadow-2xl flex flex-col">
-                    <div className="p-6 flex justify-between items-center border-b border-slate-50"><img src={solarisLogo} alt="GEA" className="h-6" /><button onClick={() => setMenuMovilAbierto(false)} className="p-2 bg-slate-100 rounded-lg"><X size={20}/></button></div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
-                        {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => {navigate(mod.ruta); setMenuMovilAbierto(false)}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${mod.bg}`}><div className={`p-2 rounded-lg bg-white shadow-sm border border-slate-100 ${mod.color}`}><mod.icono size={16} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600">{mod.nombre}</span></button>))}
-                    </div>
-                </motion.div>
-            </div>
-        )}
-      </AnimatePresence>
+                    let bgColor = 'text-slate-600 hover:bg-slate-50 border border-transparent';
+                    let customStyle: React.CSSProperties = {};
 
-      {/* --- PANEL DERECHO (WIDGETS) MOVIL --- */}
-      <AnimatePresence>
-        {mostrarPanelDerecho && (
-            <div className="fixed inset-0 z-[100] lg:hidden">
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMostrarPanelDerecho(false)} />
-                <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="absolute inset-y-0 right-0 w-80 bg-white shadow-2xl flex flex-col">
-                    <div className="p-6 flex justify-between items-center border-b border-slate-50"><h3 className="font-black text-xs uppercase tracking-widest text-slate-900 italic">Utilidades</h3><button onClick={() => setMostrarPanelDerecho(false)} className="p-2 bg-slate-100 rounded-full"><X size={20}/></button></div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-20">
-                        <WidgetCalendario />
-                        <div className="bg-slate-50 rounded-[30px] p-5 border border-slate-100">
-                            <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-3"><PlaneTakeoff size={18} className="text-blue-500"/> Solicitudes Equipo</h3>
-                            <div className="space-y-2 max-h-[135px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                {solicitudesVisibles.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin solicitudes pendientes.</p> : solicitudesVisibles.map((sol) => (
-                                    <div key={sol.id} className="p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[9px] font-black text-slate-800 uppercase leading-none">{sol.empleado?.nombre}</span>
-                                            <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700' : sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{sol.estado}</span>
-                                        </div>
-                                        <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">{sol.fecha_inicio} / {sol.fecha_fin}</p>
-                                        {sol.empleado?.jefe_id === usuario?.id && sol.estado === 'Pendiente' && (
-                                            <div className="flex gap-2 mt-2">
-                                                <button onClick={() => responderSolicitud(sol.id, 'Aprobada')} className="flex-1 bg-emerald-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Ok</button>
-                                                <button onClick={() => responderSolicitud(sol.id, 'Rechazada')} className="flex-1 bg-red-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">No</button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        {/* WIDGET PRÓXIMOS (MOVIL) */}
-                        <div className="bg-slate-50 rounded-[30px] p-5 border border-slate-100">
-                            <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-3"><CalendarIcon size={18} className="text-emerald-500"/> Próximos</h3>
-                            <div className="space-y-2 max-h-[190px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                {eventosFuturos.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin eventos próximos.</p> : eventosFuturos.map((ev) => (
-                                    <div key={ev.id} className="flex items-center gap-2 p-2 bg-white border border-slate-100 rounded-xl shadow-sm">
-                                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[9px] shadow-sm ${ev.tipo === 'cumple' ? 'bg-pink-100 text-pink-600' : ev.tipo === 'vacaciones' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>{ev.iniciales}</div>
-                                        <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{ev.titulo}</p><p className="text-[7px] font-bold text-slate-400 mt-0.5">{ev.dia} {mesesNombres[ev.mes]}</p></div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                    if (esHoy) {
+                        bgColor = 'bg-slate-900 text-white shadow-md border-slate-900 z-10';
+                    } else if (evs.length > 0) {
+                        const colTypes = [...new Set(evs.map(ev => {
+                            if (ev.tipo === 'vacaciones') return 'blue';
+                            if (ev.tipo === 'festivo') return 'orange';
+                            if (ev.tipo === 'viabilidad_dueno') return 'red';
+                            if (ev.tipo === 'viabilidad_ingeniero') return 'black';
+                            if (ev.tipo === 'cumple') return 'pink';
+                            return 'emerald';
+                        }))];
 
-                    </div>
-                </motion.aside>
-            </div>
-        )}
-      </AnimatePresence>
+                        if (colTypes.length === 1) {
+                            const c = colTypes[0];
+                            if (c === 'blue') bgColor = 'bg-blue-100 text-blue-800 border-blue-200 cursor-pointer hover:scale-110 z-10';
+                            else if (c === 'orange') bgColor = 'bg-orange-100 text-orange-800 border-orange-200 cursor-pointer hover:scale-110 z-10';
+                            else if (c === 'red') bgColor = 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:scale-110 z-10';
+                            else if (c === 'black') bgColor = 'bg-slate-900 text-slate-100 border-slate-700 cursor-pointer hover:scale-110 z-10 shadow-md';
+                            else if (c === 'pink') bgColor = 'bg-pink-100 text-pink-800 border-pink-200 cursor-pointer hover:scale-110 z-10';
+                            else bgColor = 'bg-emerald-100 text-emerald-800 border-emerald-200 cursor-pointer hover:scale-110 z-10';
+                        } else {
+                            const hexMap: Record<string, string> = { 'blue': '#dbeafe', 'orange': '#ffedd5', 'red': '#fee2e2', 'black': '#0f172a', 'pink': '#fce7f3', 'emerald': '#d1fae5' };
+                            const textMap: Record<string, string> = { 'black': 'text-slate-100', 'red': 'text-slate-800', 'blue': 'text-slate-800', 'orange': 'text-slate-800', 'pink': 'text-slate-800', 'emerald': 'text-slate-800' };
+                            const gradientStops = colTypes.map((c, idx) => `${hexMap[c]} ${(idx / colTypes.length) * 100}%, ${hexMap[c]} ${((idx + 1) / colTypes.length) * 100}%`).join(', ');
+                            bgColor = `${colTypes.includes('black') ? 'text-white' : 'text-slate-800'} cursor-pointer hover:scale-110 z-10 shadow-sm transition-transform`;
+                            customStyle = { background: `linear-gradient(135deg, ${gradientStops})`, border: `1px solid ${hexMap[colTypes[0]]}` };
+                        }
+                    }
 
-      <main className="max-w-[1800px] mx-auto w-full px-4 md:px-6 py-6 lg:py-8 relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 flex-1 overflow-hidden">
-        
-        {/* SIDEBAR IZQUIERDA (DESKTOP) - COMPACTA Y SCROLL INVISIBLE */}
-        <aside className="hidden lg:block w-64 shrink-0 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-10">
-            <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
-                <div className="space-y-1">
-                    {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${mod.bg}`}><div className={`p-1.5 rounded-lg bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={14} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
-                </div>
-            </div>
-        </aside>
-
-        {/* FEED CENTRAL (Scroll Natural Interno sin barra visible) */}
-        <section className="flex-1 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-2 pb-20 space-y-6">
-            {/* PUBLICAR */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6 shadow-2xl border border-white relative z-20">
-                <form onSubmit={handlePublicarPost}>
-                    <div className="flex gap-3 md:gap-4">
-                        {renderAvatar(usuario)}
-                        <div className="flex-1 relative">
-                            <textarea value={nuevoPost} onChange={handleTextareaChange} placeholder="Escribe un comunicado..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all resize-none h-24 shadow-inner" />
+                    return (
+                        <div key={`d-${i}`} onMouseEnter={() => setHoveredDay(dia)} onMouseLeave={() => setHoveredDay(null)} className={`h-7 flex items-center justify-center rounded-lg text-[10px] font-bold relative transition-all ${bgColor}`} style={customStyle}>
+                            {dia}
                             <AnimatePresence>
-                                {mostrarMenciones && (
-                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                        {usuariosDb.filter(u=>`${u.nombre} ${u.apellidos}`.toLowerCase().includes(busquedaMencion.toLowerCase())).map(u=>(<div key={u.id} onClick={()=>insertarMencion(u)} className="p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-3">{renderAvatar(u, "w-8 h-8 text-[10px] rounded-lg")}<p className="text-slate-900 font-black text-[10px] uppercase">{u.nombre} {u.apellidos}</p></div>))}
+                                {hoveredDay === dia && evs.length > 0 && (
+                                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute bottom-full mb-2 bg-slate-900 text-white p-2 rounded-xl z-50 w-max min-w-[120px] pointer-events-none text-[9px] font-bold shadow-2xl border border-slate-700">
+                                        {evs.map((ev, idx) => (<div key={idx} className="flex items-center gap-1.5 mb-1.5 last:mb-0"><div className="flex-shrink-0 text-xs">{ev.iniciales}</div> <span>{ev.titulo}</span></div>))}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
-                    </div>
-                    {modoEncuesta && (
-                        <div className="mt-4 ml-[52px] md:ml-[64px] space-y-2 bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                            {opcionesEncuesta.map((op, idx) => (
-                                <div key={idx} className="flex gap-2">
-                                    <input type="text" placeholder={`Opción ${idx + 1}`} value={op} onChange={(e) => { const newOps = [...opcionesEncuesta]; newOps[idx] = e.target.value; setOpcionesEncuesta(newOps); }} className="flex-1 bg-white border border-blue-100 rounded-xl px-4 py-2 text-xs font-bold outline-none" />
-                                    {opcionesEncuesta.length > 2 && <button type="button" onClick={() => setOpcionesEncuesta(opcionesEncuesta.filter((_, i) => i !== idx))} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><X size={14}/></button>}
-                                </div>
-                            ))}
-                            <button type="button" onClick={() => setOpcionesEncuesta([...opcionesEncuesta, ''])} className="text-[10px] font-black text-blue-600 uppercase">+ Añadir opción</button>
-                        </div>
-                    )}
-                    {previewImagen && !modoEncuesta && (<div className="relative mt-4 ml-[52px] md:ml-[64px] w-fit"><img src={previewImagen} alt="Preview" className="max-h-40 rounded-xl shadow-md border-2 border-white" /><button type="button" onClick={cancelarImagen} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"><X size={12}/></button></div>)}
-                    <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-100 ml-[52px] md:ml-[64px]">
-                        <div className="flex gap-2">
-                            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleSelectImagen} className="hidden" />
-                            <button type="button" onClick={() => {fileInputRef.current?.click(); setModoEncuesta(false)}} className={`p-2.5 rounded-xl transition-colors ${previewImagen ? 'bg-orange-100 text-orange-600' : 'text-slate-400 hover:bg-slate-100'}`}><ImageIcon size={18} /></button>
-                            <button type="button" onClick={() => {setModoEncuesta(!modoEncuesta); cancelarImagen()}} className={`p-2.5 rounded-xl transition-colors ${modoEncuesta ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}><BarChart2 size={18} /></button>
-                        </div>
-                        <button type="submit" disabled={publicando || !nuevoPost.trim()} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2 hover:shadow-orange-500/40 transition-all active:scale-95">{publicando ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Send size={14}/> Publicar</>}</button>
-                    </div>
-                </form>
+                    )
+                })}
             </div>
+        </div>
+    );
 
-            {/* LISTA POSTS PAGINADA */}
-            <div className="space-y-6">
-                {cargandoFeed ? (
-                    <div className="py-20 text-center flex flex-col items-center gap-4 text-white font-black uppercase"><Loader2 className="w-10 h-10 animate-spin text-orange-500"/> Sincronizando Vlog...</div>
-                ) : (
-                  <>
-                    {posts.slice(0, visiblePosts).map((post) => {
-                        const hasLiked = likesUsuarios[post.id]?.includes(usuario?.id);
-                        const misVotos = votosEncuestas[post.id] || [];
-                        const cCount = comentariosCounts[post.id] || 0;
-                        const listLikes = likesUsuarios[post.id] || [];
-                        const primerNombreLike = listLikes.length > 0 ? usuariosDb.find(u => u.id === listLikes[0])?.nombre : '';
-                        const tooltipNombres = listLikes.map(uid => usuariosDb.find(u => u.id === uid)?.nombre).join(', ');
+    return (
+        <div className="h-screen w-full text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col overflow-hidden" style={{ backgroundImage: `url(${degradadoBg})` }}>
 
-                        return (
-                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6 shadow-2xl border border-white relative">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-3">
-                                      {renderAvatar(post.autor)}
-                                      <div>
-                                        <h4 className="font-black text-slate-950 text-[12px] uppercase leading-none italic">{post.autor?.nombre} {post.autor?.apellidos}</h4>
-                                        <p className="text-[9px] font-bold text-slate-400 mt-1.5 uppercase flex items-center gap-1.5"><Clock size={10} className="text-orange-500"/> {formatearFechaPost(post.creado_at)}</p>
-                                      </div>
-                                    </div>
-                                    {usuario?.id === post.user_id && (
-                                      <div className="flex gap-1.5">
-                                        <button onClick={() => { setPostEditandoId(post.id); setTextoEditado(post.contenido); }} className="p-1.5 text-slate-300 hover:text-blue-500 transition-colors"><Edit2 size={14}/></button>
-                                        <button onClick={() => borrarPost(post.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14}/></button>
-                                      </div>
-                                    )}
+            {/* NAV BAR PERSONALIZADA DEL HOME */}
+            <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 shadow-sm h-16 shrink-0 flex items-center relative z-50">
+                <div className="max-w-[1800px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
+                    <div className="flex items-center gap-2 md:gap-4">
+                        <button onClick={() => setMenuMovilAbierto(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"><Menu size={24} /></button>
+                        <img src={solarisLogo} alt="GEA" className="h-6 md:h-8 w-auto drop-shadow-sm" />
+                        <h1 className="font-black text-sm md:text-lg tracking-tight text-slate-900 uppercase italic hidden sm:block tracking-tighter">Sistema Solaris</h1>
+                    </div>
+
+                    <div className="flex items-center gap-2 md:gap-5">
+                        <button onClick={() => setMostrarPanelDerecho(!mostrarPanelDerecho)} className="p-2 text-slate-500 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all relative lg:hidden"><LayoutGrid size={24} /><span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" /></button>
+
+                        <button onClick={() => { setChatInicial(null); setChatAbierto(true); }} className="p-2 text-slate-500 hover:text-orange-500 rounded-full transition-all relative">
+                            <MessageSquare size={24} />
+                        </button>
+
+                        <NotificacionesGlobales usuarioLogueado={usuario} onClickNotificacion={handleNotifClick} />
+
+                        <div className="flex items-center gap-2">
+                            <div onClick={() => navigate('/perfil')} className="bg-white px-2 md:px-4 py-1.5 rounded-xl border border-slate-200 flex items-center gap-3 shadow-sm cursor-pointer hover:bg-orange-50 transition-colors">
+                                {renderAvatar(usuario, "w-8 h-8 rounded-lg")}
+                                <div className="text-right flex flex-col hidden sm:flex justify-center">
+                                    <span className="text-[10px] font-black text-slate-900 uppercase leading-none">{usuario?.nombre}</span>
                                 </div>
-                                
-                                {postEditandoId === post.id ? (
-                                    <div className="mb-4 space-y-2"><textarea value={textoEditado} onChange={e => setTextoEditado(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 h-20 shadow-inner" /><div className="flex gap-2"><button onClick={() => setPostEditandoId(null)} className="px-3 py-1.5 text-[10px] font-black uppercase text-slate-400 hover:bg-slate-100 rounded-lg">Cancelar</button><button onClick={() => guardarEdicion(post.id)} className="px-5 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-[10px] font-black uppercase shadow-md">Guardar</button></div></div>
-                                ) : (<p className="text-slate-800 text-sm font-bold leading-relaxed mb-4 whitespace-pre-line italic">{(post.contenido || '').split(/(@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+)/).map((part: string, i: number) => part.startsWith('@') ? <span key={i} className="text-blue-600 bg-blue-50 px-1 rounded font-black">{part}</span> : part)}</p>)}
-                                
-                                {post.tipo === 'encuesta' && post.opciones && (
-                                    <div className="mb-4 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        {post.opciones.map((op: string, idx: number) => { 
-                                            const total = misVotos.length; 
-                                            const vOp = misVotos.filter(v => v.opcion_index === idx).length; 
-                                            const pct = total > 0 ? Math.round((vOp / total) * 100) : 0; 
-                                            return (
-                                                <div key={idx} onClick={() => votarEncuesta(post.id, idx)} className="relative h-8 border border-slate-200 rounded-lg flex items-center px-3 cursor-pointer overflow-hidden bg-white hover:border-blue-400 transition-all">
-                                                    <div className="absolute left-0 top-0 bottom-0 bg-blue-100 transition-all duration-1000" style={{ width: `${pct}%` }} />
-                                                    <span className="relative z-10 text-[9px] font-black uppercase text-slate-700">{op}</span>
-                                                    <span className="relative z-10 ml-auto text-[9px] font-black text-blue-600">{pct}%</span>
+                            </div>
+                            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-xl border border-slate-200 shadow-sm"><LogOut size={20} /></button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            {/* --- MENU MOVIL IZQUIERDO --- */}
+            <AnimatePresence>
+                {menuMovilAbierto && (
+                    <div className="fixed inset-0 z-[100] lg:hidden">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMenuMovilAbierto(false)} />
+                        <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="absolute inset-y-0 left-0 w-72 bg-white shadow-2xl flex flex-col">
+                            <div className="p-6 flex justify-between items-center border-b border-slate-50"><img src={solarisLogo} alt="GEA" className="h-6" /><button onClick={() => setMenuMovilAbierto(false)} className="p-2 bg-slate-100 rounded-lg"><X size={20} /></button></div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
+                                {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => { navigate(mod.ruta); setMenuMovilAbierto(false) }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${mod.bg}`}><div className={`p-2 rounded-lg bg-white shadow-sm border border-slate-100 ${mod.color}`}><mod.icono size={16} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600">{mod.nombre}</span></button>))}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* --- PANEL DERECHO (WIDGETS) MOVIL --- */}
+            <AnimatePresence>
+                {mostrarPanelDerecho && (
+                    <div className="fixed inset-0 z-[100] lg:hidden">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMostrarPanelDerecho(false)} />
+                        <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="absolute inset-y-0 right-0 w-80 bg-white shadow-2xl flex flex-col">
+                            <div className="p-6 flex justify-between items-center border-b border-slate-50"><h3 className="font-black text-xs uppercase tracking-widest text-slate-900 italic">Utilidades</h3><button onClick={() => setMostrarPanelDerecho(false)} className="p-2 bg-slate-100 rounded-full"><X size={20} /></button></div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-20">
+                                <WidgetCalendario />
+                                <div className="bg-slate-50 rounded-[30px] p-5 border border-slate-100">
+                                    <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-3"><PlaneTakeoff size={18} className="text-blue-500" /> Solicitudes Equipo</h3>
+                                    <div className="space-y-2 max-h-[135px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                        {solicitudesVisibles.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin solicitudes pendientes.</p> : solicitudesVisibles.map((sol) => (
+                                            <div key={sol.id} className="p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-[9px] font-black text-slate-800 uppercase leading-none">{sol.empleado?.nombre}</span>
+                                                    <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700' : sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{sol.estado}</span>
                                                 </div>
-                                            )
-                                        })}
-                                        <p className="text-[8px] font-black text-slate-400 uppercase text-center mt-2">{misVotos.length} Votos totales</p>
+                                                <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">{sol.fecha_inicio} / {sol.fecha_fin}</p>
+                                                {sol.empleado?.jefe_id === usuario?.id && sol.estado === 'Pendiente' && (
+                                                    <div className="flex gap-2 mt-2">
+                                                        <button onClick={() => responderSolicitud(sol.id, 'Aprobada')} className="flex-1 bg-emerald-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Ok</button>
+                                                        <button onClick={() => responderSolicitud(sol.id, 'Rechazada')} className="flex-1 bg-red-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">No</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* WIDGET PRÓXIMOS (MOVIL) */}
+                                <div className="bg-slate-50 rounded-[30px] p-5 border border-slate-100">
+                                    <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-3"><CalendarIcon size={18} className="text-emerald-500" /> Próximos</h3>
+                                    <div className="space-y-2 max-h-[190px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                        {eventosFuturos.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin eventos próximos.</p> : eventosFuturos.map((ev) => (
+                                            <div key={ev.id} className="flex items-center gap-2 p-2 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-orange-200 transition-colors">
+                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[9px] shadow-sm ${ev.tipo === 'cumple' ? 'bg-pink-100 text-pink-600' : ev.tipo === 'vacaciones' ? 'bg-blue-100 text-blue-600' : ev.tipo === 'viabilidad_ingeniero' ? 'bg-slate-900 text-slate-100 border border-slate-700' : ev.tipo === 'viabilidad_dueno' ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-orange-100 text-orange-600'}`}>{ev.iniciales}</div>
+                                                <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{ev.titulo}</p><p className="text-[7px] font-bold text-slate-400 mt-0.5">{ev.dia} {mesesNombres[ev.mes]}{ev.hora ? ` - ${ev.hora}` : ''}</p></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </motion.aside>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <main className="max-w-[1800px] mx-auto w-full px-4 md:px-6 py-6 lg:py-8 relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 flex-1 overflow-hidden">
+
+                {/* SIDEBAR IZQUIERDA (DESKTOP) - COMPACTA Y SCROLL INVISIBLE */}
+                <aside className="hidden lg:block w-64 shrink-0 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-10">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
+                        <div className="space-y-1">
+                            {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${mod.bg}`}><div className={`p-1.5 rounded-lg bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={14} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
+                        </div>
+                    </div>
+                </aside>
+
+                {/* FEED CENTRAL (Scroll Natural Interno sin barra visible) */}
+                <section className="flex-1 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-2 pb-20 space-y-6">
+                    {/* PUBLICAR */}
+                    <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6 shadow-2xl border border-white relative z-20">
+                        <form onSubmit={handlePublicarPost}>
+                            <div className="flex gap-3 md:gap-4">
+                                {renderAvatar(usuario)}
+                                <div className="flex-1 relative">
+                                    <textarea value={nuevoPost} onChange={handleTextareaChange} placeholder="Escribe un comunicado..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all resize-none h-24 shadow-inner" />
+                                    <AnimatePresence>
+                                        {mostrarMenciones && (
+                                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                                {usuariosDb.filter(u => `${u.nombre} ${u.apellidos}`.toLowerCase().includes(busquedaMencion.toLowerCase())).map(u => (<div key={u.id} onClick={() => insertarMencion(u)} className="p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-3">{renderAvatar(u, "w-8 h-8 text-[10px] rounded-lg")}<p className="text-slate-900 font-black text-[10px] uppercase">{u.nombre} {u.apellidos}</p></div>))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            </div>
+                            {modoEncuesta && (
+                                <div className="mt-4 ml-[52px] md:ml-[64px] space-y-2 bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                                    {opcionesEncuesta.map((op, idx) => (
+                                        <div key={idx} className="flex gap-2">
+                                            <input type="text" placeholder={`Opción ${idx + 1}`} value={op} onChange={(e) => { const newOps = [...opcionesEncuesta]; newOps[idx] = e.target.value; setOpcionesEncuesta(newOps); }} className="flex-1 bg-white border border-blue-100 rounded-xl px-4 py-2 text-xs font-bold outline-none" />
+                                            {opcionesEncuesta.length > 2 && <button type="button" onClick={() => setOpcionesEncuesta(opcionesEncuesta.filter((_, i) => i !== idx))} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><X size={14} /></button>}
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => setOpcionesEncuesta([...opcionesEncuesta, ''])} className="text-[10px] font-black text-blue-600 uppercase">+ Añadir opción</button>
+                                </div>
+                            )}
+                            {previewImagen && !modoEncuesta && (<div className="relative mt-4 ml-[52px] md:ml-[64px] w-fit"><img src={previewImagen} alt="Preview" className="max-h-40 rounded-xl shadow-md border-2 border-white" /><button type="button" onClick={cancelarImagen} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"><X size={12} /></button></div>)}
+                            <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-100 ml-[52px] md:ml-[64px]">
+                                <div className="flex gap-2">
+                                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleSelectImagen} className="hidden" />
+                                    <button type="button" onClick={() => { fileInputRef.current?.click(); setModoEncuesta(false) }} className={`p-2.5 rounded-xl transition-colors ${previewImagen ? 'bg-orange-100 text-orange-600' : 'text-slate-400 hover:bg-slate-100'}`}><ImageIcon size={18} /></button>
+                                    <button type="button" onClick={() => { setModoEncuesta(!modoEncuesta); cancelarImagen() }} className={`p-2.5 rounded-xl transition-colors ${modoEncuesta ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}><BarChart2 size={18} /></button>
+                                </div>
+                                <button type="submit" disabled={publicando || !nuevoPost.trim()} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2 hover:shadow-orange-500/40 transition-all active:scale-95">{publicando ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send size={14} /> Publicar</>}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {/* LISTA POSTS PAGINADA */}
+                    <div className="space-y-6">
+                        {cargandoFeed ? (
+                            <div className="py-20 text-center flex flex-col items-center gap-4 text-white font-black uppercase"><Loader2 className="w-10 h-10 animate-spin text-orange-500" /> Sincronizando Vlog...</div>
+                        ) : (
+                            <>
+                                {posts.slice(0, visiblePosts).map((post) => {
+                                    const hasLiked = likesUsuarios[post.id]?.includes(usuario?.id);
+                                    const misVotos = votosEncuestas[post.id] || [];
+                                    const cCount = comentariosCounts[post.id] || 0;
+                                    const listLikes = likesUsuarios[post.id] || [];
+                                    const primerNombreLike = listLikes.length > 0 ? usuariosDb.find(u => u.id === listLikes[0])?.nombre : '';
+                                    const tooltipNombres = listLikes.map(uid => usuariosDb.find(u => u.id === uid)?.nombre).join(', ');
+
+                                    return (
+                                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6 shadow-2xl border border-white relative">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    {renderAvatar(post.autor)}
+                                                    <div>
+                                                        <h4 className="font-black text-slate-950 text-[12px] uppercase leading-none italic">{post.autor?.nombre} {post.autor?.apellidos}</h4>
+                                                        <p className="text-[9px] font-bold text-slate-400 mt-1.5 uppercase flex items-center gap-1.5"><Clock size={10} className="text-orange-500" /> {formatearFechaPost(post.creado_at)}</p>
+                                                    </div>
+                                                </div>
+                                                {usuario?.id === post.user_id && (
+                                                    <div className="flex gap-1.5">
+                                                        <button onClick={() => { setPostEditandoId(post.id); setTextoEditado(post.contenido); }} className="p-1.5 text-slate-300 hover:text-blue-500 transition-colors"><Edit2 size={14} /></button>
+                                                        <button onClick={() => borrarPost(post.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {postEditandoId === post.id ? (
+                                                <div className="mb-4 space-y-2"><textarea value={textoEditado} onChange={e => setTextoEditado(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 h-20 shadow-inner" /><div className="flex gap-2"><button onClick={() => setPostEditandoId(null)} className="px-3 py-1.5 text-[10px] font-black uppercase text-slate-400 hover:bg-slate-100 rounded-lg">Cancelar</button><button onClick={() => guardarEdicion(post.id)} className="px-5 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-[10px] font-black uppercase shadow-md">Guardar</button></div></div>
+                                            ) : (<p className="text-slate-800 text-sm font-bold leading-relaxed mb-4 whitespace-pre-line italic">{(post.contenido || '').split(/(@[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+)/).map((part: string, i: number) => part.startsWith('@') ? <span key={i} className="text-blue-600 bg-blue-50 px-1 rounded font-black">{part}</span> : part)}</p>)}
+
+                                            {post.tipo === 'encuesta' && post.opciones && (
+                                                <div className="mb-4 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                    {post.opciones.map((op: string, idx: number) => {
+                                                        const total = misVotos.length;
+                                                        const vOp = misVotos.filter(v => v.opcion_index === idx).length;
+                                                        const pct = total > 0 ? Math.round((vOp / total) * 100) : 0;
+                                                        return (
+                                                            <div key={idx} onClick={() => votarEncuesta(post.id, idx)} className="relative h-8 border border-slate-200 rounded-lg flex items-center px-3 cursor-pointer overflow-hidden bg-white hover:border-blue-400 transition-all">
+                                                                <div className="absolute left-0 top-0 bottom-0 bg-blue-100 transition-all duration-1000" style={{ width: `${pct}%` }} />
+                                                                <span className="relative z-10 text-[9px] font-black uppercase text-slate-700">{op}</span>
+                                                                <span className="relative z-10 ml-auto text-[9px] font-black text-blue-600">{pct}%</span>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase text-center mt-2">{misVotos.length} Votos totales</p>
+                                                </div>
+                                            )}
+
+                                            {post.imagen_url && <img src={post.imagen_url} alt="Post" className="rounded-2xl w-full h-auto mb-4 shadow-sm border border-slate-100" />}
+
+                                            <div className="pt-4 border-t border-slate-100">
+                                                <div className="flex gap-4 mb-2">
+                                                    <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-1.5 font-black text-[10px] transition-colors ${hasLiked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}>
+                                                        <Heart size={18} className={hasLiked ? 'fill-red-500' : ''} /> <span className="hover:underline">{listLikes.length}</span>
+                                                    </button>
+                                                    <button onClick={() => toggleComentarios(post.id)} className="flex items-center gap-1.5 font-black text-[10px] text-slate-400 hover:text-blue-500 transition-colors"><MessageSquare size={18} /> {cCount}</button>
+                                                </div>
+                                                {listLikes.length > 0 && (
+                                                    <p className="text-[9px] font-bold text-slate-400 cursor-help w-fit" title={tooltipNombres} onClick={() => setVerLikesModal(listLikes)}>
+                                                        Le gusta a <span className="font-black text-slate-600 hover:underline">{primerNombreLike}</span> {listLikes.length > 1 && `y ${listLikes.length - 1} más`}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <AnimatePresence>
+                                                {comentariosVisibles[post.id] && (
+                                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                                                        <div className="space-y-3 mb-4 max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                                            {(comentariosData[post.id] || []).map(com => (
+                                                                <div key={com.id} className="flex gap-2">
+                                                                    {renderAvatar(com.autor, "w-7 h-7 rounded-lg")}
+                                                                    <div className="bg-white p-2.5 rounded-xl shadow-sm border border-slate-100 flex-1">
+                                                                        <p className="text-[9px] font-black text-slate-900 uppercase leading-none mb-1">{com.autor?.nombre}</p>
+                                                                        <p className="text-[11px] font-bold text-slate-600 leading-tight">{com.contenido}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <input type="text" value={nuevoComentario[post.id] || ''} onChange={e => setNuevoComentario({ ...nuevoComentario, [post.id]: e.target.value })} placeholder="Comentar..." onKeyDown={e => e.key === 'Enter' && publicarComentario(post.id)} className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold outline-none focus:border-orange-500 shadow-inner" />
+                                                            <button onClick={() => publicarComentario(post.id)} className="bg-slate-900 text-white p-2 rounded-xl shadow-md"><Send size={14} /></button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </motion.div>
+                                    )
+                                })}
+
+                                {/* BOTON VER MÁS */}
+                                {posts.length > visiblePosts && (
+                                    <div className="flex justify-center mt-6">
+                                        <button
+                                            onClick={() => setVisiblePosts(prev => prev + 5)}
+                                            className="bg-white/90 backdrop-blur-sm border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-sm hover:bg-white hover:text-orange-500 hover:border-orange-300 transition-all flex items-center gap-2"
+                                        >
+                                            Ver más publicaciones <ChevronDown size={14} />
+                                        </button>
                                     </div>
                                 )}
+                            </>
+                        )}
+                    </div>
+                </section>
 
-                                {post.imagen_url && <img src={post.imagen_url} alt="Post" className="rounded-2xl w-full h-auto mb-4 shadow-sm border border-slate-100" />}
+                {/* SIDEBAR DERECHA (DESKTOP) - WIDGETS COLAPSABLES SIN BARRAS DE SCROLL */}
+                <aside className="hidden xl:block w-72 shrink-0 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-10">
+                    <div className="space-y-4">
 
-                                <div className="pt-4 border-t border-slate-100">
-                                    <div className="flex gap-4 mb-2">
-                                        <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-1.5 font-black text-[10px] transition-colors ${hasLiked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}>
-                                            <Heart size={18} className={hasLiked ? 'fill-red-500' : ''} /> <span className="hover:underline">{listLikes.length}</span>
-                                        </button>
-                                        <button onClick={() => toggleComentarios(post.id)} className="flex items-center gap-1.5 font-black text-[10px] text-slate-400 hover:text-blue-500 transition-colors"><MessageSquare size={18} /> {cCount}</button>
-                                    </div>
-                                    {listLikes.length > 0 && (
-                                        <p className="text-[9px] font-bold text-slate-400 cursor-help w-fit" title={tooltipNombres} onClick={() => setVerLikesModal(listLikes)}>
-                                            Le gusta a <span className="font-black text-slate-600 hover:underline">{primerNombreLike}</span> {listLikes.length > 1 && `y ${listLikes.length - 1} más`}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <AnimatePresence>
-                                    {comentariosVisibles[post.id] && (
-                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                                {(comentariosData[post.id] || []).map(com => (
-                                                    <div key={com.id} className="flex gap-2">
-                                                        {renderAvatar(com.autor, "w-7 h-7 rounded-lg")}
-                                                        <div className="bg-white p-2.5 rounded-xl shadow-sm border border-slate-100 flex-1">
-                                                            <p className="text-[9px] font-black text-slate-900 uppercase leading-none mb-1">{com.autor?.nombre}</p>
-                                                            <p className="text-[11px] font-bold text-slate-600 leading-tight">{com.contenido}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <input type="text" value={nuevoComentario[post.id] || ''} onChange={e => setNuevoComentario({...nuevoComentario, [post.id]: e.target.value})} placeholder="Comentar..." onKeyDown={e => e.key === 'Enter' && publicarComentario(post.id)} className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold outline-none focus:border-orange-500 shadow-inner" />
-                                                <button onClick={() => publicarComentario(post.id)} className="bg-slate-900 text-white p-2 rounded-xl shadow-md"><Send size={14}/></button>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
-                        )
-                    })}
-                    
-                    {/* BOTON VER MÁS */}
-                    {posts.length > visiblePosts && (
-                        <div className="flex justify-center mt-6">
-                            <button 
-                                onClick={() => setVisiblePosts(prev => prev + 5)}
-                                className="bg-white/90 backdrop-blur-sm border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-sm hover:bg-white hover:text-orange-500 hover:border-orange-300 transition-all flex items-center gap-2"
+                        {/* WIDGET SOLICITUDES */}
+                        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white transition-all">
+                            <div
+                                className="flex items-center justify-between cursor-pointer group"
+                                onClick={() => setWidgetSolicitudesAbierto(!widgetSolicitudesAbierto)}
                             >
-                                Ver más publicaciones <ChevronDown size={14}/>
-                            </button>
+                                <h3 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 group-hover:text-blue-500 transition-colors">
+                                    <PlaneTakeoff size={16} className="text-blue-500" /> Solicitudes
+                                    {!widgetSolicitudesAbierto && solPendientesCount > 0 && <span className="bg-red-500 text-white px-1.5 py-0.5 rounded text-[8px] ml-1 animate-pulse shadow-md">{solPendientesCount} nuevas</span>}
+                                </h3>
+                                <button className="text-slate-300 group-hover:text-blue-500 transition-colors">
+                                    {widgetSolicitudesAbierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                            </div>
+
+                            <AnimatePresence>
+                                {widgetSolicitudesAbierto && (
+                                    <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 12 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
+                                        <div className="space-y-2 max-h-[135px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                            {solicitudesVisibles.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin solicitudes pendientes.</p> : solicitudesVisibles.map((sol) => (
+                                                <div key={sol.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 shadow-sm">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-[9px] font-black text-slate-800 uppercase leading-none">{sol.empleado?.nombre}</span>
+                                                        <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700' : sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{sol.estado}</span>
+                                                    </div>
+                                                    <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">{sol.fecha_inicio} / {sol.fecha_fin}</p>
+                                                    {sol.empleado?.jefe_id === usuario?.id && sol.estado === 'Pendiente' && (
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button onClick={() => responderSolicitud(sol.id, 'Aprobada')} className="flex-1 bg-emerald-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Ok</button>
+                                                            <button onClick={() => responderSolicitud(sol.id, 'Rechazada')} className="flex-1 bg-red-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">No</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
-                    )}
-                  </>
+
+                        {/* WIDGET CALENDARIO */}
+                        <WidgetCalendario />
+
+                        {/* WIDGET PRÓXIMOS */}
+                        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white flex flex-col transition-all">
+                            <div
+                                className="flex items-center justify-between cursor-pointer group"
+                                onClick={() => setWidgetProximosAbierto(!widgetProximosAbierto)}
+                            >
+                                <h3 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 shrink-0 group-hover:text-emerald-500 transition-colors"><CalendarIcon size={16} className="text-emerald-500" /> Próximos</h3>
+                                <button className="text-slate-300 group-hover:text-emerald-500 transition-colors">
+                                    {widgetProximosAbierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                            </div>
+
+                            <AnimatePresence>
+                                {widgetProximosAbierto && (
+                                    <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 12 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
+                                        <div className="space-y-2 max-h-[190px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                            {eventosFuturos.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin eventos.</p> : eventosFuturos.map((ev) => (
+                                                <div key={ev.id} className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-100 rounded-xl hover:border-orange-200 transition-colors">
+                                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[9px] shadow-sm ${ev.tipo === 'cumple' ? 'bg-pink-100 text-pink-600' : ev.tipo === 'vacaciones' ? 'bg-blue-100 text-blue-600' : ev.tipo === 'viabilidad_ingeniero' ? 'bg-slate-900 text-slate-100 border border-slate-700' : ev.tipo === 'viabilidad_dueno' ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-orange-100 text-orange-600'}`}>{ev.iniciales}</div>
+                                                    <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{ev.titulo}</p><p className="text-[7px] font-bold text-slate-400 mt-0.5">{ev.dia} {mesesNombres[ev.mes]}{ev.hora ? ` - ${ev.hora}` : ''}</p></div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                    </div>
+                </aside>
+            </main>
+
+            {/* CHAT GLOBAL */}
+            <ChatGlobal
+                isOpen={chatAbierto}
+                onClose={() => setChatAbierto(false)}
+                usuarioLogueado={usuario}
+                chatInicial={chatInicial}
+            />
+
+            {/* MODAL LIKES (Quién dio like) */}
+            <AnimatePresence>
+                {verLikesModal && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md" onClick={() => setVerLikesModal(null)}>
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] w-full max-w-xs overflow-hidden shadow-2xl border border-white" onClick={e => e.stopPropagation()}>
+                            <div className="p-5 bg-slate-900 text-white flex justify-between items-center font-black uppercase text-[10px] tracking-widest">Reacciones <button onClick={() => setVerLikesModal(null)}><X size={14} /></button></div>
+                            <div className="p-3 max-h-60 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                {verLikesModal.map(uid => {
+                                    const u = usuariosDb.find(x => x.id === uid);
+                                    return (
+                                        <div key={uid} className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl">
+                                            {renderAvatar(u, "w-7 h-7 rounded-lg")}
+                                            <p className="text-[11px] font-black text-slate-900 uppercase">{u?.nombre} {u?.apellidos}</p>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
-            </div>
-        </section>
-
-        {/* SIDEBAR DERECHA (DESKTOP) - WIDGETS COLAPSABLES SIN BARRAS DE SCROLL */}
-        <aside className="hidden xl:block w-72 shrink-0 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-10">
-            <div className="space-y-4">
-                
-                {/* WIDGET SOLICITUDES */}
-                <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white transition-all">
-                    <div 
-                      className="flex items-center justify-between cursor-pointer group"
-                      onClick={() => setWidgetSolicitudesAbierto(!widgetSolicitudesAbierto)}
-                    >
-                      <h3 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 group-hover:text-blue-500 transition-colors">
-                          <PlaneTakeoff size={16} className="text-blue-500"/> Solicitudes
-                          {!widgetSolicitudesAbierto && solPendientesCount > 0 && <span className="bg-red-500 text-white px-1.5 py-0.5 rounded text-[8px] ml-1 animate-pulse shadow-md">{solPendientesCount} nuevas</span>}
-                      </h3>
-                      <button className="text-slate-300 group-hover:text-blue-500 transition-colors">
-                        {widgetSolicitudesAbierto ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {widgetSolicitudesAbierto && (
-                        <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 12 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
-                          <div className="space-y-2 max-h-[135px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                              {solicitudesVisibles.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin solicitudes pendientes.</p> : solicitudesVisibles.map((sol) => (
-                                  <div key={sol.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 shadow-sm">
-                                      <div className="flex justify-between items-center mb-1">
-                                          <span className="text-[9px] font-black text-slate-800 uppercase leading-none">{sol.empleado?.nombre}</span>
-                                          <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${sol.estado === 'Aprobada' ? 'bg-emerald-100 text-emerald-700' : sol.estado === 'Rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{sol.estado}</span>
-                                      </div>
-                                      <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">{sol.fecha_inicio} / {sol.fecha_fin}</p>
-                                      {sol.empleado?.jefe_id === usuario?.id && sol.estado === 'Pendiente' && (
-                                          <div className="flex gap-2 mt-2">
-                                              <button onClick={() => responderSolicitud(sol.id, 'Aprobada')} className="flex-1 bg-emerald-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Ok</button>
-                                              <button onClick={() => responderSolicitud(sol.id, 'Rechazada')} className="flex-1 bg-red-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">No</button>
-                                          </div>
-                                      )}
-                                  </div>
-                              ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                </div>
-                
-                {/* WIDGET CALENDARIO */}
-                <WidgetCalendario />
-
-                {/* WIDGET PRÓXIMOS */}
-                <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white flex flex-col transition-all">
-                    <div 
-                      className="flex items-center justify-between cursor-pointer group"
-                      onClick={() => setWidgetProximosAbierto(!widgetProximosAbierto)}
-                    >
-                      <h3 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 shrink-0 group-hover:text-emerald-500 transition-colors"><CalendarIcon size={16} className="text-emerald-500"/> Próximos</h3>
-                      <button className="text-slate-300 group-hover:text-emerald-500 transition-colors">
-                        {widgetProximosAbierto ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {widgetProximosAbierto && (
-                        <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 12 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
-                          <div className="space-y-2 max-h-[190px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                              {eventosFuturos.length === 0 ? <p className="text-[10px] text-slate-400 font-bold italic text-center pb-2">Sin eventos.</p> : eventosFuturos.map((ev) => (
-                                  <div key={ev.id} className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-100 rounded-xl hover:border-orange-200 transition-colors">
-                                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[9px] shadow-sm ${ev.tipo === 'cumple' ? 'bg-pink-100 text-pink-600' : ev.tipo === 'vacaciones' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>{ev.iniciales}</div>
-                                      <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{ev.titulo}</p><p className="text-[7px] font-bold text-slate-400 mt-0.5">{ev.dia} {mesesNombres[ev.mes]}</p></div>
-                                  </div>
-                              ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                </div>
-
-            </div>
-        </aside>
-      </main>
-
-      {/* CHAT GLOBAL */}
-      <ChatGlobal 
-          isOpen={chatAbierto} 
-          onClose={() => setChatAbierto(false)} 
-          usuarioLogueado={usuario}
-          chatInicial={chatInicial}
-      />
-
-      {/* MODAL LIKES (Quién dio like) */}
-      <AnimatePresence>
-          {verLikesModal && (
-              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md" onClick={() => setVerLikesModal(null)}>
-                  <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] w-full max-w-xs overflow-hidden shadow-2xl border border-white" onClick={e => e.stopPropagation()}>
-                      <div className="p-5 bg-slate-900 text-white flex justify-between items-center font-black uppercase text-[10px] tracking-widest">Reacciones <button onClick={() => setVerLikesModal(null)}><X size={14}/></button></div>
-                      <div className="p-3 max-h-60 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                          {verLikesModal.map(uid => { 
-                              const u = usuariosDb.find(x => x.id === uid); 
-                              return (
-                                  <div key={uid} className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl">
-                                      {renderAvatar(u, "w-7 h-7 rounded-lg")}
-                                      <p className="text-[11px] font-black text-slate-900 uppercase">{u?.nombre} {u?.apellidos}</p>
-                                  </div>
-                              )
-                          })}
-                      </div>
-                  </motion.div>
-              </div>
-          )}
-      </AnimatePresence>
-    </div>
-  )
+            </AnimatePresence>
+        </div>
+    )
 }

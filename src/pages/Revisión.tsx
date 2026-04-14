@@ -185,7 +185,7 @@ export default function Revision() {
 
       if (isViabilidad) {
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Ventas ha aprobado el presupuesto de tu solicitud de viabilidad: ${proyectoSeleccionado.nombre_proyecto}. Continúa en proceso.`, usuarioLogueado?.id);
-        await enviarNotificacionRoles('notif_viabilidad_tecnica', `Se ha validado la revisión por ventas, la Viabilidad pasa a Mesa de Control para agendar: ${proyectoSeleccionado.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+        await enviarNotificacionRoles('notif_viabilidad_tecnica', `Se ha validado la revisión por ventas, la Viabilidad pasa a estar lista para agendar: ${proyectoSeleccionado.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       } else {
         await enviarNotificacionRoles('notif_cotizaciones', `Revisión validada y aprobada: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✨ ¡Tu proyecto ha sido Cotizado exitosamente! Míralo y descárgalo aquí.`, usuarioLogueado?.id);

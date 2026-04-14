@@ -5,7 +5,7 @@ import { X, Camera, Info, MapPin, Clock, FileText, Check, ChevronRight, MessageS
 const STEPS = [
    { id: 1, label: 'Pendiente', filtro: 'Pendiente' },
    { id: 2, label: 'Solicitada', filtro: 'Solicitada' },
-   { id: 3, label: 'Planeada', filtro: 'Planeada' },
+   { id: 3, label: 'Agendada', filtro: 'Agendada' },
    { id: 4, label: 'Verificada', filtro: 'Verificada' },
    { id: 5, label: 'Ingeniería', filtro: 'Ingeniería' },
    { id: 7, label: 'Terminada', filtro: 'Terminada' }
@@ -198,9 +198,9 @@ export default function ModalViabilidadDetalle({
                                  if (setAgendaForm) {
                                     setAgendaForm({
                                        ingeniero_id: viabilidadRef?.ingeniero_id || '',
-                                       fecha_inicio: viabilidadRef?.fecha_agendada || '',
+                                       fecha_inicio: viabilidadRef?.fecha_agendada ? String(viabilidadRef.fecha_agendada).substring(0, 10) : '',
                                        hora_inicio: viabilidadRef?.hora_agendada_inicio || '09:00',
-                                       fecha_fin: viabilidadRef?.fecha_agendada || '',
+                                       fecha_fin: viabilidadRef?.fecha_agendada_fin ? String(viabilidadRef.fecha_agendada_fin).substring(0, 10) : (viabilidadRef?.fecha_agendada ? String(viabilidadRef.fecha_agendada).substring(0, 10) : ''),
                                        hora_fin: viabilidadRef?.hora_agendada_fin || '18:00'
                                     })
                                     setShowModalSecundario('Agendar')

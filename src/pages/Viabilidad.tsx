@@ -89,7 +89,7 @@ export default function Viabilidad() {
          .select(`
         *,
         proyecto:proyecto_id (
-          id, id_referencia, nombre_proyecto, giro_proyecto, estatus, sub_estatus, vendedor:vendedor_id (nombre, apellidos, avatar_url),
+          id, id_referencia, nombre_proyecto, giro_proyecto, estatus, sub_estatus, vendedor:vendedor_id (id, nombre, apellidos, avatar_url, numero_empleado),
           link_maps, calle, colonia, ciudad, estado_dir, codigo_postal, nombre_cliente, numero_cliente, requiere_escalera, comentarios_solicitud, fachada_url
         ),
         ingeniero:ingeniero_id (nombre, apellidos)
@@ -101,7 +101,7 @@ export default function Viabilidad() {
       const { data: engs } = await supabase
          .from('perfiles')
          .select('id, nombre, apellidos')
-         .eq('rol_sistema', 'Ingeniería')
+         .ilike('departamento', '%ngenier%')
       if (engs) setIngenieros(engs)
 
       setCargando(false)
@@ -124,13 +124,14 @@ export default function Viabilidad() {
       try {
          await supabase.from('viabilidad_control').update({
             fecha_agendada: agendaForm.fecha_inicio,
+            fecha_agendada_fin: agendaForm.fecha_fin,
             hora_agendada_inicio: agendaForm.hora_inicio,
             hora_agendada_fin: agendaForm.hora_fin,
             ingeniero_id: agendaForm.ingeniero_id,
             status: 3
          }).eq('id', proyectoSeleccionado.id)
 
-         await supabase.from('proyectos').update({ sub_estatus: 'Planeada' }).eq('id', proyectoSeleccionado.proyecto_id);
+         await supabase.from('proyectos').update({ sub_estatus: 'Agendada' }).eq('id', proyectoSeleccionado.proyecto_id);
 
          await supabase.from('proyectos_interacciones').insert([{
             proyecto_id: proyectoSeleccionado.proyecto_id,
@@ -140,6 +141,20 @@ export default function Viabilidad() {
             accion: 'Agenda Viabilidad',
             mensaje: `Visita Agendada para ${agendaForm.fecha_inicio} a las ${agendaForm.hora_inicio}`
          }]);
+
+         await enviarNotificacionVendedor(
+            proyectoSeleccionado.proyecto?.vendedor?.id || proyectoSeleccionado.proyecto?.vendedor_id,
+            `📅 Tu visita de Viabilidad ha sido agendada para el ${agendaForm.fecha_inicio} a las ${agendaForm.hora_inicio}.|||/viabilidad?proyecto_id=${proyectoSeleccionado.proyecto_id}`,
+            usuarioLogueado?.id
+         );
+
+         if (agendaForm.ingeniero_id) {
+            await enviarNotificacionVendedor(
+               agendaForm.ingeniero_id,
+               `🛠️ Se te ha asignado una viabilidad técnica para el ${agendaForm.fecha_inicio} a las ${agendaForm.hora_inicio}: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.proyecto_id}`,
+               usuarioLogueado?.id
+            );
+         }
 
          setShowModalSecundario(null);
          await fetchViabilidades();
@@ -157,7 +172,7 @@ export default function Viabilidad() {
       try {
          await supabase.from('viabilidad_control').update({
             status: 0,
-            fecha_agendada: null, fecha_verificada: null, fecha_terminada: null,
+            fecha_agendada: null, fecha_agendada_fin: null, fecha_verificada: null, fecha_terminada: null,
             hora_agendada_inicio: null, hora_agendada_fin: null
          }).eq('id', proyectoSeleccionado.id)
          await supabase.from('proyectos').update({ estatus: 'Evaluación', sub_estatus: null }).eq('id', proyectoSeleccionado.proyecto_id);
@@ -248,33 +263,33 @@ export default function Viabilidad() {
 
             <main className="flex-1 max-w-[1700px] mx-auto w-full p-4 md:p-8 flex flex-col gap-6">
 
-               <div className="flex bg-white/70 backdrop-blur-md p-2 rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
+               {/* --- TABS REDISEÑADAS RESPONSIVAS --- */}
+               <div className="flex bg-white/90 backdrop-blur-md p-1.5 rounded-[20px] shadow-sm border border-slate-200 w-full xl:w-max overflow-x-auto custom-scrollbar shrink-0 mb-4">
                   <button
                      onClick={() => setFiltroPaso('Todos')}
-                     className={`min-w-[120px] flex-1 py-3 px-2 text-[11px] font-black uppercase tracking-widest transition-all rounded-xl ${filtroPaso === 'Todos' ? 'bg-[#ffb000] text-slate-900 shadow-md scale-[1.02]' : 'text-slate-500 hover:bg-white border border-transparent hover:shadow-sm'}`}
+                     className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap ${filtroPaso === 'Todos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
                   >
-                     TODOS
+                     TODAS
                   </button>
                   {STEPS.map((s) => (
                      <button
                         key={s.id}
                         onClick={() => setFiltroPaso(s.id)}
-                        className={`min-w-[120px] flex-1 py-3 px-2 text-[11px] font-black uppercase tracking-widest transition-all rounded-xl ${filtroPaso === s.id ? 'bg-[#ffb000] text-slate-900 shadow-md scale-[1.02]' : 'text-slate-500 hover:bg-white border border-transparent hover:shadow-sm'}`}
+                        className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap ${filtroPaso === s.id ? 'bg-[#ffb000] text-slate-900 shadow-md' : 'text-slate-500 hover:text-[#ffb000] hover:bg-orange-50'}`}
                      >
                         {s.label}
                      </button>
                   ))}
                </div>
 
-               <div className="relative max-w-md w-full">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ffb000] w-5 h-5" />
-                  <input
-                     type="text"
-                     placeholder="Buscar Folio, Cliente, Proyecto..."
-                     value={busqueda}
-                     onChange={e => setBusqueda(e.target.value)}
-                     className="w-full bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl py-3 pl-12 pr-4 font-black uppercase text-xs outline-none focus:border-[#ffb000] transition-colors shadow-sm"
-                  />
+               {/* --- BARRA DE FILTROS --- */}
+               <div className="bg-white/80 backdrop-blur-sm p-3 md:p-4 rounded-2xl border border-slate-200 shadow-sm shrink-0 flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto">
+                     <div className="relative w-full sm:w-80 shrink-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input type="text" placeholder="Buscar por nombre, ID o vendedor..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="bg-white border border-slate-200 rounded-xl py-2.5 pl-9 pr-4 w-full font-bold text-xs outline-none focus:border-slate-400 shadow-inner" />
+                     </div>
+                  </div>
                </div>
 
                {cargando ? (
@@ -446,28 +461,38 @@ export default function Viabilidad() {
                            {/* Inicio */}
                            <div>
                               <label className="block text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-1">Fecha Viabilidad Inicio</label>
-                              <div className="flex gap-2">
-                                 <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden flex-1 bg-white relative">
-                                    <input type="date" value={agendaForm.fecha_inicio} onChange={e => setAgendaForm({ ...agendaForm, fecha_inicio: e.target.value })} className="w-full p-3 outline-none text-[12px] uppercase font-black bg-transparent z-10" />
-                                    <div className="bg-slate-900 text-white w-10 absolute right-0 inset-y-0 flex items-center justify-center pointer-events-none"><Calendar size={16} strokeWidth={2.5} /></div>
-                                 </div>
-                                 <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden bg-white w-[110px] relative">
-                                    <input type="time" value={agendaForm.hora_inicio} onChange={e => setAgendaForm({ ...agendaForm, hora_inicio: e.target.value })} className="w-full p-3 outline-none text-[12px] font-black uppercase bg-transparent z-10" />
-                                 </div>
+                              <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden w-full bg-white relative hover:border-[#ffb000] focus-within:border-[#ffb000] transition-colors">
+                                 <input type="datetime-local" 
+                                    value={agendaForm.fecha_inicio && agendaForm.hora_inicio ? `${agendaForm.fecha_inicio}T${agendaForm.hora_inicio.substring(0, 5)}` : ''} 
+                                    onChange={e => {
+                                       if(e.target.value) {
+                                          const [d, t] = e.target.value.split('T');
+                                          setAgendaForm({ ...agendaForm, fecha_inicio: d, hora_inicio: t });
+                                       } else {
+                                          setAgendaForm({ ...agendaForm, fecha_inicio: '', hora_inicio: '' });
+                                       }
+                                    }} 
+                                    className="w-full p-3.5 outline-none text-[12px] uppercase font-black bg-transparent z-10 cursor-pointer" />
+                                 <div className="bg-slate-900 text-white w-12 absolute right-0 inset-y-0 flex items-center justify-center pointer-events-none"><Calendar size={18} strokeWidth={2.5} /></div>
                               </div>
                            </div>
 
                            {/* Fin */}
                            <div>
                               <label className="block text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-1">Fecha Viabilidad Fin</label>
-                              <div className="flex gap-2">
-                                 <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden flex-1 bg-white relative">
-                                    <input type="date" value={agendaForm.fecha_fin} onChange={e => setAgendaForm({ ...agendaForm, fecha_fin: e.target.value })} className="w-full p-3 outline-none text-[12px] font-black uppercase bg-transparent z-10" />
-                                    <div className="bg-slate-900 text-white w-10 absolute right-0 inset-y-0 flex items-center justify-center pointer-events-none"><Calendar size={16} strokeWidth={2.5} /></div>
-                                 </div>
-                                 <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden bg-white w-[110px] relative">
-                                    <input type="time" value={agendaForm.hora_fin} onChange={e => setAgendaForm({ ...agendaForm, hora_fin: e.target.value })} className="w-full p-3 outline-none text-[12px] font-black uppercase bg-transparent z-10" />
-                                 </div>
+                              <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden w-full bg-white relative hover:border-[#ffb000] focus-within:border-[#ffb000] transition-colors">
+                                 <input type="datetime-local" 
+                                    value={agendaForm.fecha_fin && agendaForm.hora_fin ? `${agendaForm.fecha_fin}T${agendaForm.hora_fin.substring(0, 5)}` : ''} 
+                                    onChange={e => {
+                                       if(e.target.value) {
+                                          const [d, t] = e.target.value.split('T');
+                                          setAgendaForm({ ...agendaForm, fecha_fin: d, hora_fin: t });
+                                       } else {
+                                          setAgendaForm({ ...agendaForm, fecha_fin: '', hora_fin: '' });
+                                       }
+                                    }} 
+                                    className="w-full p-3.5 outline-none text-[12px] uppercase font-black bg-transparent z-10 cursor-pointer" />
+                                 <div className="bg-slate-900 text-white w-12 absolute right-0 inset-y-0 flex items-center justify-center pointer-events-none"><Calendar size={18} strokeWidth={2.5} /></div>
                               </div>
                            </div>
 
