@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, X, MapPin, FileText, CheckCircle2, AlertCircle, Clock,
   ChevronRight, History, FileCheck, FileX, UploadCloud, Timer,
-  Calendar as CalendarIcon, Phone, Mail, File, ChevronLeft, MessageSquare
+  Calendar as CalendarIcon, Phone, Mail, File as FileIcon, ChevronLeft, MessageSquare
 } from 'lucide-react'
 
 // IMPORTAMOS NUESTROS COMPONENTES GLOBALES
 import Header from '../components/Header'
 import ChatGlobal from '../components/ChatGlobal'
+import ModalLineaTiempo from '../components/ModalLineaTiempo'
 
 import degradadoBg from '../assets/degradado.png'
 
@@ -20,19 +21,25 @@ const ESTADOS_SOLARIS: any = {
   'Cotización – Revisión': { label: 'Revisión', bg: 'bg-blue-100', text: 'text-blue-700' },
   'Cotizado': { label: 'Cotizado ✨', bg: 'bg-green-100', text: 'text-green-700' },
   'Cotización – Corrección': { label: 'Corrección 🛑', bg: 'bg-red-100', text: 'text-red-700' },
+  'Recotización': { label: 'Recotización 🔄', bg: 'bg-amber-100', text: 'text-amber-700' },
+  'Recotización – Corrección': { label: 'Recot. Corregir 🛑', bg: 'bg-red-100', text: 'text-red-700' },
 };
 
 const getEstiloEstatus = (estatus: string) => {
   const e = estatus?.toLowerCase() || ''
+  if (e.includes('recotización')) {
+      if (e.includes('corrección')) return ESTADOS_SOLARIS['Recotización – Corrección'];
+      return ESTADOS_SOLARIS['Recotización'];
+  }
   if (e.includes('revisión')) return ESTADOS_SOLARIS['Cotización – Revisión'];
   if (e.includes('cotizado')) return ESTADOS_SOLARIS['Cotizado'];
   if (e.includes('corrección')) return ESTADOS_SOLARIS['Cotización – Corrección'];
   return ESTADOS_SOLARIS['Cotización'];
 }
 
-const calcularHorasHabiles = (fechaCreacion: string) => {
-  let start = new Date(fechaCreacion);
-  let end = new Date();
+const calcularHorasHabiles = (fechaInicio: string, fechaFin?: string | null) => {
+  let start = new Date(fechaInicio);
+  let end = fechaFin ? new Date(fechaFin) : new Date();
   if (start > end) return { hours: 0, mins: 0, text: '0h 0m' };
 
   let mins = 0;
@@ -73,6 +80,7 @@ export default function Cotizaciones() {
 
   const [modalRechazo, setModalRechazo] = useState(false)
   const [modalAprobar, setModalAprobar] = useState(false)
+  const [destinoRechazo, setDestinoRechazo] = useState<'Cotizador' | 'Vendedor'>('Cotizador')
 
   const [mensajeRechazo, setMensajeRechazo] = useState('')
   const [filesCotizacion, setFilesCotizacion] = useState<File[]>([])
@@ -125,21 +133,26 @@ export default function Cotizaciones() {
     setProcesando(true);
 
     try {
+      const nuevoEstatus = destinoRechazo === 'Vendedor' ? 'Cotización – Corrección' : (proyectoSeleccionado.estatus.includes('Recotización') ? 'Recotización – Corrección' : 'Cotización');
+      
       await supabase.from('proyectos')
-        .update({ estatus: 'Cotización – Corrección' })
+        .update({ estatus: nuevoEstatus })
         .eq('id', proyectoSeleccionado.id);
 
       await supabase.from('proyectos_interacciones').insert([{
         proyecto_id: proyectoSeleccionado.id,
         usuario_id: usuarioLogueado?.id,
         estado_anterior: proyectoSeleccionado.estatus,
-        estado_nuevo: 'Cotización – Corrección',
-        accion: 'Corrección Solicitada',
+        estado_nuevo: nuevoEstatus,
+        accion: destinoRechazo === 'Vendedor' ? 'Regresado a Vendedor' : 'Corrección Solicitada',
         mensaje: mensajeRechazo
       }]);
 
-      await enviarNotificacionRoles('notif_cotizaciones', `Corrección devuelta a Cotizaciones: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
-      await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `⚠️ Problema detectado: Tu solicitud ha regresado a Cotización para ser corregida.`, usuarioLogueado?.id);
+      if (destinoRechazo === 'Vendedor') {
+          await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `⚠️ Cambios requeridos: Tu proyecto ha sido devuelto a tu bandeja: ${proyectoSeleccionado.nombre_proyecto}`, usuarioLogueado?.id);
+      } else {
+          await enviarNotificacionRoles('notif_cotizaciones', `Corrección devuelta: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+      }
 
       setModalRechazo(false); setModalDetalle(false); setMensajeRechazo(''); fetchProyectos();
     } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
@@ -166,12 +179,22 @@ export default function Cotizaciones() {
         urlsAdjuntas.push(urlData.publicUrl);
       }
 
+      const nuevoEstadoDestino = proyectoSeleccionado.estatus.includes('Recotización') ? 'Recotización – Revisión' : 'Cotización – Revisión';
+
+      const payloadUpdate: any = {
+        estatus: nuevoEstadoDestino,
+        archivos_cotizacion: urlsAdjuntas,
+      };
+
+      if (proyectoSeleccionado.estatus.includes('Recotización')) {
+        payloadUpdate.fecha_recotizado = new Date().toISOString();
+        payloadUpdate.ingeniero_recotizador_id = usuarioLogueado?.id;
+      } else {
+        payloadUpdate.fecha_cotizado = new Date().toISOString();
+      }
+
       const { error: updateError } = await supabase.from('proyectos')
-        .update({
-          estatus: 'Cotización – Revisión',
-          archivos_cotizacion: urlsAdjuntas,
-          fecha_cotizado: new Date().toISOString() // <-- KPI Guardado
-        })
+        .update(payloadUpdate)
         .eq('id', proyectoSeleccionado.id);
 
       if (updateError) throw updateError;
@@ -182,7 +205,7 @@ export default function Cotizaciones() {
         proyecto_id: proyectoSeleccionado.id,
         usuario_id: usuarioLogueado?.id,
         estado_anterior: proyectoSeleccionado.estatus,
-        estado_nuevo: 'Cotización – Revisión',
+        estado_nuevo: nuevoEstadoDestino,
         accion: 'Carga Finalizada - Enviado a Revisión',
         mensaje: (mensajeAprobacion || 'Se han cargado las propuestas técnicas.') + textoLinks
       }]);
@@ -225,9 +248,14 @@ export default function Cotizaciones() {
 
   const proyectosFiltrados = useMemo(() => {
     return proyectos.filter(p => {
+      // Solo consideramos los que conciernen al módulo de Cotizaciones
+      if (!p.estatus.includes('Cotización') && !p.estatus.includes('Recotización')) return false;
+
       const matchBusqueda = p.nombre_proyecto.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.giro_proyecto?.toLowerCase().includes(busqueda.toLowerCase())
-      const matchEstatus = filtroEstatus === 'Todos' || p.estatus === filtroEstatus
+      
+      const matchEstatus = filtroEstatus === 'Todos' || p.estatus === filtroEstatus || (filtroEstatus === 'Cotización' && p.estatus === 'Recotización');
+
       return matchBusqueda && matchEstatus
     })
   }, [proyectos, busqueda, filtroEstatus])
@@ -276,7 +304,10 @@ export default function Cotizaciones() {
             </div>
           ) : (
             proyectosFiltrados.map((p) => {
-              const tiempo = calcularHorasHabiles(p.created_at);
+              const isRecotz = p.estatus.includes('Recotización') || p.fecha_recotizado != null;
+              const startTime = isRecotz ? (p.fecha_inicio_recotizacion || p.created_at) : (p.fecha_inicio_cotizacion || p.created_at);
+              const endTime = isRecotz ? (p.fecha_aprobacion_recotizacion || p.fecha_recotizado) : (p.fecha_aprobacion_cotizacion || p.fecha_cotizado);
+              const tiempo = calcularHorasHabiles(startTime, endTime);
               const slaColor = tiempo.hours >= 24 ? 'text-red-500 font-black' : (tiempo.hours >= 8 ? 'text-orange-500 font-black' : 'text-slate-500 font-bold');
               return (
                 <div key={p.id} onClick={() => { setProyectoSeleccionado(p); setModalDetalle(true); }} className="bg-white border border-slate-100 rounded-[20px] md:rounded-[25px] p-4 md:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group hover:border-orange-400 transition-all hover:shadow-xl cursor-pointer relative overflow-hidden">
@@ -332,7 +363,7 @@ export default function Cotizaciones() {
               onRechazar={() => setModalRechazo(true)}
               onAprobar={() => setModalAprobar(true)}
               onChat={() => {
-                setChatInicial({ tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus });
+                setChatInicial({ tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus, vendedor_id: proyectoSeleccionado.vendedor_id });
                 setChatAbierto(true);
               }}
             />
@@ -342,9 +373,9 @@ export default function Cotizaciones() {
         {/* MODAL LOG / BITÁCORA */}
         <AnimatePresence>
           {modalLog && proyectoSeleccionado && (
-            <ModalLogProyecto
+            <ModalLineaTiempo
               logs={logsProyecto}
-              nombreProyecto={proyectoSeleccionado.nombre_proyecto}
+              proyecto={proyectoSeleccionado}
               onClose={() => setModalLog(false)}
             />
           )}
@@ -363,14 +394,21 @@ export default function Cotizaciones() {
                   <button onClick={() => setModalRechazo(false)} className="p-2 bg-white hover:bg-red-100 rounded-full transition-colors shrink-0"><X className="w-5 h-5" /></button>
                 </div>
                 <form onSubmit={handleRechazar} className="p-6 bg-slate-50 flex flex-col gap-4">
-                  <p className="text-[11px] md:text-xs text-slate-500 font-medium">Escribe el motivo por el cual el vendedor debe corregir o enviar más información sobre este proyecto.</p>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">¿A quién dirigir la corrección?</span>
+                    <div className="flex gap-2 p-1 bg-white border border-slate-200 rounded-2xl">
+                      <button type="button" onClick={() => setDestinoRechazo('Cotizador')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${destinoRechazo === 'Cotizador' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Unidad Técnica</button>
+                      <button type="button" onClick={() => setDestinoRechazo('Vendedor')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${destinoRechazo === 'Vendedor' ? 'bg-red-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>Vendedor</button>
+                    </div>
+                  </div>
+
                   <textarea
                     required rows={4} placeholder="Ej: Faltan las medidas del techo..."
                     value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-red-400 shadow-inner resize-none"
                   />
                   <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-3.5 md:py-4 rounded-xl font-black shadow-lg hover:bg-red-600 transition-all flex items-center justify-center gap-2 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50">
-                    {procesando ? 'Enviando...' : 'Devolver a Ventas'}
+                    {procesando ? 'Enviando...' : `Devolver a ${destinoRechazo === 'Vendedor' ? 'Vendedor' : 'Unidad Técnica'}`}
                   </button>
                 </form>
               </motion.div>
@@ -395,7 +433,7 @@ export default function Cotizaciones() {
                       <div className="mt-3 flex flex-col gap-2">
                         {filesCotizacion.map((file, idx) => (
                           <div key={idx} className="flex justify-between items-center bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
-                            <div className="flex items-center gap-2 overflow-hidden"> <File size={12} className="text-emerald-500 flex-shrink-0" /> <span className="text-[9px] md:text-[10px] font-bold text-emerald-800 truncate">{file.name}</span> </div>
+                            <div className="flex items-center gap-2 overflow-hidden"> <FileIcon size={12} className="text-emerald-500 flex-shrink-0" /> <span className="text-[9px] md:text-[10px] font-bold text-emerald-800 truncate">{file.name}</span> </div>
                             <button type="button" onClick={() => removerArchivo(idx)} className="text-red-400 hover:text-red-600 shrink-0"><X size={14} /></button>
                           </div>
                         ))}
@@ -423,11 +461,20 @@ export default function Cotizaciones() {
                   <button onClick={() => setModalListaArchivos(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors shrink-0"><X size={16} /></button>
                 </div>
                 <div className="p-5 md:p-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
-                  {modalListaArchivos.urls.map((url, idx) => (
-                    <button key={idx} onClick={() => { setDocPreview({ urls: modalListaArchivos.urls, currentIndex: idx, nombre: modalListaArchivos.titulo }); setModalListaArchivos(null); }} className="w-full text-left py-3 md:py-4 px-4 md:px-5 bg-white border border-slate-200 rounded-xl hover:border-orange-400 hover:shadow-md transition-all font-black text-[9px] md:text-[11px] text-slate-700 uppercase tracking-widest flex items-center gap-3">
-                      <File className="w-3.5 h-3.5 md:w-4 md:h-4 text-orange-400 shrink-0" /> Opción {idx + 1}
-                    </button>
-                  ))}
+                  {modalListaArchivos.urls.map((url, idx) => {
+                    let labelTexto = `Opción ${idx + 1}`;
+                    const matchFecha = url.match(/propuesta_(\d+)_/);
+                    if (matchFecha && matchFecha[1]) {
+                        const fecha = new Date(parseInt(matchFecha[1]));
+                        labelTexto = fecha.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    }
+                    return (
+                        <button key={idx} onClick={() => { setDocPreview({ urls: modalListaArchivos.urls, currentIndex: idx, nombre: modalListaArchivos.titulo }); setModalListaArchivos(null); }} className="w-full text-left py-3 md:py-4 px-4 md:px-5 bg-white border border-slate-200 rounded-xl hover:border-orange-400 hover:shadow-md transition-all font-black text-[9px] md:text-[11px] text-slate-700 uppercase tracking-widest flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-3 truncate"><FileIcon className="w-3.5 h-3.5 md:w-4 md:h-4 text-orange-400 shrink-0"/> {labelTexto}</span>
+                          <span className="text-[8px] bg-slate-50 border border-slate-100 px-2 py-1 rounded-md text-slate-400 shrink-0">V{idx + 1}</span>
+                        </button>
+                    );
+                  })}
                 </div>
               </motion.div>
             </div>
@@ -447,7 +494,10 @@ export default function Cotizaciones() {
                     {docPreview.urls.length > 1 && <span className="text-orange-500 bg-orange-50 px-1.5 md:px-2 py-1 rounded-md shrink-0">({docPreview.currentIndex + 1}/{docPreview.urls.length})</span>}
                   </h3>
                   <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                    <div className="flex items-center bg-slate-100 rounded-lg md:rounded-xl overflow-hidden shadow-inner">
+                    <a href={docPreview.urls[docPreview.currentIndex]} download target="_blank" rel="noreferrer" className="flex items-center bg-orange-500 hover:bg-slate-900 text-white rounded-lg md:rounded-xl shadow-sm px-4 md:px-5 py-2 transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest">
+                        Descargar
+                    </a>
+                    <div className="flex items-center bg-slate-100 rounded-lg md:rounded-xl overflow-hidden shadow-inner hidden md:flex">
                       <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 md:p-2 md:px-3 hover:bg-slate-200 text-slate-600 font-black transition-colors">-</button>
                       <span className="text-[9px] md:text-[10px] font-black text-slate-600 px-1 w-8 md:w-12 text-center">{Math.round(zoom * 100)}%</span>
                       <button onClick={() => setZoom(z => Math.min(3, z + 0.25))} className="p-1.5 md:p-2 md:px-3 hover:bg-slate-200 text-slate-600 font-black transition-colors">+</button>
@@ -494,14 +544,7 @@ const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, o
 
   const botonesAccion = [
     { label: 'Recibos/Adjuntos', hasData: recibosUrls.length > 0, action: () => onAbrirArchivos('Archivos del Vendedor', recibosUrls) },
-    { label: 'Cotización', hasData: cotizacionesUrls.length > 0, action: () => onAbrirArchivos('Opciones de Cotización', cotizacionesUrls) },
-    { label: 'Recotización', hasData: false, action: () => console.log('Acción Recotización') },
-    { label: 'Viabilidad', hasData: false, action: () => console.log('Acción Viabilidad') },
-    { label: 'Reporte', hasData: false, action: () => console.log('Acción Reporte') },
-    { label: 'Cambios Ing.', hasData: false, action: () => console.log('Acción Cambios') },
-    { label: 'Instalación', hasData: false, action: () => console.log('Acción Instalación') },
-    { label: 'Postventa', hasData: false, action: () => console.log('Acción Postventa') },
-    { label: '+ Fachada', hasData: false, action: () => console.log('Subir Fachada') },
+    { label: proyecto.estatus.includes('Recotización') ? 'Ver Recotización' : 'Ver Cotización', hasData: cotizacionesUrls.length > 0, action: () => onAbrirArchivos(proyecto.estatus.includes('Recotización') ? 'Opciones de Recotización' : 'Opciones de Cotización', cotizacionesUrls) },
   ];
 
   return (
@@ -536,10 +579,20 @@ const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, o
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 bg-slate-50 rounded-[15px] md:rounded-[20px] p-4 md:p-5 border border-slate-100 shadow-inner">
-            <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><MapPin size={10} /> Giro</p> <p className="text-xs md:text-sm font-bold text-slate-800 uppercase">{proyecto.giro_proyecto || '-'}</p> </div>
-            <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><CalendarIcon size={10} /> Enviado El</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(proyecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })} </p> </div>
-            <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Clock size={10} /> Hora</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(proyecto.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} </p> </div>
-            <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Timer size={10} /> SLA Activo</p> <p className={`text-xs md:text-sm font-black uppercase ${calcularHorasHabiles(proyecto.created_at).hours >= 24 ? 'text-red-500' : 'text-slate-800'}`}> {calcularHorasHabiles(proyecto.created_at).text} hrs </p> </div>
+            { (() => {
+              const isRecotz = proyecto.estatus.includes('Recotización') || proyecto.fecha_recotizado != null;
+              const startIso = isRecotz ? (proyecto.fecha_inicio_recotizacion || proyecto.created_at) : (proyecto.fecha_inicio_cotizacion || proyecto.created_at);
+              const endIso = isRecotz ? (proyecto.fecha_aprobacion_recotizacion || proyecto.fecha_recotizado) : (proyecto.fecha_aprobacion_cotizacion || proyecto.fecha_cotizado);
+              const tSla = calcularHorasHabiles(startIso, endIso);
+              return (
+                <>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><MapPin size={10} /> Giro</p> <p className="text-xs md:text-sm font-bold text-slate-800 uppercase">{proyecto.giro_proyecto || '-'}</p> </div>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><CalendarIcon size={10} /> Enviado</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(startIso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })} </p> </div>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Clock size={10} /> Hora</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(startIso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} </p> </div>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Timer size={10} /> SLA Activo</p> <p className={`text-xs md:text-sm font-black uppercase ${tSla.hours >= 24 ? 'text-red-500' : 'text-slate-800'}`}> {tSla.text} </p> </div>
+                </>
+              )
+            })() }
           </div>
 
           {proyecto.vendedor && (
@@ -570,9 +623,9 @@ const ModalDetalleProyecto = ({ proyecto, onClose, onAbrirArchivos, onVerLogs, o
             ))}
           </div>
 
-          {(proyecto.estatus === 'Cotización' || proyecto.estatus === 'Cotización – Revisión') && (
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 mt-1">
-              <button onClick={onRechazar} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-red-200 bg-white text-red-500 font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"> <FileX className="w-4 h-4 md:w-5 md:h-5" /> Pedir Corrección </button>
+          {['Cotización', 'Cotización – Revisión', 'Recotización', 'Recotización – Revisión'].includes(proyecto.estatus) && (
+            <div className={`grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 mt-1`}>
+              <button onClick={onRechazar} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-red-200 bg-white text-red-500 font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"> <FileX className="w-4 h-4 md:w-5 md:h-5" /> Regresar </button>
               <button onClick={onAprobar} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-emerald-500 bg-emerald-500 text-white font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors"> <FileCheck className="w-4 h-4 md:w-5 md:h-5" /> Subir Cotización </button>
             </div>
           )}

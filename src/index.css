@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+/* Ocultar barra de scroll global pero mantener funcionalidad */
+* {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE y Edge */
+}
+
+*::-webkit-scrollbar {
+    display: none; /* Chrome, Safari y Opera */
+}

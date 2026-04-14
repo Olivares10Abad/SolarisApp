@@ -32,11 +32,12 @@ const modulosMenu = [
     { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revision', color: 'text-red-500', bg: 'hover:bg-red-50', permiso: 'revision_cotizaciones' },
     { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'ventas' },
     { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'cotizaciones' },
-    { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/agendar-viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'agendar_viabilidad' },
+    { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'agendar_viabilidad' },
     { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'instalacion' },
     { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'interconexion' },
     { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'inventario' },
     { nombre: 'Finanzas', icono: Banknote, ruta: '/finanzas', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: 'finanzas' },
+    { nombre: 'Métricas SLA', icono: Clock, ruta: '/metricas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' },
     { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' },
     { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' }
 ]

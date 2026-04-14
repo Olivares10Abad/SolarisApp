@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   X, ArrowLeft, FileText, Users, Search, ChevronRight, 
-  MessageSquare, Send, Paperclip, File, ChevronLeft, Heart,
+  MessageSquare, Send, Paperclip, File as FileIcon, ChevronLeft, Heart,
   Reply, BellOff, Bell, Megaphone, Mic, Square, Edit2, Trash2, Forward, CheckCheck
 } from 'lucide-react'
 
@@ -463,6 +463,9 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
             const { data: m } = await supabase.from('chat_grupo_miembros').select('usuario_id').eq('grupo_id', targetChat!.id);
             if (m) targets.push(...m.map(x => x.usuario_id));
         }
+        if (targetChat!.tipo === 'proyecto' && targetChat!.vendedor_id) {
+            targets.push(targetChat!.vendedor_id);
+        }
 
         targets = [...new Set(targets)]; 
         if (targets.length > 0) {
@@ -867,7 +870,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                                                     <audio controls src={msg.archivo_url} className="w-48 h-8 rounded-full bg-transparent outline-none"/>
                                                                 ) : (
                                                                     <button onClick={() => {setZoom(1); setDocPreview({urls: [msg.archivo_url], currentIndex: 0, nombre: msg.archivo_nombre})}} className={`flex items-center gap-2 p-2 rounded-lg transition-colors font-bold text-[10px] uppercase w-full ${soyYo ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>
-                                                                        <File size={14}/> {msg.archivo_nombre}
+                                                                        <FileIcon size={14}/> {msg.archivo_nombre}
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -931,7 +934,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                         {previewArchivoChat === 'audio_icon' ? (
                                             <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center flex-col gap-1 text-slate-500"><Mic size={20}/><span className="text-[7px] font-black uppercase">Audio</span></div>
                                         ) : previewArchivoChat === 'pdf_icon' ? (
-                                            <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center flex-col gap-1 text-slate-500"><File size={20}/><span className="text-[7px] font-black uppercase truncate w-full px-1 text-center">{archivoChat.name}</span></div>
+                                            <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center flex-col gap-1 text-slate-500"><FileIcon size={20}/><span className="text-[7px] font-black uppercase truncate w-full px-1 text-center">{archivoChat.name}</span></div>
                                         ) : (
                                             <img src={previewArchivoChat!} className="h-16 w-auto rounded-lg object-cover" />
                                         )}

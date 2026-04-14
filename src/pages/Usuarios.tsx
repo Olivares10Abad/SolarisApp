@@ -6,8 +6,9 @@ import {
   Plus, Pencil, Trash2, Search, X, Save,
   Building2, Briefcase, UserPlus, Mail, Phone, Users,
   Network, ShieldCheck, Check, Award,
-  GitGraph, Minimize2, MapPin, Calendar, Fingerprint,
-  FileText, FileBadge, Eye, UserCircle, ZoomIn, ZoomOut, Bell, BellRing, CheckCircle2
+  GitGraph, Minimize2, MapPin, Calendar, Fingerprint, Zap,
+  FileText, FileBadge, Eye, UserCircle, ZoomIn, ZoomOut, Bell, BellRing, CheckCircle2,
+  Wrench, Wallet, Package
 } from 'lucide-react'
 
 import solarisLogo from '../assets/solarislogo.png'
@@ -103,7 +104,9 @@ export default function Usuarios() {
     panel: false, instalacion: false, interconexion: false, ingenieria: false,
     agendar_viabilidad: false, finanzas: false, cotizaciones: false,
     revision_cotizaciones: false, administrador_pagos: false,
-    notif_cotizaciones: false, notif_revision: false
+    notif_cotizaciones: false, notif_revision: false,
+    notif_viabilidad_tecnica: false, notif_instalacion: false,
+    notif_interconexion: false, notif_inventario: false, notif_finanzas: false
   }
   const [formData, setFormData] = useState(initialFormState)
 
@@ -454,7 +457,12 @@ export default function Usuarios() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         {[
                           { k: 'notif_cotizaciones', t: 'Nueva Cotización', d: 'Recibir notificaciones cuando un proyecto entra a Cotización o retorna por devolución.', icon: FileText, c: 'blue' },
-                          { k: 'notif_revision', t: 'Pase a Revisión', d: 'Recibir avisos cuando un proyecto termina de cotizarse y está en estatus Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' }
+                          { k: 'notif_revision', t: 'Pase a Revisión', d: 'Recibir avisos cuando un proyecto termina de cotizarse y está en estatus Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
+                          { k: 'notif_viabilidad_tecnica', t: 'Viabilidad Técnica', d: 'Recibir alertas sobre solicitudes de viabilidad, agendamiento de visitas y revisiones de ingeniería.', icon: Zap, c: 'orange' },
+                          { k: 'notif_instalacion', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes finalizados.', icon: Wrench, c: 'teal' },
+                          { k: 'notif_interconexion', t: 'Interconexión', d: 'Avisos de trámites ante CFE, medidor e inspecciones finales.', icon: Network, c: 'purple' },
+                          { k: 'notif_inventario', t: 'Bajo Inventario', d: 'Alertas cuando materiales estratégicos han llegado al stock mínimo.', icon: Package, c: 'amber' },
+                          { k: 'notif_finanzas', t: 'Avisos Finanzas', d: 'Alertas de nuevos presupuestos, depósitos iniciales y liberación de comisiones.', icon: Wallet, c: 'rose' }
                         ].map((notif) => (
                           <div key={notif.k} onClick={() => setFormData({ ...formData, [notif.k]: !formData[notif.k as keyof typeof formData] })} className={`border-2 p-5 rounded-2xl cursor-pointer transition-all group relative overflow-hidden ${formData[notif.k as keyof typeof formData] ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                             <div className="flex justify-between items-start mb-4">
