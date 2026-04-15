@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, Trash } from 'lucide-react';
+import { playNotificationSound } from '../utils/audio';
 
 export default function NotificacionesGlobales({ usuarioLogueado, onClickNotificacion }: any) {
     const [notificaciones, setNotificaciones] = useState<any[]>([]);
@@ -22,8 +23,11 @@ export default function NotificacionesGlobales({ usuarioLogueado, onClickNotific
         cargarNotificaciones();
 
         const channel = supabase.channel('global_notifs')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'notificaciones', filter: `usuario_id=eq.${usuarioLogueado.id}` }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notificaciones', filter: `usuario_id=eq.${usuarioLogueado.id}` }, (payload) => {
                 cargarNotificaciones();
+                if (payload.eventType === 'INSERT') {
+                    playNotificationSound();
+                }
             }).subscribe();
 
         return () => { supabase.removeChannel(channel); };

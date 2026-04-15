@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   X, ArrowLeft, FileText, Users, Search, ChevronRight, 
   MessageSquare, Send, Paperclip, File as FileIcon, ChevronLeft, Heart,
-  Reply, BellOff, Bell, Megaphone, Mic, Square, Edit2, Trash2, Forward, CheckCheck
+  Reply, BellOff, Bell, Megaphone, Mic, Square, Edit2, Trash2, Forward, CheckCheck, Pin
 } from 'lucide-react'
+import { playNotificationSound } from '../utils/audio'
 
 const VisorArchivos = ({ docPreview, setDocPreview, zoom, setZoom }: any) => (
   <div className="fixed inset-0 z-[10005] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
@@ -172,6 +173,10 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_chat' }, async (payload) => {
           const msg = payload.new;
           
+          if (msg.remitente_id !== usuarioLogueado.id) {
+              playNotificationSound();
+          }
+
           setMensajesGlobales(prev => {
               if (prev.some(m => m.id === msg.id)) return prev;
               return [msg, ...prev];
@@ -213,7 +218,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mensajes_chat' }, (payload) => {
           const msg = payload.new;
           setMensajesGlobales(prev => prev.map(m => m.id === msg.id ? { ...m, ...msg } : m));
-          setMensajesChat(prev => prev.map(m => m.id === msg.id ? { ...m, reacciones: msg.reacciones, is_edited: msg.is_edited, mensaje: msg.mensaje, visto_por: msg.visto_por } : m));
+          setMensajesChat(prev => prev.map(m => m.id === msg.id ? { ...m, reacciones: msg.reacciones, is_edited: msg.is_edited, mensaje: msg.mensaje, visto_por: msg.visto_por, is_pinned: msg.is_pinned } : m));
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mensajes_chat' }, (payload) => {
           setMensajesGlobales(prev => prev.filter(m => m.id !== payload.old.id));
@@ -357,6 +362,13 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
       setHoverMsgId(null);
   }
 
+  const togglePinMensaje = async (msgId: string, currentStatus: boolean | null | undefined) => {
+      const isPinnedNow = !!currentStatus;
+      setMensajesChat(prev => prev.map(m => m.id === msgId ? { ...m, is_pinned: !isPinnedNow } : m));
+      await supabase.from('mensajes_chat').update({ is_pinned: !isPinnedNow }).eq('id', msgId);
+      setHoverMsgId(null);
+  }
+
   const iniciarGrabacion = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -497,6 +509,28 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
       };
   };
 
+  const getStatusCircle = (uId: string, isHeader: boolean = false, isSmall: boolean = false) => {
+      const isOnline = usuariosOnline.includes(uId) || uId === usuarioLogueado?.id;
+      const isVacaciones = usuariosDeVacaciones.includes(uId);
+      const user = usuariosDb.find(x => x.id === uId) || (uId === usuarioLogueado?.id ? usuarioLogueado : null);
+      
+      const posClass = isHeader ? "absolute -bottom-1 -right-1" : "absolute bottom-0 right-0";
+      const borderClass = isHeader ? "border-slate-900" : "border-white";
+      const sizeClass = isSmall ? "w-2.5 h-2.5 border" : "w-3 h-3 border-2";
+      const iconSize = isSmall ? 6 : 8;
+      
+      if (isVacaciones) return <div className={`${posClass} ${isSmall ? 'w-3 h-3 text-[8px]' : 'w-4 h-4 text-[10px]'} bg-amber-100 text-amber-600 flex items-center justify-center border-2 ${borderClass} rounded-full z-10 shadow-sm leading-none`}>🌴</div>;
+      
+      if (isOnline) return <div className={`${posClass} ${sizeClass} bg-emerald-500 ${borderClass} rounded-full z-10`}></div>;
+
+      if (user?.ultima_conexion) {
+          const mDiff = (new Date().getTime() - new Date(user.ultima_conexion).getTime()) / 60000;
+          if (mDiff <= 10) return <div className={`${posClass} ${sizeClass} bg-yellow-400 ${borderClass} rounded-full z-10`}></div>;
+      }
+      
+      return <div className={`${posClass} ${sizeClass} bg-slate-300 text-white flex items-center justify-center ${borderClass} rounded-full z-10 font-black overflow-hidden`}><X size={iconSize} strokeWidth={4} className="opacity-80"/></div>;
+  };
+
   const getStatusPersona = (uId: string) => {
       if (usuariosDeVacaciones.includes(uId)) return <span className="text-[8px] text-amber-500 font-black">🌴 De Vacaciones</span>;
       if (usuariosOnline.includes(uId)) return <span className="text-[8px] text-emerald-500 font-black">En línea</span>;
@@ -563,11 +597,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                  avatarChatActual ? <img src={avatarChatActual} className="w-full h-full object-cover" /> :
                                  <div className="font-black text-white">{chatActivo.nombre.charAt(0)}</div>}
                             </div>
-                            {chatActivo.tipo === 'dm' && usuariosDeVacaciones.includes(chatActivo.id) ? (
-                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-100 text-amber-600 text-[10px] flex items-center justify-center border-2 border-slate-900 rounded-full z-10 shadow-sm leading-none">🌴</div>
-                            ) : chatActivo.tipo === 'dm' && usuariosOnline.includes(chatActivo.id) && (
-                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
-                            )}
+                            {chatActivo.tipo === 'dm' && getStatusCircle(chatActivo.id, true)}
                         </div>
                         <div className="overflow-hidden flex-1">
                             <h3 className="font-black text-[13px] md:text-sm uppercase truncate">{chatActivo.nombre}</h3>
@@ -711,11 +741,7 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                             <button key={u.id} onClick={() => setChatActivo({tipo: 'dm', id: u.id, nombre: `${u.nombre} ${u.apellidos}`})} className="w-full bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-3 text-left">
                                                 <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-black shrink-0 relative overflow-hidden shadow-inner">
                                                     {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <span>{u.nombre.charAt(0)}</span>}
-                                                    {usuariosDeVacaciones.includes(u.id) ? (
-                                                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-amber-100 text-amber-600 text-[10px] flex items-center justify-center border-2 border-white rounded-full z-10 leading-none shadow-sm">🌴</div>
-                                                    ) : usuariosOnline.includes(u.id) && (
-                                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full z-10"></div>
-                                                    )}
+                                                    {getStatusCircle(u.id)}
                                                     {ult && ult.unread > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 rounded-bl-lg text-[8px] flex items-center justify-center font-black z-10">{ult.unread}</span>}
                                                 </div>
                                                 <div className="overflow-hidden flex-1">
@@ -793,6 +819,32 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                 ) : (
                     /* INTERIOR DE LA SALA DE CHAT */
                     <>
+                        {(() => {
+                             const pinnedMsgs = mensajesChat.filter(m => m.is_pinned);
+                             if (pinnedMsgs.length > 0) {
+                                 // Mostrar el último mensaje fijado en caso de haber varios, o adaptarlo
+                                 const pinnedMsg = pinnedMsgs[pinnedMsgs.length - 1];
+                                 return (
+                                     <div className="bg-orange-50/90 backdrop-blur-md border-b border-orange-200 p-2 md:p-3 shadow-sm z-20 shrink-0 w-full flex items-center justify-between gap-3">
+                                         <div className="flex items-center gap-3 overflow-hidden flex-1 cursor-pointer" onClick={() => {
+                                            const el = document.getElementById(`msg-${pinnedMsg.id}`);
+                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                         }}>
+                                            <Pin className="text-orange-500 shrink-0" size={16}/>
+                                            <div className="flex-1 overflow-hidden">
+                                                <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest">Fijado por {pinnedMsg.remitente?.nombre || 'Alguien'}</p>
+                                                <p className="text-[11px] text-slate-800 italic truncate font-medium">{pinnedMsg.archivo_nombre ? `📎 ${pinnedMsg.archivo_nombre}` : pinnedMsg.mensaje}</p>
+                                            </div>
+                                         </div>
+                                         <button onClick={() => togglePinMensaje(pinnedMsg.id, pinnedMsg.is_pinned)} className="text-orange-400 hover:text-orange-600 bg-white p-1 rounded-full shadow-sm border border-orange-200">
+                                            <X size={14}/>
+                                         </button>
+                                     </div>
+                                 )
+                             }
+                             return null;
+                        })()}
+
                         <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-50/90 bg-blend-overlay pb-10">
                             
                             {chatActivo.tipo === 'proyecto' && (chatActivo.estatusProyecto === 'Cotizado' || !!chatActivo.estatusFiltro) && (
@@ -816,11 +868,11 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                         const fueVisto = msg.visto_por && msg.visto_por.some((id:string) => id !== usuarioLogueado.id);
 
                                         return (
-                                            <div key={msg.id} className={`flex w-full ${soyYo ? 'justify-end' : 'justify-start'}`}>
+                                            <div id={`msg-${msg.id}`} key={msg.id} className={`flex w-full ${soyYo ? 'justify-end' : 'justify-start'} ${msg.is_pinned ? 'mb-6 mt-4' : ''}`}>
                                                 {!soyYo && (
                                                     <div className="w-8 h-8 rounded-full overflow-hidden mr-2 shrink-0 bg-slate-200 border border-slate-300 flex items-center justify-center font-black text-[10px] text-slate-500 shadow-sm mt-4 relative">
                                                         {msg.remitente?.avatar_url ? <img src={msg.remitente.avatar_url} className="w-full h-full object-cover"/> : msg.remitente?.nombre?.charAt(0)}
-                                                        {usuariosOnline.includes(msg.remitente_id) && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-white rounded-full"></div>}
+                                                        {getStatusCircle(msg.remitente_id, false, true)}
                                                     </div>
                                                 )}
                                                 
@@ -839,6 +891,8 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                                                 <div className="w-px h-4 bg-slate-200 mx-1" />
                                                                 <button onClick={() => setMensajeCitado(msg)} title="Responder" className="text-slate-400 hover:text-blue-500 px-1.5"><Reply size={14}/></button>
                                                                 <button onClick={() => {setModalReenviar({id: msg.id, msg: msg}); setHoverMsgId(null); setBusquedaReenviar('');}} title="Reenviar" className="text-slate-400 hover:text-emerald-500 px-1.5"><Forward size={14}/></button>
+                                                                <button onClick={() => togglePinMensaje(msg.id, msg.is_pinned)} title={msg.is_pinned ? "Desfijar" : "Fijar"} className={`px-1.5 hover:text-orange-500 ${msg.is_pinned ? 'text-orange-500' : 'text-slate-400'}`}><Pin size={14}/></button>
+
                                                                 {soyYo && (
                                                                     <>
                                                                        <button onClick={() => {setMensajeEditando(msg); setNuevoMensaje(msg.mensaje);}} title="Editar" className="text-slate-400 hover:text-orange-500 px-1.5"><Edit2 size={14}/></button>
@@ -853,7 +907,13 @@ export default function ChatGlobal({ isOpen, onClose, usuarioLogueado, chatInici
                                                         {soyYo ? 'TÚ' : `${msg.remitente?.nombre}`}
                                                     </span>
                                                     
-                                                    <div className={`p-3 md:p-4 rounded-2xl shadow-sm text-[11px] md:text-[13px] font-medium leading-relaxed relative ${soyYo ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm'}`}>
+                                                    {msg.is_pinned && (
+                                                        <div className={`absolute -top-3 ${soyYo ? 'right-2' : 'left-2'} bg-orange-100 text-orange-700 px-2 flex items-center justify-center rounded-full shadow-sm z-10 border border-orange-200`}>
+                                                            <Pin size={10} className="mr-1 inline-block"/> <span className="text-[8px] font-black uppercase tracking-widest">Fijado</span>
+                                                        </div>
+                                                    )}
+
+                                                    <div className={`p-3 md:p-4 rounded-2xl shadow-sm text-[11px] md:text-[13px] font-medium leading-relaxed relative ${soyYo ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm'} ${msg.is_pinned ? 'border border-orange-300 ring-2 ring-orange-100' : ''}`}>
                                                         
                                                         {citadoReal && citadoReal.mensaje && (
                                                             <div className={`mb-2 p-2 rounded-lg text-[9px] md:text-[10px] italic border-l-4 ${soyYo ? 'bg-orange-600/30 border-white text-orange-50' : 'bg-slate-100 border-orange-500 text-slate-500'}`}>

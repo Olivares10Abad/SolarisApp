@@ -71,6 +71,7 @@ export default function Usuarios() {
   const navigate = useNavigate()
   const [tabActiva, setTabActiva] = useState<'empleados' | 'deptos' | 'roles'>('empleados')
   const [pestañaExpediente, setPestañaExpediente] = useState<'personales' | 'corporativo' | 'permisos' | 'documentos' | 'notificaciones'>('personales')
+  const [tabNotificacionesForm, setTabNotificacionesForm] = useState('Todas')
   const [verOrganigrama, setVerOrganigrama] = useState(false)
   const [zoomOrg, setZoomOrg] = useState(1) // <-- ESTADO PARA ZOOM
 
@@ -105,10 +106,10 @@ export default function Usuarios() {
     agendar_viabilidad: false, finanzas: false, cotizaciones: false,
     revision_cotizaciones: false, administrador_pagos: false,
     notif_cotizaciones: false, notif_revision: false,
-    notif_viabilidad_tecnica: false, notif_instalacion: false,
-    notif_interconexion: false, notif_inventario: false, notif_finanzas: false
+    notif_interconexion: false, notif_inventario: false, notif_finanzas: false,
+    permisos_especificos: { revision_cotizacion: false, revision_viabilidad: false }
   }
-  const [formData, setFormData] = useState(initialFormState)
+  const [formData, setFormData] = useState<any>(initialFormState)
 
   const usuarioLogueado = useMemo(() => {
     const data = localStorage.getItem('session_gea_solar')
@@ -259,26 +260,26 @@ export default function Usuarios() {
                   {usuariosAgrupados[depto].map((u: any) => {
                     const jefe = usuarios.find(boss => boss.id === u.jefe_id);
                     return (
-                      <div key={u.id} className="bg-white border border-slate-100 rounded-[20px] md:rounded-[25px] p-4 md:p-5 shadow-sm flex flex-col group hover:border-orange-400 transition-all hover:shadow-xl relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-3 md:mb-4">
-                          <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                            <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black text-base md:text-lg flex-shrink-0 overflow-hidden shadow-md">
+                      <div key={u.id} className="bg-white border border-slate-100 rounded-[16px] md:rounded-[20px] p-3 shadow-sm flex flex-col group hover:border-orange-400 transition-all hover:shadow-xl relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-2.5">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0 overflow-hidden shadow-md">
                               {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover" /> : <span>{u.nombre.charAt(0)}{u.apellidos.charAt(0)}</span>}
                             </div>
                             <div className="overflow-hidden">
-                              <h4 className="font-black text-slate-950 text-[11px] md:text-[13px] uppercase italic tracking-tighter leading-none truncate">{u.nombre} {u.apellidos}</h4>
+                              <h4 className="font-black text-slate-950 text-[11px] uppercase italic tracking-tighter leading-none truncate">{u.nombre} {u.apellidos}</h4>
                               <p className="text-[8px] md:text-[9px] font-semibold text-slate-600 uppercase mt-1 md:mt-1.5 truncate flex items-center gap-1"><MapPin size={10} className="text-slate-400" /> {u.departamento}</p>
                             </div>
                           </div>
-                          <div className="flex flex-col gap-1 md:gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all ml-2">
-                            <button onClick={() => { setModoEdicion(true); setIdEditando(u.id); setFormData(u); setPestañaExpediente('personales'); setBuscadorJefe(''); setModalAbierto(true); }} className="p-1 md:p-1.5 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Pencil size={12} className="md:w-3.5 md:h-3.5" /></button>
-                            <button onClick={async () => { if (confirm('¿Borrar?')) { await supabase.from('perfiles').delete().eq('id', u.id); fetchData(); } }} className="p-1 md:p-1.5 bg-slate-50 text-slate-400 hover:bg-red-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Trash2 size={12} className="md:w-3.5 md:h-3.5" /></button>
+                          <div className="flex flex-col gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all ml-2">
+                            <button onClick={() => { setModoEdicion(true); setIdEditando(u.id); setFormData({ ...initialFormState, ...u, permisos_especificos: { ...initialFormState.permisos_especificos, ...(u.permisos_especificos || {}) } }); setPestañaExpediente('personales'); setBuscadorJefe(''); setModalAbierto(true); }} className="p-1 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Pencil size={12} /></button>
+                            <button onClick={async () => { if (confirm('¿Borrar?')) { await supabase.from('perfiles').delete().eq('id', u.id); fetchData(); } }} className="p-1 bg-slate-50 text-slate-400 hover:bg-red-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Trash2 size={12} /></button>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-1.5 md:gap-2 pt-3 md:pt-4 border-t border-slate-50">
-                          <span className={`text-[7px] md:text-[8px] font-black px-2 md:px-2.5 py-1 rounded-md md:rounded-lg uppercase border shadow-sm ${getEstiloRol(u.rol_sistema)}`}>{u.rol_sistema}</span>
-                          {jefe && <span className="text-[7px] md:text-[8px] font-black px-2 md:px-2.5 py-1 rounded-md md:rounded-lg uppercase bg-slate-50 text-slate-700 border border-slate-100 shadow-sm flex items-center gap-1 md:gap-1.5 truncate max-w-[150px] md:max-w-full"><Network size={10} className="text-orange-500 shrink-0" /> {jefe.nombre}</span>}
+                        <div className="flex flex-wrap gap-1.5 pt-2.5 border-t border-slate-50">
+                          <span className={`text-[7px] font-black px-2 py-1 rounded-md uppercase border shadow-sm ${getEstiloRol(u.rol_sistema)}`}>{u.rol_sistema}</span>
+                          {jefe && <span className="text-[7px] font-black px-2 py-1 rounded-md uppercase bg-slate-50 text-slate-700 border border-slate-100 shadow-sm flex items-center gap-1 truncate max-w-full"><Network size={10} className="text-orange-500 shrink-0" /> {jefe.nombre}</span>}
                         </div>
                       </div>
                     )
@@ -309,6 +310,8 @@ export default function Usuarios() {
             </div>
           </motion.div>
         )}
+
+      </main>
 
         {/* ORGANIGRAMA DRAGGABLE CON ZOOM */}
         <AnimatePresence>
@@ -347,7 +350,7 @@ export default function Usuarios() {
         {/* MODAL EXPEDIENTE */}
         <AnimatePresence>
           {modalAbierto && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-4xl shadow-2xl relative overflow-hidden flex flex-col h-[85vh] md:max-h-[90vh] mt-12 md:mt-0 border border-white">
 
                 <div className="bg-slate-900 p-5 md:p-8 flex items-center justify-between text-white shrink-0">
@@ -422,23 +425,43 @@ export default function Usuarios() {
                   )}
 
                   {pestañaExpediente === 'permisos' && (
-                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                      {[
-                        { label: 'Ventas', campo: 'ventas' }, { label: 'Usuarios', campo: 'usuarios' },
-                        { label: 'Proyectos', campo: 'proyectos' }, { label: 'Inventario', campo: 'inventario' },
-                        { label: 'Comunicados', campo: 'comunicados' }, { label: 'Panel', campo: 'panel' },
-                        { label: 'Instalación', campo: 'instalacion' }, { label: 'Interconexión', campo: 'interconexion' },
-                        { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
-                        { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
-                        { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' }
-                      ].map((perm) => (
-                        <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
-                          {perm.label}
-                          <div className={`w-3 h-3 md:w-4 md:h-4 rounded flex items-center justify-center border ${formData[perm.campo as keyof typeof formData] ? 'bg-white border-white text-slate-900' : 'bg-slate-100 border-slate-200'}`}>
-                            {formData[perm.campo as keyof typeof formData] && <Check size={12} className="text-orange-500 w-2.5 h-2.5 md:w-3 md:h-3" />}
+                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                        {[
+                          { label: 'Usuarios', campo: 'usuarios' },
+                          { label: 'Proyectos', campo: 'proyectos' }, { label: 'Inventario', campo: 'inventario' },
+                          { label: 'Comunicados', campo: 'comunicados' }, { label: 'Panel', campo: 'panel' },
+                          { label: 'Instalación', campo: 'instalacion' }, { label: 'Interconexión', campo: 'interconexion' },
+                          { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
+                          { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
+                          { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' }
+                        ].map((perm) => (
+                          <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
+                            {perm.label}
+                            <div className={`w-3 h-3 md:w-4 md:h-4 rounded flex items-center justify-center border ${formData[perm.campo as keyof typeof formData] ? 'bg-white border-white text-slate-900' : 'bg-slate-100 border-slate-200'}`}>
+                              {formData[perm.campo as keyof typeof formData] && <Check size={12} className="text-orange-500 w-2.5 h-2.5 md:w-3 md:h-3" />}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {formData.revision_cotizaciones && (
+                        <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl flex flex-col sm:flex-row gap-4 sm:items-center">
+                          <div className="text-slate-800 font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-orange-500" /> Vistas de Revisión Disponibles:
+                          </div>
+                          <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
+                              <input type="checkbox" checked={formData.permisos_especificos?.revision_cotizacion || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_cotizacion: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+                              Aprobación Cotización
+                            </label>
+                            <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
+                              <input type="checkbox" checked={formData.permisos_especificos?.revision_viabilidad || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_viabilidad: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+                              Aprobación Viabilidad
+                            </label>
                           </div>
                         </div>
-                      ))}
+                      )}
                     </motion.div>
                   )}
 
@@ -454,16 +477,27 @@ export default function Usuarios() {
                         </div>
                       </div>
 
+                      <div className="flex bg-slate-50 p-1.5 rounded-[12px] border border-slate-200 mt-2 overflow-x-auto custom-scrollbar gap-1">
+                        {['Todas', 'Cotizaciones', 'Viabilidad', 'Operaciones', 'General'].map(tab => (
+                            <button 
+                                key={tab} type="button" onClick={() => setTabNotificacionesForm(tab)}
+                                className={`px-4 py-2 rounded-[8px] text-[10px] font-black transition-all whitespace-nowrap uppercase tracking-widest ${tabNotificacionesForm === tab ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                {tab}
+                            </button>
+                        ))}
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         {[
-                          { k: 'notif_cotizaciones', t: 'Nueva Cotización', d: 'Recibir notificaciones cuando un proyecto entra a Cotización o retorna por devolución.', icon: FileText, c: 'blue' },
-                          { k: 'notif_revision', t: 'Pase a Revisión', d: 'Recibir avisos cuando un proyecto termina de cotizarse y está en estatus Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
-                          { k: 'notif_viabilidad_tecnica', t: 'Viabilidad Técnica', d: 'Recibir alertas sobre solicitudes de viabilidad, agendamiento de visitas y revisiones de ingeniería.', icon: Zap, c: 'orange' },
-                          { k: 'notif_instalacion', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes finalizados.', icon: Wrench, c: 'teal' },
-                          { k: 'notif_interconexion', t: 'Interconexión', d: 'Avisos de trámites ante CFE, medidor e inspecciones finales.', icon: Network, c: 'purple' },
-                          { k: 'notif_inventario', t: 'Bajo Inventario', d: 'Alertas cuando materiales estratégicos han llegado al stock mínimo.', icon: Package, c: 'amber' },
-                          { k: 'notif_finanzas', t: 'Avisos Finanzas', d: 'Alertas de nuevos presupuestos, depósitos iniciales y liberación de comisiones.', icon: Wallet, c: 'rose' }
-                        ].map((notif) => (
+                          { k: 'notif_cotizaciones', tab: 'Cotizaciones', t: 'Nueva Cotización', d: 'Notificaciones cuando un proyecto entra a Cotización o retorna.', icon: FileText, c: 'blue' },
+                          { k: 'notif_revision', tab: 'Cotizaciones', t: 'Pase a Revisión (Cot.)', d: 'Avisos cuando un proyecto está en Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
+                          { k: 'notif_viabilidad_tecnica', tab: 'Viabilidad', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes y agendamientos técnicos.', icon: Zap, c: 'orange' },
+                          { k: 'notif_viabilidad_revision', tab: 'Viabilidad', t: 'Revisión Viabilidad (Ventas)', d: 'Avisos cuando ingeniería termina y pasa a revisión de gerencia/ventas.', icon: CheckCircle2, c: 'indigo' },
+                          { k: 'notif_instalacion', tab: 'Operaciones', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes.', icon: Wrench, c: 'teal' },
+                          { k: 'notif_interconexion', tab: 'Operaciones', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
+                          { k: 'notif_inventario', tab: 'General', t: 'Bajo Inventario', d: 'Alertas cuando materiales han llegado al stock mínimo.', icon: Package, c: 'amber' },
+                          { k: 'notif_finanzas', tab: 'General', t: 'Finanzas', d: 'Nuevos presupuestos, depósitos iniciales y liberación de comisiones.', icon: Wallet, c: 'rose' }
+                        ].filter(n => tabNotificacionesForm === 'Todas' || n.tab === tabNotificacionesForm).map((notif) => (
                           <div key={notif.k} onClick={() => setFormData({ ...formData, [notif.k]: !formData[notif.k as keyof typeof formData] })} className={`border-2 p-5 rounded-2xl cursor-pointer transition-all group relative overflow-hidden ${formData[notif.k as keyof typeof formData] ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                             <div className="flex justify-between items-start mb-4">
                               <div className={`p-2 rounded-lg ${formData[notif.k as keyof typeof formData] ? 'bg-white/10' : 'bg-slate-100 group-hover:bg-orange-50'}`}>
@@ -527,7 +561,6 @@ export default function Usuarios() {
           )}
         </AnimatePresence>
 
-      </main>
     </div>
   )
 }

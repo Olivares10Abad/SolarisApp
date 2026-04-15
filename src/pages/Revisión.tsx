@@ -58,7 +58,19 @@ export default function Revision() {
   const [usuariosDb, setUsuariosDb] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
-  const [tabActiva, setTabActiva] = useState('Aprobación Cotización')
+
+  const usuarioLogueado = useMemo(() => {
+    const data = localStorage.getItem('session_gea_solar')
+    return data ? JSON.parse(data) : null
+  }, [])
+
+  const inicialTab = useMemo(() => {
+    if (usuarioLogueado?.permisos_especificos?.revision_cotizacion) return 'Aprobación Cotización';
+    if (usuarioLogueado?.permisos_especificos?.revision_viabilidad) return 'Aprobación Viabilidad';
+    return 'Aprobación Cotización';
+  }, [usuarioLogueado])
+
+  const [tabActiva, setTabActiva] = useState(inicialTab)
 
   const [modalDetalle, setModalDetalle] = useState(false)
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
@@ -78,14 +90,9 @@ export default function Revision() {
   const [mensajeAprobacion, setMensajeAprobacion] = useState('')
   const [procesando, setProcesando] = useState(false)
 
-  // --- ESTADOS DEL CHAT GLOBAL ---
+  // ESTADOS DEL CHAT GLOBAL ---
   const [chatAbierto, setChatAbierto] = useState(false)
   const [chatInicial, setChatInicial] = useState<any>(null)
-
-  const usuarioLogueado = useMemo(() => {
-    const data = localStorage.getItem('session_gea_solar')
-    return data ? JSON.parse(data) : null
-  }, [])
 
   const fetchInicial = async () => {
     setCargando(true)
@@ -251,12 +258,16 @@ export default function Revision() {
 
           {/* TABS DE NAVEGACION */}
           <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 self-start md:self-auto w-full md:w-auto">
-            <button onClick={() => setTabActiva('Aprobación Cotización')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Cotización' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
-              Aprobación Cotización
-            </button>
-            <button onClick={() => setTabActiva('Aprobación Viabilidad')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Viabilidad' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
-              Aprobación Viabilidad
-            </button>
+            {(usuarioLogueado?.permisos_especificos?.revision_cotizacion || !usuarioLogueado?.permisos_especificos) && (
+              <button onClick={() => setTabActiva('Aprobación Cotización')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Cotización' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                Aprobación Cotización
+              </button>
+            )}
+            {(usuarioLogueado?.permisos_especificos?.revision_viabilidad || !usuarioLogueado?.permisos_especificos) && (
+              <button onClick={() => setTabActiva('Aprobación Viabilidad')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Viabilidad' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                Aprobación Viabilidad
+              </button>
+            )}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-2 w-full md:w-72 shadow-sm">

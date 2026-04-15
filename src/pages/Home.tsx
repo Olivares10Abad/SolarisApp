@@ -30,7 +30,6 @@ function urlBase64ToUint8Array(base64String: string) {
 const modulosMenu = [
     { nombre: 'Proyectos', icono: LayoutGrid, ruta: '/proyectos', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'proyectos' },
     { nombre: 'Revisión', icono: CheckCircle2, ruta: '/revision', color: 'text-red-500', bg: 'hover:bg-red-50', permiso: 'revision_cotizaciones' },
-    { nombre: 'Ventas', icono: BarChart3, ruta: '/ventas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'ventas' },
     { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'cotizaciones' },
     { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'agendar_viabilidad' },
     { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'instalacion' },

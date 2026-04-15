@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, enviarNotificacionVendedor } from '../supabaseClient'
+import { supabase, enviarNotificacionVendedor, enviarNotificacionRoles } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
    X, Search, Camera, Info, MapPin, Clock, FileText,
@@ -230,6 +230,7 @@ export default function Viabilidad() {
             await enviarNotificacionVendedor(proyectoSeleccionado.proyecto?.vendedor_id, `⚙️ Ingeniería aceptó tu Solicitud de Viabilidad. Requiere que apruebes el proyecto en la bandeja de Aprobaciones.`, usuarioLogueado?.id);
          } else if (targetStatus === 7) {
             await supabase.from('proyectos').update({ estatus: 'Viabilidad - Revisión', sub_estatus: null }).eq('id', proyectoSeleccionado.proyecto_id);
+            await enviarNotificacionRoles('notif_viabilidad_revision', `Viabilidad Técnica finalizada, requiere revisión gerencial: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/revision`, usuarioLogueado?.id);
          } else {
             const map: any = { 4: 'Verificada', 5: 'Ingeniería' }
             if (map[targetStatus]) await supabase.from('proyectos').update({ sub_estatus: map[targetStatus] }).eq('id', proyectoSeleccionado.proyecto_id);
