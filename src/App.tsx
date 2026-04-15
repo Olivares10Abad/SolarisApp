@@ -10,11 +10,13 @@ import Inventario from './pages/Inventario'
 import Viabilidad from './pages/Viabilidad'
 import MetricasSLA from './pages/MetricasSLA'
 import RutaProtegida from './components/RutaProtegida'
+import { DialogProvider } from './context/DialogContext'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <DialogProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         
@@ -29,7 +31,8 @@ function App() {
         <Route path="/proyectos" element={<RutaProtegida permisoRequerido="proyectos"><ProyectosList /></RutaProtegida>} />
         <Route path="/metricas" element={<RutaProtegida><MetricasSLA /></RutaProtegida>} />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </DialogProvider>
   )
 }
 

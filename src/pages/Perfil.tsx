@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -38,6 +39,7 @@ const festivosMexico = [
 ]
 
 export default function Perfil() {
+    const { showAlert, showConfirm } = useDialog();
     const navigate = useNavigate()
     const [sessionUser, setSessionUser] = useState<any>(null)
     const [perfil, setPerfil] = useState<any>(null)
@@ -130,7 +132,7 @@ export default function Perfil() {
     const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
     const isHoliday = (date: Date) => festivosMexico.some(f => f.mes === date.getMonth() && f.dia === date.getDate());
 
-    const handleDayClick = (dia: number) => {
+    const handleDayClick = async (dia: number) => {
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
         const fechaClick = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), dia);
@@ -138,11 +140,11 @@ export default function Perfil() {
         if (fechaClick < hoy) return;
 
         if (!perfil?.fecha_ingreso) {
-            alert("Aún no tienes Fecha de Ingreso. Pide a Recursos Humanos que actualice tu expediente.");
+            await showAlert('Aviso', "Aún no tienes Fecha de Ingreso. Pide a Recursos Humanos que actualice tu expediente.");
             return;
         }
         if (resumenVacaciones.restantes <= 0) {
-            alert("Ya no tienes días de vacaciones disponibles para este ciclo (o tienes menos de 1 año en la empresa).");
+            await showAlert('Aviso', "Ya no tienes días de vacaciones disponibles para este ciclo (o tienes menos de 1 año en la empresa).");
             return;
         }
 
@@ -214,7 +216,7 @@ export default function Perfil() {
                 setSessionUser(updatedSession);
             }
         } catch (err: any) {
-            alert(`Error subiendo ${tipo}: ` + err.message);
+            await showAlert('Aviso', `Error subiendo ${tipo}: ` + err.message);
         } finally {
             if (esAvatar) setSubiendoAvatar(false); else setSubiendoDoc(null);
         }
@@ -233,16 +235,16 @@ export default function Perfil() {
             setSessionUser(updatedSession);
         }
         setGuardandoInfo(false);
-        alert("Información actualizada correctamente.");
+        await showAlert('Aviso', "Información actualizada correctamente.");
     }
 
     const handleSolicitarVacaciones = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!perfil?.fecha_ingreso) return alert("No podemos procesar tu solicitud porque falta tu Fecha de Ingreso en el expediente.");
-        if (resumenVacaciones.restantes <= 0) return alert("No tienes suficientes días disponibles.");
-        if (nuevaSolicitud.dias_solicitados <= 0) return alert("Debes seleccionar un rango de fechas en el calendario que incluya al menos 1 día hábil.");
-        if (nuevaSolicitud.dias_solicitados > resumenVacaciones.restantes) return alert("Estás solicitando más días de los que tienes disponibles.");
+        if (!perfil?.fecha_ingreso) { await showAlert('Aviso', "No podemos procesar tu solicitud porque falta tu Fecha de Ingreso en el expediente."); return; }
+        if (resumenVacaciones.restantes <= 0) { await showAlert('Aviso', "No tienes suficientes días disponibles."); return; }
+        if (nuevaSolicitud.dias_solicitados <= 0) { await showAlert('Aviso', "Debes seleccionar un rango de fechas en el calendario que incluya al menos 1 día hábil."); return; }
+        if (nuevaSolicitud.dias_solicitados > resumenVacaciones.restantes) { await showAlert('Aviso', "Estás solicitando más días de los que tienes disponibles."); return; }
 
         setEnviandoSolicitud(true);
         try {
@@ -261,16 +263,16 @@ export default function Perfil() {
             if (data) setSolicitudes([data, ...solicitudes]);
             setNuevaSolicitud({ fecha_inicio: '', fecha_fin: '', dias_solicitados: 0, motivo: '' });
             setRangoSeleccionado({ start: null, end: null });
-            alert("¡Solicitud enviada a tu jefe directo con éxito!");
+            await showAlert('Aviso', "¡Solicitud enviada a tu jefe directo con éxito!");
         } catch (err: any) {
-            alert("Error al enviar la solicitud: " + err.message);
+            await showAlert('Aviso', "Error al enviar la solicitud: " + err.message);
         } finally {
             setEnviandoSolicitud(false);
         }
     }
 
     const cancelarSolicitud = async (id: string) => {
-        if (!confirm("¿Deseas cancelar esta solicitud de vacaciones?")) return;
+        if (!(await showConfirm("¿Deseas cancelar esta solicitud de vacaciones?"))) return;
         await supabase.from('solicitudes_ausencia').delete().eq('id', id);
         setSolicitudes(solicitudes.filter(s => s.id !== id));
     }

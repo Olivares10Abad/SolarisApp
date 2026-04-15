@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -53,6 +54,7 @@ const festivosMexico = [
 ]
 
 export default function Home() {
+    const { showAlert, showConfirm } = useDialog();
     const navigate = useNavigate()
     const [usuario, setUsuario] = useState<any>(null)
     const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
@@ -368,7 +370,7 @@ export default function Home() {
 
     const handlePublicarPost = async (e: React.FormEvent) => {
         e.preventDefault(); if (!nuevoPost.trim() || publicando || !usuario?.id) return;
-        if (modoEncuesta && opcionesEncuesta.some(op => !op.trim())) return alert('Llena las opciones de la encuesta.');
+        if (modoEncuesta && opcionesEncuesta.some(op => !op.trim())) { await showAlert('Aviso', 'Llena las opciones de la encuesta.'); return; }
         setPublicando(true);
         try {
             let url = null;
@@ -424,7 +426,7 @@ export default function Home() {
     }
 
     const borrarPost = async (id: string) => {
-        if (!confirm('¿Eliminar publicación?')) return;
+        if (!(await showConfirm('¿Eliminar publicación?'))) return;
         await supabase.from('muro_social').delete().eq('id', id);
         cargarPosts();
     }

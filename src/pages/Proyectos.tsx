@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, enviarNotificacionRoles } from '../supabaseClient'
@@ -80,6 +81,7 @@ const comprimirImagen = (file: File): Promise<File> => {
 };
 
 export default function ProyectosList() {
+    const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [proyectos, setProyectos] = useState<any[]>([])
@@ -266,7 +268,7 @@ export default function ProyectosList() {
       fetchInicial();
     } catch (error: any) {
       console.error(error);
-      alert("🚨 " + error.message);
+      await showAlert('Aviso', "🚨 " + error.message);
     } finally {
       setGuardando(false);
     }
@@ -274,7 +276,7 @@ export default function ProyectosList() {
 
   const handleGuardarProyecto = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!proyectoEditando && filesAdjuntos.length === 0) return alert("Por favor adjunta al menos un recibo o foto.")
+    if (!proyectoEditando && filesAdjuntos.length === 0) { await showAlert('Aviso', "Por favor adjunta al menos un recibo o foto."); return; }
     setGuardando(true)
 
     try {
@@ -327,13 +329,13 @@ export default function ProyectosList() {
         }
       }
       setModalNuevo(false); setProyectoEditando(null); setFormNuevo({ nombre: '', giro: 'Residencial', comentarios: '' }); setFilesAdjuntos([]); fetchInicial();
-    } catch (error: any) { alert("🚨 " + error.message) } finally { setGuardando(false) }
+    } catch (error: any) { await showAlert('Aviso', "🚨 " + error.message) } finally { setGuardando(false) }
   }
 
   const handleGuardarRecotizacion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proyectoEditando) return;
-    if (!formRecotizacion.comentarios) return alert("Por favor, ingresa un motivo para la recotización.");
+    if (!formRecotizacion.comentarios) { await showAlert('Aviso', "Por favor, ingresa un motivo para la recotización."); return; }
     setGuardando(true);
 
     try {
@@ -375,7 +377,7 @@ export default function ProyectosList() {
       setFilesAdjuntos([]);
       fetchInicial();
     } catch (error: any) {
-      alert("🚨 " + error.message)
+      await showAlert('Aviso', "🚨 " + error.message)
     } finally {
       setGuardando(false)
     }

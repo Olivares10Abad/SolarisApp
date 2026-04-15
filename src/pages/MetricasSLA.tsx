@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Filter, Loader2, Download } from 'lucide-react'
@@ -53,6 +54,7 @@ const GaugeChart = ({ value, max, title }: { value: number, max: number, title: 
 }
 
 export default function MetricasSLA() {
+    const { showAlert, showConfirm } = useDialog();
   const [cargando, setCargando] = useState(true)
   const [proyectos, setProyectos] = useState<any[]>([])
   const [viabilidades, setViabilidades] = useState<any[]>([])
@@ -89,7 +91,7 @@ export default function MetricasSLA() {
       link.click();
     } catch (err) {
       console.error(err);
-      alert('Hubo un error al generar la imagen. Intenta nuevamente.');
+      await showAlert('Aviso', 'Hubo un error al generar la imagen. Intenta nuevamente.');
     }
   }
 

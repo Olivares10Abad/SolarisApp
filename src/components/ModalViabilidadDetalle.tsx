@@ -14,7 +14,7 @@ const STEPS = [
 interface ModalViabilidadDetalleProps {
    proyectoSeleccionado: any;
    setProyectoSeleccionado: (p: any) => void;
-   showModalSecundario: 'Agendar' | 'Visor' | 'Info' | null;
+   showModalSecundario: 'Agendar' | 'Visor' | 'Info' | 'Confirmar' | 'Cancelar' | null;
    setShowModalSecundario: (s: any) => void;
    cancelarViabilidad?: () => void;
    avanzarA?: (target: number, uploadPdf?: boolean) => void;
@@ -234,7 +234,7 @@ export default function ModalViabilidadDetalle({
                                     <Check size={16} strokeWidth={4} />
                                  </div>
                               ) : (
-                                 <button onClick={() => avanzarA && avanzarA(4)} disabled={procesando} className="w-[28px] h-[28px] rounded-[6px] bg-white border-2 border-slate-200 hover:border-green-500 text-transparent hover:text-green-500 hover:bg-green-50 transition-colors flex items-center justify-center shadow-sm">
+                                 <button onClick={() => setShowModalSecundario('Confirmar')} disabled={procesando || viabilidadRef?.status < 3} className="w-[28px] h-[28px] rounded-[6px] bg-white border-2 border-slate-200 hover:border-green-500 text-transparent hover:text-green-500 hover:bg-green-50 transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                                     <Check size={14} strokeWidth={4} />
                                  </button>
                               )}

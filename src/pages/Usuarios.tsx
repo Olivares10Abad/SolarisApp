@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
@@ -68,6 +69,7 @@ const NodoOrganigrama = ({ usuario, todosLosUsuarios, busqueda }: any) => {
 };
 
 export default function Usuarios() {
+    const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate()
   const [tabActiva, setTabActiva] = useState<'empleados' | 'deptos' | 'roles'>('empleados')
   const [pestañaExpediente, setPestañaExpediente] = useState<'personales' | 'corporativo' | 'permisos' | 'documentos' | 'notificaciones'>('personales')
@@ -273,7 +275,7 @@ export default function Usuarios() {
                           </div>
                           <div className="flex flex-col gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all ml-2">
                             <button onClick={() => { setModoEdicion(true); setIdEditando(u.id); setFormData({ ...initialFormState, ...u, permisos_especificos: { ...initialFormState.permisos_especificos, ...(u.permisos_especificos || {}) } }); setPestañaExpediente('personales'); setBuscadorJefe(''); setModalAbierto(true); }} className="p-1 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Pencil size={12} /></button>
-                            <button onClick={async () => { if (confirm('¿Borrar?')) { await supabase.from('perfiles').delete().eq('id', u.id); fetchData(); } }} className="p-1 bg-slate-50 text-slate-400 hover:bg-red-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Trash2 size={12} /></button>
+                            <button onClick={async () => { if (await showConfirm('¿Borrar?')) { await supabase.from('perfiles').delete().eq('id', u.id); fetchData(); } }} className="p-1 bg-slate-50 text-slate-400 hover:bg-red-600 hover:text-white rounded-lg border border-slate-100 transition-colors"><Trash2 size={12} /></button>
                           </div>
                         </div>
 
@@ -304,7 +306,7 @@ export default function Usuarios() {
               {(tabActiva === 'deptos' ? deptos : roles).map(item => (
                 <div key={item.id} className="bg-white/90 border border-slate-100 p-4 md:p-5 rounded-xl md:rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-all">
                   <span className="font-black text-slate-800 uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-2 md:gap-3"><div className="w-1.5 md:w-2 h-1.5 md:h-2 rounded-full bg-orange-500 shrink-0" />{item.nombre}</span>
-                  <button onClick={async () => { if (confirm('¿Eliminar?')) { const t = tabActiva === 'deptos' ? 'departamentos' : 'roles_sistema'; await supabase.from(t).delete().eq('id', item.id); fetchData(); } }} className="text-slate-300 hover:text-red-500 transition-all p-1.5 md:p-2"><Trash2 className="w-4 h-4 md:w-5 md:h-5" /></button>
+                  <button onClick={async () => { if (await showConfirm('¿Eliminar?')) { const t = tabActiva === 'deptos' ? 'departamentos' : 'roles_sistema'; await supabase.from(t).delete().eq('id', item.id); fetchData(); } }} className="text-slate-300 hover:text-red-500 transition-all p-1.5 md:p-2"><Trash2 className="w-4 h-4 md:w-5 md:h-5" /></button>
                 </div>
               ))}
             </div>

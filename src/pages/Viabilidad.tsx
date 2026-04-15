@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useDialog } from '../context/DialogContext'
 import { useNavigate } from 'react-router-dom'
 import { supabase, enviarNotificacionVendedor, enviarNotificacionRoles } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -47,16 +48,18 @@ const getFechaSLA = (v: any) => {
 }
 
 export default function Viabilidad() {
+    const { showAlert, showConfirm } = useDialog();
    const navigate = useNavigate()
    const [viabilidades, setViabilidades] = useState<any[]>([])
    const [ingenieros, setIngenieros] = useState<any[]>([])
    const [cargando, setCargando] = useState(true)
    const [procesando, setProcesando] = useState(false)
+   const [motivoCancelacion, setMotivoCancelacion] = useState('')
 
    // MODALES
    const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
    const [modalCalendarioAbierto, setModalCalendarioAbierto] = useState(false)
-   const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | null>(null)
+   const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | 'Cancelar' | 'Confirmar' | null>(null)
    const [showBitacora, setShowBitacora] = useState(false)
 
    // Formulario Agenda
@@ -98,13 +101,21 @@ export default function Viabilidad() {
       `)
          .order('fecha_solicitada', { ascending: false })
 
-      if (data) setViabilidades(data)
-
       const { data: engs } = await supabase
          .from('perfiles')
          .select('id, nombre, apellidos')
          .ilike('departamento', '%ngenier%')
       if (engs) setIngenieros(engs)
+
+      if (data) {
+         setViabilidades(data)
+         const searchParams = new URLSearchParams(window.location.search);
+         const prId = searchParams.get('proyecto_id');
+         if (prId) {
+            const encontrado = data.find((v: any) => v.proyecto_id === prId);
+            if (encontrado) setProyectoSeleccionado(encontrado);
+         }
+      }
 
       setCargando(false)
    }
@@ -124,15 +135,19 @@ export default function Viabilidad() {
    const agendarVisita = async () => {
       setProcesando(true)
       try {
-         await supabase.from('viabilidad_control').update({
-            fecha_agendada: agendaForm.fecha_inicio,
-            fecha_agendada_fin: agendaForm.fecha_fin,
-            hora_agendada_inicio: agendaForm.hora_inicio,
-            hora_agendada_fin: agendaForm.hora_fin,
-            ingeniero_id: agendaForm.ingeniero_id,
-            status: 3
-         }).eq('id', proyectoSeleccionado.id)
+         const fechaInicioStr = agendaForm.fecha_inicio;
+         const fechaFinStr = agendaForm.fecha_fin || agendaForm.fecha_inicio;
 
+         const updates: any = {
+            status: 3, // Force status to Agendada
+            fecha_verificada: null, // Reset verification
+            ingeniero_id: agendaForm.ingeniero_id,
+            fecha_agendada: fechaInicioStr,
+            hora_agendada_inicio: agendaForm.hora_inicio,
+            fecha_agendada_fin: fechaFinStr,
+            hora_agendada_fin: agendaForm.hora_fin
+         }
+         await supabase.from('viabilidad_control').update(updates).eq('id', proyectoSeleccionado.id)
          await supabase.from('proyectos').update({ sub_estatus: 'Agendada' }).eq('id', proyectoSeleccionado.proyecto_id);
 
          await supabase.from('proyectos_interacciones').insert([{
@@ -146,7 +161,7 @@ export default function Viabilidad() {
 
          await enviarNotificacionVendedor(
             proyectoSeleccionado.proyecto?.vendedor?.id || proyectoSeleccionado.proyecto?.vendedor_id,
-            `📅 Tu visita de Viabilidad ha sido agendada para el ${agendaForm.fecha_inicio} a las ${agendaForm.hora_inicio}.|||/viabilidad?proyecto_id=${proyectoSeleccionado.proyecto_id}`,
+            `📅 Tu visita de Viabilidad ha sido agendada para el ${agendaForm.fecha_inicio} a las ${agendaForm.hora_inicio}.|||/proyectos?proyecto_id=${proyectoSeleccionado.proyecto_id}`,
             usuarioLogueado?.id
          );
 
@@ -162,14 +177,22 @@ export default function Viabilidad() {
          await fetchViabilidades();
          setProyectoSeleccionado(null)
       } catch (e) {
-         alert('Error al agendar.')
+         await showAlert('Aviso', 'Error al agendar.')
       } finally {
          setProcesando(false)
       }
    }
 
-   const cancelarViabilidad = async () => {
-      if (!confirm("¿Rechazar esta viabilidad y regresar a Evaluación para corrección?")) return;
+   const cancelarViabilidad = () => {
+      setMotivoCancelacion('');
+      setShowModalSecundario('Cancelar');
+   }
+
+   const confirmarCancelacion = async () => {
+      if (!motivoCancelacion.trim()) {
+         await showAlert('Aviso', "Debe ingresar un motivo para el rechazo.");
+         return;
+      }
       setProcesando(true);
       try {
          await supabase.from('viabilidad_control').update({
@@ -185,10 +208,17 @@ export default function Viabilidad() {
             estado_anterior: 'Viabilidad',
             estado_nuevo: 'Evaluación',
             accion: 'Rechazo',
-            mensaje: 'Se rechazó la solicitud de viabilidad técnica y se retornó a evaluación.'
+            mensaje: `Se rechazó la solicitud de viabilidad técnica y se retornó a evaluación. Motivo: ${motivoCancelacion}`
          }]);
 
+         await enviarNotificacionVendedor(
+            proyectoSeleccionado.proyecto?.vendedor_id, 
+            `❌ Tu solicitud de Viabilidad Técnica ha sido rechazada. Motivo: ${motivoCancelacion}|||/evaluacion?proyecto_id=${proyectoSeleccionado.proyecto_id}`, 
+            usuarioLogueado?.id
+         );
+
          setProyectoSeleccionado(null);
+         setShowModalSecundario(null);
          await fetchViabilidades();
       } catch (e) {
          console.error(e)
@@ -234,12 +264,16 @@ export default function Viabilidad() {
          } else {
             const map: any = { 4: 'Verificada', 5: 'Ingeniería' }
             if (map[targetStatus]) await supabase.from('proyectos').update({ sub_estatus: map[targetStatus] }).eq('id', proyectoSeleccionado.proyecto_id);
+            
+            if (targetStatus === 4) {
+               await enviarNotificacionVendedor(proyectoSeleccionado.proyecto?.vendedor_id, `✅ Tu solicitud de Viabilidad Técnica ha sido verificada y confirmada en agenda: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/proyectos?proyecto_id=${proyectoSeleccionado.proyecto_id}`, usuarioLogueado?.id);
+            }
          }
 
          await fetchViabilidades();
          setProyectoSeleccionado(null);
       } catch (e) {
-         alert('Error al avanzar viabilidad.')
+         await showAlert('Aviso', 'Error al avanzar viabilidad.')
       } finally {
          setProcesando(false)
       }
@@ -464,6 +498,60 @@ export default function Viabilidad() {
 
          {/* MODAL AGENDAR (Mini) */}
          <AnimatePresence>
+            {showModalSecundario === 'Cancelar' && (
+               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[340px] rounded-[32px] overflow-hidden shadow-2xl relative">
+                     <div className="bg-white px-5 py-4 flex justify-between items-center border-b-[4px] border-red-500">
+                        <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px]">Rechazar Viabilidad</h3>
+                        <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
+                     </div>
+                     <div className="p-6 text-center flex flex-col gap-4 bg-white">
+                        <div className="mx-auto bg-red-50 text-red-500 w-12 h-12 rounded-full flex items-center justify-center mb-1">
+                           <X size={24} strokeWidth={3} />
+                        </div>
+                        <p className="text-xs font-bold text-slate-600">Al rechazar, el proyecto regresará al área de Evaluación para su revisión y corrección.</p>
+                        
+                        <div className="text-left w-full mt-2">
+                           <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1 block">Motivo de Cancelación</label>
+                           <textarea 
+                              value={motivoCancelacion}
+                              onChange={(e) => setMotivoCancelacion(e.target.value)}
+                              placeholder="Ej. La ubicación es incorrecta, falta un documento..."
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 outline-none focus:border-red-400 resize-none h-20"
+                           />
+                        </div>
+
+                        <div className="flex gap-2 w-full mt-2">
+                           <button onClick={() => setShowModalSecundario(null)} className="flex-1 bg-slate-100 text-slate-500 hover:bg-slate-200 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors">Abortar</button>
+                           <button onClick={confirmarCancelacion} disabled={!motivoCancelacion.trim() || procesando} className="flex-1 bg-red-500 text-white shadow-md hover:bg-red-600 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors disabled:opacity-50">Confirmar Rechazo</button>
+                        </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+            
+            {showModalSecundario === 'Confirmar' && (
+               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[320px] rounded-[32px] overflow-hidden shadow-2xl relative">
+                     <div className="bg-white px-5 py-4 flex justify-between items-center border-b-[4px] border-green-500">
+                        <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px]">Confirmar Agenda</h3>
+                        <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
+                     </div>
+                     <div className="p-6 text-center flex flex-col gap-5 bg-white">
+                        <div className="mx-auto bg-green-50 text-green-500 w-12 h-12 rounded-full flex items-center justify-center mb-2">
+                           <Check size={24} strokeWidth={3} />
+                        </div>
+                        <p className="text-xs font-bold text-slate-600">¿Estás seguro de confirmar la cita de viabilidad técnica agendada?</p>
+                        <p className="text-[10px] uppercase font-black text-slate-400">Se notificará automáticamente al dueño del proyecto.</p>
+                        <div className="flex gap-2 w-full mt-2">
+                           <button onClick={() => setShowModalSecundario(null)} className="flex-1 bg-slate-100 text-slate-500 hover:bg-slate-200 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors">Cancelar</button>
+                           <button onClick={() => { setShowModalSecundario(null); avanzarA(4); }} className="flex-1 bg-green-500 text-white shadow-md hover:bg-green-600 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors">Confirmar</button>
+                        </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+            
             {showModalSecundario === 'Agendar' && (
                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[420px] rounded-[32px] overflow-hidden shadow-2xl relative">

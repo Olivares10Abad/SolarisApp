@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, enviarNotificacionRoles, enviarNotificacionVendedor } from '../supabaseClient'
@@ -53,6 +54,7 @@ const calcularHorasHabiles = (fechaCreacion: string) => {
 }
 
 export default function Revision() {
+  const { showAlert, showConfirm } = useDialog();
   const [searchParams, setSearchParams] = useSearchParams()
   const [proyectos, setProyectos] = useState<any[]>([])
   const [usuariosDb, setUsuariosDb] = useState<any[]>([])
@@ -123,7 +125,7 @@ export default function Revision() {
 
   const handleRechazar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mensajeRechazo.trim()) return alert("Debes ingresar un motivo.");
+    if (!mensajeRechazo.trim()) { await showAlert('Aviso', "Debes ingresar un motivo."); return; }
     setProcesando(true);
     try {
       const isViabilidad = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas';
@@ -158,7 +160,7 @@ export default function Revision() {
       }
 
       setModalRechazo(false); setModalDetalle(false); setMensajeRechazo(''); fetchInicial();
-    } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
+    } catch (err: any) { await showAlert('Aviso', "Error: " + err.message); } finally { setProcesando(false); }
   }
 
   const handleAprobar = async (e: React.FormEvent) => {
@@ -191,7 +193,7 @@ export default function Revision() {
       await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: nuevoEstado, accion: isViabilidad ? 'Aprobación de Viabilidad' : 'Revisión Aprobada', mensaje: mensajeAprobacion || (isViabilidad ? 'Ventas aprobó continuar con la Viabilidad técnica.' : 'Validado y liberado.') }]);
 
       if (isViabilidad) {
-        await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Ventas ha aprobado el presupuesto de tu solicitud de viabilidad: ${proyectoSeleccionado.nombre_proyecto}. Continúa en proceso.`, usuarioLogueado?.id);
+        await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Ventas ha aprobado solicitud de viabilidad: ${proyectoSeleccionado.nombre_proyecto}. Continúa en proceso.`, usuarioLogueado?.id);
         await enviarNotificacionRoles('notif_viabilidad_tecnica', `Se ha validado la revisión por ventas, la Viabilidad pasa a estar lista para agendar: ${proyectoSeleccionado.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       } else {
         await enviarNotificacionRoles('notif_cotizaciones', `Revisión validada y aprobada: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
@@ -199,7 +201,7 @@ export default function Revision() {
       }
 
       setModalAprobar(false); setModalDetalle(false); setMensajeAprobacion(''); fetchInicial();
-    } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
+    } catch (err: any) { await showAlert('Aviso', "Error: " + err.message); } finally { setProcesando(false); }
   }
 
   const abrirVisorArchivos = (titulo: string, urls: string[]) => {

@@ -1,3 +1,4 @@
+import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, enviarNotificacionRoles, enviarNotificacionVendedor } from '../supabaseClient'
@@ -61,6 +62,7 @@ const calcularHorasHabiles = (fechaInicio: string, fechaFin?: string | null) => 
 }
 
 export default function Cotizaciones() {
+    const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [proyectos, setProyectos] = useState<any[]>([])
@@ -129,7 +131,7 @@ export default function Cotizaciones() {
 
   const handleRechazar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mensajeRechazo.trim()) return alert("Debes ingresar un motivo.");
+    if (!mensajeRechazo.trim()) { await showAlert('Aviso', "Debes ingresar un motivo."); return; }
     setProcesando(true);
 
     try {
@@ -155,13 +157,13 @@ export default function Cotizaciones() {
       }
 
       setModalRechazo(false); setModalDetalle(false); setMensajeRechazo(''); fetchProyectos();
-    } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
+    } catch (err: any) { await showAlert('Aviso', "Error: " + err.message); } finally { setProcesando(false); }
   }
 
   // --- APROBAR, GUARDAR KPI Y MANDAR A REVISIÓN ---
   const handleAprobar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (filesCotizacion.length === 0) return alert("Por favor carga al menos una opción de cotización.");
+    if (filesCotizacion.length === 0) { await showAlert('Aviso', "Por favor carga al menos una opción de cotización."); return; }
     setProcesando(true);
 
     try {
@@ -214,8 +216,8 @@ export default function Cotizaciones() {
       await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `⏳ Tus opciones de Cotización se cargaron y están bajo Revisión Técnica.`, usuarioLogueado?.id);
 
       setModalAprobar(false); setModalDetalle(false); setFilesCotizacion([]); setMensajeAprobacion(''); fetchProyectos();
-      alert("✅ Cotización enviada a Revisión correctamente.");
-    } catch (err: any) { alert("Error: " + err.message); } finally { setProcesando(false); }
+      await showAlert('Aviso', "✅ Cotización enviada a Revisión correctamente.");
+    } catch (err: any) { await showAlert('Aviso', "Error: " + err.message); } finally { setProcesando(false); }
   }
 
   const removerArchivo = (index: number) => {

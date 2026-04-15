@@ -4,8 +4,9 @@ import { supabase } from '../supabaseClient'
 import { ArrowLeft, MessageSquare, LogOut } from 'lucide-react'
 import solarisLogo from '../assets/solarislogo.png'
 
-// IMPORTAR EL COMPONENTE GLOBAL DE NOTIFICACIONES
 import NotificacionesGlobales from './NotificacionesGlobales'
+import { useState } from 'react'
+import VisualizadorBitacoraGlobal from './VisualizadorBitacoraGlobal'
 
 interface HeaderProps {
   titulo: string;
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export default function Header({ titulo, onAbrirChat }: HeaderProps) {
   const navigate = useNavigate();
+  const [globalProyectoId, setGlobalProyectoId] = useState<string | null>(null);
 
   const usuarioLogueado = useMemo(() => {
     const data = localStorage.getItem('session_gea_solar');
@@ -27,10 +29,21 @@ export default function Header({ titulo, onAbrirChat }: HeaderProps) {
   };
 
   // MANEJADOR DE CLICS EN NOTIFICACIONES (DEEP LINKING AL CHAT)
-  const handleNotifClick = (notif: any) => {
+  const handleNotifClick = async (notif: any) => {
       if (notif.mensaje.includes('|||')) {
           const [textoOriginal, ruta] = notif.mensaje.split('|||');
-          navigate(ruta);
+          const pId = new URLSearchParams(ruta.split('?')[1]).get('proyecto_id');
+          if (pId) {
+             const { data: proj } = await supabase.from('proyectos').select('vendedor_id').eq('id', pId).single();
+             const vId = typeof proj?.vendedor_id === 'object' ? proj?.vendedor_id?.id : proj?.vendedor_id;
+             if (vId === usuarioLogueado?.id) {
+                 setGlobalProyectoId(pId);
+             } else {
+                 navigate(ruta);
+             }
+          } else {
+             navigate(ruta);
+          }
       } else if (notif.mensaje.includes('mensaje directo')) {
           onAbrirChat({ tipo: 'dm', id: notif.autor_id, nombre: `${notif.autor?.nombre} ${notif.autor?.apellidos}` });
       } else if (notif.mensaje.includes('mencionó') || notif.mensaje.includes('grupo')) {
@@ -83,6 +96,15 @@ export default function Header({ titulo, onAbrirChat }: HeaderProps) {
 
         </div>
       </div>
+      
+      {/* MODAL GLOBAL DE BITÁCORA */}
+      {globalProyectoId && (
+        <VisualizadorBitacoraGlobal 
+            proyectoId={globalProyectoId} 
+            usuarioLogueado={usuarioLogueado}
+            onClose={() => setGlobalProyectoId(null)} 
+        />
+      )}
     </nav>
   );
 }

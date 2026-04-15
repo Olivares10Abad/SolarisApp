@@ -1,3 +1,5 @@
+import { useDialog } from "../context/DialogContext"
+
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -31,6 +33,7 @@ const CATEGORIAS = [
 const getNestedValue = (obj: any, path: string) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
 
 export default function Inventario() {
+    const { showAlert, showConfirm } = useDialog();
     const navigate = useNavigate()
     const [tabActiva, setTabActiva] = useState<'catalogo' | 'movimientos' | 'despacho' | 'responsivas'>('catalogo')
     const [cargando, setCargando] = useState(true)
@@ -107,7 +110,7 @@ export default function Inventario() {
     useEffect(() => { fetchData() }, [])
 
     const handleDevolverResponsiva = async (responsiva: any) => {
-        if (!confirm(`¿Confirmas la devolución y liberación de: ${responsiva.serie?.catalogo?.nombre}?`)) return;
+        if (!(await showConfirm(`¿Confirmas la devolución y liberación de: ${responsiva.serie?.catalogo?.nombre}?`))) return;
         try {
             setCargando(true);
             const { error: e1 } = await supabase.from('inventario_responsivas').update({ estatus: 'Devuelta', fecha_devolucion: new Date().toISOString() }).eq('id', responsiva.id);
@@ -122,10 +125,10 @@ export default function Inventario() {
             }]);
             if (e3) throw e3;
 
-            alert("Activo liberado correctamente. Ya está disponible en stock.");
+            await showAlert('Aviso', "Activo liberado correctamente. Ya está disponible en stock.");
             fetchData();
         } catch (error: any) {
-            alert("Error al devolver: " + error.message);
+            await showAlert('Aviso', "Error al devolver: " + error.message);
         } finally { setCargando(false); }
     }
 
@@ -133,10 +136,10 @@ export default function Inventario() {
         const haSidoUsado = movimientosDb.some(m => m.catalogo_id === item.id && ['Salida a Obra', 'Asignación Activo'].includes(m.tipo));
 
         if (haSidoUsado) {
-            return alert("No puedes eliminar este artículo porque ya tiene movimientos de salida o asignación de activos.");
+            return await showAlert('Aviso', "No puedes eliminar este artículo porque ya tiene movimientos de salida o asignación de activos.");
         }
 
-        if (!confirm(`¿Estás seguro de eliminar permanentemente "${item.nombre}" (${item.sku})? Esto borrará permanentemente su registro y stock.`)) return;
+        if (!(await showConfirm(`¿Estás seguro de eliminar permanentemente "${item.nombre}" (${item.sku})? Esto borrará permanentemente su registro y stock.`))) return;
 
         try {
             setCargando(true);
@@ -148,10 +151,10 @@ export default function Inventario() {
             const { error } = await supabase.from('inventario_catalogo').delete().eq('id', item.id);
             if (error) throw error;
 
-            alert("Artículo eliminado correctamente.");
+            await showAlert('Aviso', "Artículo eliminado correctamente.");
             fetchData();
         } catch (error: any) {
-            alert("Error al eliminar el artículo: " + error.message);
+            await showAlert('Aviso', "Error al eliminar el artículo: " + error.message);
         } finally {
             setCargando(false);
         }
@@ -184,7 +187,7 @@ export default function Inventario() {
     const despachoFiltrado = useMemo(() => filtrarPorFechaYBusqueda(seriesEnObra, 'created_at', ['catalogo.nombre', 'numero_serie', 'proyecto.nombre_proyecto'], 'catalogo.categoria'), [seriesEnObra, busqueda, filtroCat, fechaInicio, fechaFin]);
     const responsivasFiltradas = useMemo(() => filtrarPorFechaYBusqueda(responsivasDb, 'created_at', ['serie.catalogo.nombre', 'serie.numero_serie', 'asignado.nombre'], 'serie.catalogo.categoria'), [responsivasDb, busqueda, filtroCat, fechaInicio, fechaFin]);
 
-    const exportarCSV = () => {
+    const exportarCSV = async () => {
         let dataToExport: any[] = [];
         let columns: { key: string, label: string }[] = [];
         let filename = '';
@@ -203,7 +206,7 @@ export default function Inventario() {
             columns = [{ key: 'created_at', label: 'Fecha Asignacion' }, { key: 'serie.catalogo.nombre', label: 'Activo' }, { key: 'serie.numero_serie', label: 'Serie/Placa' }, { key: 'asignado.nombre', label: 'Asignado A' }, { key: 'estatus', label: 'Estatus' }];
         }
 
-        if (dataToExport.length === 0) return alert('No hay datos para exportar con los filtros actuales.');
+        if (dataToExport.length === 0) return await showAlert('Aviso', 'No hay datos para exportar con los filtros actuales.');
 
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF" + columns.map(c => c.label).join(",") + "\n";
 
@@ -227,7 +230,7 @@ export default function Inventario() {
         <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
 
             <ChatGlobal isOpen={chatAbierto} onClose={() => setChatAbierto(false)} usuarioLogueado={usuarioLogueado} chatInicial={chatInicial} />
-            <Header titulo="Control de Inventarios" onAbrirChat={(c) => { setChatInicial(c || null); setChatAbierto(true); }} />
+            <Header titulo="Control de Inventarios" onAbrirChat={(c: any) => { setChatInicial(c || null); setChatAbierto(true); }} />
 
             <main className="max-w-[1800px] mx-auto w-full px-4 md:px-8 py-6 md:py-8 relative z-10 flex-1 flex flex-col overflow-hidden">
 
@@ -583,6 +586,7 @@ export default function Inventario() {
 // ============================================================================
 
 function ModalDetalleAsignados({ onClose, catalogoId, responsivasDb, fetchData, usuarioLogueado }: any) {
+    const { showAlert, showConfirm } = useDialog();
     const [procesando, setProcesando] = useState(false);
     const asignados = useMemo(() => responsivasDb.filter((r: any) => r.serie?.catalogo_id === catalogoId && r.estatus === 'Activa'), [responsivasDb, catalogoId]);
 
@@ -593,22 +597,22 @@ function ModalDetalleAsignados({ onClose, catalogoId, responsivasDb, fetchData, 
         setProcesando(true);
         try {
             const { data: existe } = await supabase.from('inventario_series').select('id').eq('numero_serie', newSerie.trim().toUpperCase()).maybeSingle();
-            if (existe) return alert(`El número de serie ${newSerie} ya existe en el sistema.`);
+            if (existe) return await showAlert('Aviso', `El número de serie ${newSerie} ya existe en el sistema.`);
 
             const { error } = await supabase.from('inventario_series').update({ numero_serie: newSerie.trim().toUpperCase() }).eq('id', serieId);
             if (error) throw error;
 
-            alert('Número de serie actualizado con éxito.');
+            await showAlert('Aviso', 'Número de serie actualizado con éxito.');
             fetchData();
         } catch (e: any) {
-            alert("Error al actualizar serie: " + e.message);
+            await showAlert('Aviso', "Error al actualizar serie: " + e.message);
         } finally {
             setProcesando(false);
         }
     }
 
     const handleDarDeBaja = async (resp: any) => {
-        if (!confirm(`¿Estás seguro de dar de baja DEFINITIVA el equipo con serie ${resp.serie.numero_serie}? Esto reducirá el stock actual, cambiará su estatus a Baja y cerrará la responsiva.`)) return;
+        if (!(await showConfirm(`¿Estás seguro de dar de baja DEFINITIVA el equipo con serie ${resp.serie.numero_serie}? Esto reducirá el stock actual, cambiará su estatus a Baja y cerrará la responsiva.`))) return;
 
         setProcesando(true);
         try {
@@ -630,10 +634,10 @@ function ModalDetalleAsignados({ onClose, catalogoId, responsivasDb, fetchData, 
                 usuario_id: usuarioLogueado?.id, referencia: `Baja de equipo averiado/perdido (Asignado a ${resp.asignado?.nombre})`
             }]);
 
-            alert('Equipo dado de baja del inventario exitosamente.');
+            await showAlert('Aviso', 'Equipo dado de baja del inventario exitosamente.');
             fetchData();
         } catch (e: any) {
-            alert("Error al dar de baja: " + e.message);
+            await showAlert('Aviso', "Error al dar de baja: " + e.message);
         } finally {
             setProcesando(false);
         }
@@ -732,6 +736,7 @@ function ModalEscanerCamara({ onClose, onScan }: any) {
 // ============================================================================
 
 function ModalEditarArticulo({ onClose, onSave, item, categorias }: any) {
+    const { showAlert, showConfirm } = useDialog();
     const [procesando, setProcesando] = useState(false);
     const [sku, setSku] = useState(item?.sku || '');
     const [nombre, setNombre] = useState(item?.nombre || '');
@@ -765,15 +770,15 @@ function ModalEditarArticulo({ onClose, onSave, item, categorias }: any) {
                 if (errSer) throw errSer;
             }
 
-            alert("Artículo y series actualizados correctamente.");
+            await showAlert('Aviso', "Artículo y series actualizados correctamente.");
             onSave();
         } catch (err: any) {
             console.error(err);
-            alert("Error al actualizar: " + err.message);
+            await showAlert('Aviso', "Error al actualizar: " + err.message);
         } finally { setProcesando(false); }
     }
 
-    const handleScanResult = (text: string) => {
+    const handleScanResult = async (text: string) => {
         if (escanerActivo?.tipo === 'serie' && escanerActivo.idxSerie !== undefined) {
             const n = [...seriesExtra];
             n[escanerActivo.idxSerie] = text;
@@ -857,6 +862,7 @@ function ModalEditarArticulo({ onClose, onSave, item, categorias }: any) {
 }
 
 function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLogueado }: any) {
+    const { showAlert, showConfirm } = useDialog();
     const [tipoIngreso, setTipoIngreso] = useState<'existente' | 'nuevo'>('existente');
     const [procesando, setProcesando] = useState(false);
     const [escanerActivo, setEscanerActivo] = useState<{ tipo: 'sku' | 'serie', idxSerie?: number } | null>(null);
@@ -898,7 +904,7 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
     const catalogoFiltrado = useMemo(() => catalogo.filter((c: any) => `${c.nombre} ${c.sku}`.toLowerCase().includes(busquedaCat.toLowerCase())), [catalogo, busquedaCat]);
     const itemSeleccionado = catalogo.find((c: any) => c.id === catalogoId);
 
-    const handleScanResult = (text: string) => {
+    const handleScanResult = async (text: string) => {
         if (escanerActivo?.tipo === 'sku') {
             setSku(text);
             // También buscamos si existe
@@ -918,7 +924,7 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (tipoIngreso === 'existente' && !catalogoId) return alert("Selecciona un artículo del buscador o crea uno nuevo.");
+        if (tipoIngreso === 'existente' && !catalogoId) return await showAlert('Aviso', "Selecciona un artículo del buscador o crea uno nuevo.");
 
         const seriesCapturadas = series.filter(s => s.trim() !== '');
         setProcesando(true);
@@ -954,11 +960,11 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
                 if (errSer) throw errSer;
             }
 
-            alert("Ingreso registrado correctamente.");
+            await showAlert('Aviso', "Ingreso registrado correctamente.");
             onSave();
         } catch (err: any) {
             console.error(err);
-            alert("Error al registrar: Verifica que el SKU o las Series no estén duplicadas.");
+            await showAlert('Aviso', "Error al registrar: Verifica que el SKU o las Series no estén duplicadas.");
         } finally { setProcesando(false); }
     }
 
@@ -1165,6 +1171,7 @@ function DespachoItemRow({ item, idxItem, catalogo, items, setItems, onScanReque
 }
 
 function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLogueado }: any) {
+    const { showAlert, showConfirm } = useDialog();
     const [procesando, setProcesando] = useState(false);
     const [proyectoId, setProyectoId] = useState('');
     const [items, setItems] = useState<any[]>([{ catalogo_id: '', cantidad: 1, series: [''] }]);
@@ -1198,7 +1205,7 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
         });
     }
 
-    const handleScanResult = (text: string) => {
+    const handleScanResult = async (text: string) => {
         if (escanerActivo?.tipo === 'sku' && escanerActivo.idxItem !== undefined) {
             const existe = catalogo.find((c: any) => c.sku.toUpperCase() === text.toUpperCase());
             if (existe) {
@@ -1206,7 +1213,7 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
                 n[escanerActivo.idxItem].catalogo_id = existe.id;
                 setItems(n);
             } else {
-                alert(`No se encontró stock disponible para el SKU: ${text}`);
+                await showAlert('Aviso', `No se encontró stock disponible para el SKU: ${text}`);
             }
         }
         if (escanerActivo?.tipo === 'serie' && escanerActivo.idxItem !== undefined && escanerActivo.idxSerie !== undefined) {
@@ -1219,7 +1226,7 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!checkValid()) return alert("Completa toda la información y escanea las series necesarias.");
+        if (!checkValid()) return await showAlert('Aviso', "Completa toda la información y escanea las series necesarias.");
 
         setProcesando(true);
         try {
@@ -1244,11 +1251,11 @@ function ModalDespachoProyecto({ onClose, onSave, catalogo, proyectos, usuarioLo
                     if (e3) throw e3;
                 }
             }
-            alert("Salida a obra y series registradas en Kardex con éxito.");
+            await showAlert('Aviso', "Salida a obra y series registradas en Kardex con éxito.");
             onSave();
         } catch (err: any) {
             console.error(err);
-            alert("Error al despachar: Verifica que las series ingresadas sean correctas.");
+            await showAlert('Aviso', "Error al despachar: Verifica que las series ingresadas sean correctas.");
         } finally { setProcesando(false); }
     }
 
@@ -1392,6 +1399,7 @@ function ResponsivaItemRow({ item, idxItem, catalogo, items, setItems, onScanReq
 }
 
 function ModalNuevaResponsiva({ onClose, onSave, colaboradores, catalogo, usuarioLogueado }: any) {
+    const { showAlert, showConfirm } = useDialog();
     const [fotos, setFotos] = useState<(File | null)[]>([null, null, null, null]);
     const [previews, setPreviews] = useState<(string | null)[]>([null, null, null, null]);
     const [asignadoId, setAsignadoId] = useState('');
@@ -1435,7 +1443,7 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, catalogo, usuari
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!checkValid()) return alert("Completa la información, ingresa las series y sube al menos 1 foto.");
+        if (!checkValid()) return await showAlert('Aviso', "Completa la información, ingresa las series y sube al menos 1 foto.");
         setProcesando(true);
         try {
             // PROCESAMIENTO PARALELO (solo las fotos que se subieron)
@@ -1476,14 +1484,14 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, catalogo, usuari
                 if (e3) throw e3;
             }
 
-            alert("Responsivas y Kardex registrados exitosamente.");
+            await showAlert('Aviso', "Responsivas y Kardex registrados exitosamente.");
             onSave();
         } catch (err: any) {
-            alert("Error: " + err.message);
+            await showAlert('Aviso', "Error: " + err.message);
         } finally { setProcesando(false); }
     }
 
-    const handleScanResult = (text: string) => {
+    const handleScanResult = async (text: string) => {
         if (escanerActivo?.tipo === 'sku' && escanerActivo.idxItem !== undefined) {
             const existe = catalogo.find((c: any) => c.sku.toUpperCase() === text.toUpperCase());
             if (existe) {
@@ -1491,7 +1499,7 @@ function ModalNuevaResponsiva({ onClose, onSave, colaboradores, catalogo, usuari
                 n[escanerActivo.idxItem].catalogo_id = existe.id;
                 setItems(n);
             } else {
-                alert(`No se encontró stock o producto para el SKU: ${text}`);
+                await showAlert('Aviso', `No se encontró stock o producto para el SKU: ${text}`);
             }
         }
         if (escanerActivo?.tipo === 'serie' && escanerActivo.idxItem !== undefined && escanerActivo.idxSerie !== undefined) {
