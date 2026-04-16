@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { X, FileText } from 'lucide-react';
 
 const NuevoProyectoModal = ({ onClose, onRefresh, userId }: any) => {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nombre: '', giro: 'Residencial', comentarios: '' });
-  const [file, setFile] = useState<File | null>(null);
+  const [archivos, setArchivos] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return alert("Por favor, sube el recibo o imagen de fachada.");
+    if (archivos.length === 0) return alert("Por favor, sube al menos un recibo o archivo.");
     setLoading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `solicitudes/${fileName}`;
+      const adjuntos = [];
+      for (const file of archivos) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Math.random()}.${fileExt}`;
+          const filePath = `solicitudes/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('cotizaciones')
-        .upload(filePath, file);
+          const { error: uploadError } = await supabase.storage
+            .from('cotizaciones')
+            .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+          if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from('cotizaciones').getPublicUrl(filePath);
+          const { data: urlData } = supabase.storage.from('cotizaciones').getPublicUrl(filePath);
+          adjuntos.push(urlData.publicUrl);
+      }
 
       const { error: insertError } = await supabase.from('proyectos').insert({
         nombre_proyecto: form.nombre,
         giro_proyecto: form.giro,
         comentarios_iniciales: form.comentarios,
-        archivo_url: urlData.publicUrl,
+        archivo_url: adjuntos[0] || null,
+        archivos_adjuntos: adjuntos.length > 1 ? adjuntos : null, // Store all of them if many
         vendedor_id: userId,
         estatus: 'Cotización'
       });
@@ -78,13 +85,37 @@ const NuevoProyectoModal = ({ onClose, onRefresh, userId }: any) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Archivo / Recibo</label>
-              <input 
-                required
-                type="file"
-                className="w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-                onChange={e => setFile(e.target.files?.[0] || null)}
-              />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Archivos / Recibos</label>
+              <div 
+                 onClick={() => fileInputRef.current?.click()}
+                 className="w-full border-2 border-dashed border-orange-200 rounded-lg p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-orange-50 hover:border-orange-400 transition-colors bg-slate-50"
+              >
+                  <p className="text-xs font-bold text-slate-700">Seleccionar múltiples archivos</p>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    multiple 
+                    className="hidden" 
+                    onChange={(e) => {
+                        if (e.target.files) {
+                            setArchivos(prev => [...prev, ...Array.from(e.target.files!)]);
+                        }
+                    }} 
+                  />
+              </div>
+              {archivos.length > 0 && (
+                  <div className="mt-2 grid grid-cols-1 gap-2 max-h-24 overflow-y-auto custom-scrollbar p-1">
+                      {archivos.map((f, i) => (
+                          <div key={i} className="flex justify-between items-center bg-orange-50 px-2 py-1.5 rounded-md border border-orange-100 shadow-sm">
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                  <FileText size={12} className="text-orange-500 shrink-0" />
+                                  <span className="text-[10px] font-bold text-orange-800 truncate">{f.name}</span>
+                              </div>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); setArchivos(archivos.filter((_, idx) => idx !== i))}} className="text-red-400 hover:text-red-600 shrink-0"><X size={12} /></button>
+                          </div>
+                      ))}
+                  </div>
+              )}
             </div>
           </div>
 

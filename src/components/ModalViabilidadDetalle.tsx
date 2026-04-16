@@ -22,6 +22,8 @@ interface ModalViabilidadDetalleProps {
    setAgendaForm?: (form: any) => void;
    fileReporte?: File | null;
    setFileReporte?: (file: File | null) => void;
+   filesReporte?: File[];
+   setFilesReporte?: (files: File[]) => void;
    onChatClick?: () => void;
    onBitacoraClick?: () => void;
    isRevisionMode?: boolean; // Toggles actions for Ventas in Revisión vs Ingeniería in Viabilidad
@@ -33,7 +35,7 @@ export default function ModalViabilidadDetalle({
    proyectoSeleccionado, setProyectoSeleccionado,
    showModalSecundario, setShowModalSecundario,
    cancelarViabilidad, avanzarA, procesando,
-   setAgendaForm, fileReporte, setFileReporte,
+   setAgendaForm, fileReporte, setFileReporte, filesReporte, setFilesReporte,
    onChatClick, onBitacoraClick,
    isRevisionMode, onAprobarRevision, onRechazarRevision
 }: ModalViabilidadDetalleProps) {
@@ -213,16 +215,33 @@ export default function ModalViabilidadDetalle({
                            {/* Viabilidad (Upload File) */}
                            <div className="flex items-center gap-2">
                               <span className="flex-1">Viabilidad:</span>
-                              <label className="cursor-pointer flex items-center">
-                                 <div className={`w-[28px] h-[28px] rounded-[6px] ${fileReporte ? 'bg-green-50 text-green-500 border-green-200' : 'bg-slate-50 text-slate-400 border-slate-200'} flex items-center justify-center border shadow-sm hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors`}>
+                              <label className="cursor-pointer flex items-center relative">
+                                 <div className={`w-[28px] h-[28px] rounded-[6px] ${(filesReporte && filesReporte.length > 0) ? 'bg-green-50 text-green-500 border-green-200' : 'bg-slate-50 text-slate-400 border-slate-200'} flex items-center justify-center border shadow-sm hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors`}>
                                     <FileText size={14} strokeWidth={2.5} />
                                  </div>
-                                 <input type="file" accept=".pdf" className="hidden" onChange={e => {
-                                    if (e.target.files && e.target.files.length > 0 && setFileReporte) setFileReporte(e.target.files[0])
+                                 {(filesReporte && filesReporte.length > 0) && (
+                                     <span className="absolute -top-1.5 -right-1.5 text-[8px] bg-green-500 text-white font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 border border-white">
+                                        {filesReporte.length}
+                                     </span>
+                                 )}
+                                 <input type="file" accept=".pdf,image/*" multiple className="hidden" onChange={e => {
+                                    if (e.target.files && setFilesReporte) {
+                                       setFilesReporte([...(filesReporte || []), ...Array.from(e.target.files)]);
+                                    }
                                  }} />
                               </label>
-                              {fileReporte && setFileReporte && (
-                                 <button onClick={() => setFileReporte(null)} className="text-red-500 hover:bg-red-50 p-1 rounded-full"><X size={14} strokeWidth={3} /></button>
+                              {(filesReporte && filesReporte.length > 0) && setFilesReporte && (
+                                 <button onClick={() => setFilesReporte([])} className="text-red-500 hover:bg-red-50 p-1 rounded-full"><X size={14} strokeWidth={3} /></button>
+                              )}
+
+                              {viabilidadRef?.reportes_ingenieria?.length > 0 ? (
+                                 <div className="flex gap-1 ml-1 overflow-x-auto custom-scrollbar max-w-[80px]">
+                                     {viabilidadRef.reportes_ingenieria.map((url: string, idx: number) => (
+                                        <button key={idx} onClick={() => window.open(url, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1 rounded-md shrink-0 border border-blue-100" title={`Ver Adjunto ${idx+1}`}><FileText size={12} strokeWidth={3}/></button>
+                                     ))}
+                                 </div>
+                              ) : viabilidadRef?.reporte_ingenieria && (
+                                 <button onClick={() => window.open(viabilidadRef.reporte_ingenieria, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-md ml-2 border border-blue-100" title="Ver Reporte Técnico"><FileText size={12} strokeWidth={3}/></button>
                               )}
                            </div>
 
@@ -240,10 +259,9 @@ export default function ModalViabilidadDetalle({
                               )}
                            </div>
 
-                           {/* Ingeniería Pase 7 */}
                            <div className="flex items-center gap-2">
                               <span className="flex-1 text-[#ffb000]">Ingeniería:</span>
-                              <button onClick={() => avanzarA && avanzarA(7, true)} disabled={procesando || (viabilidadRef?.status < 5 && !fileReporte)} className="w-[28px] h-[28px] rounded-[8px] bg-slate-100 hover:bg-[#ffb000] text-slate-400 hover:text-white transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-transparent">
+                              <button onClick={() => avanzarA && avanzarA(7, true)} disabled={procesando || (viabilidadRef?.status < 5 && (!filesReporte || filesReporte.length === 0))} className="w-[28px] h-[28px] rounded-[8px] bg-slate-100 hover:bg-[#ffb000] text-slate-400 hover:text-white transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-transparent">
                                  <ChevronRight size={18} strokeWidth={3} />
                               </button>
                            </div>

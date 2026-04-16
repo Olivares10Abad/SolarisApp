@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, X, MapPin, FileText, CheckCircle2, AlertCircle, Clock,
   ChevronRight, History, FileCheck, FileX, Timer, Calendar as CalendarIcon,
-  Phone, Mail, File as FileIcon, ChevronLeft, ShieldCheck, MessageSquare, Info
+  Phone, Mail, File as FileIcon, ChevronLeft, ShieldCheck, MessageSquare, Info, Wallet
 } from 'lucide-react'
 
 // IMPORTAMOS NUESTROS COMPONENTES GLOBALES
@@ -14,6 +14,8 @@ import Header from '../components/Header'
 import ChatGlobal from '../components/ChatGlobal'
 import ModalLineaTiempo from '../components/ModalLineaTiempo'
 import ModalViabilidadDetalle from '../components/ModalViabilidadDetalle'
+import ModalDetallePago from '../components/finanzas/ModalDetallePago'
+
 
 import degradadoBg from '../assets/degradado.png'
 
@@ -57,6 +59,7 @@ export default function Revision() {
   const { showAlert, showConfirm } = useDialog();
   const [searchParams, setSearchParams] = useSearchParams()
   const [proyectos, setProyectos] = useState<any[]>([])
+  const [pagos, setPagos] = useState<any[]>([])
   const [usuariosDb, setUsuariosDb] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -69,6 +72,7 @@ export default function Revision() {
   const inicialTab = useMemo(() => {
     if (usuarioLogueado?.permisos_especificos?.revision_cotizacion) return 'Aprobación Cotización';
     if (usuarioLogueado?.permisos_especificos?.revision_viabilidad) return 'Aprobación Viabilidad';
+    if (usuarioLogueado?.permisos_especificos?.aprobacion_pagos) return 'Aprobación Pagos';
     return 'Aprobación Cotización';
   }, [usuarioLogueado])
 
@@ -98,12 +102,14 @@ export default function Revision() {
 
   const fetchInicial = async () => {
     setCargando(true)
-    const [resProyectos, resUsuarios] = await Promise.all([
+    const [resProyectos, resUsuarios, resPagos] = await Promise.all([
       supabase.from('proyectos').select(`*, vendedor:vendedor_id (nombre, apellidos, avatar_url, departamento, telefono_movil, email_corporativo)`).order('created_at', { ascending: false }),
-      supabase.from('perfiles').select(`id, nombre, apellidos, avatar_url, rol_sistema`).order('nombre', { ascending: true })
+      supabase.from('perfiles').select(`id, nombre, apellidos, avatar_url, rol_sistema`).order('nombre', { ascending: true }),
+      supabase.from('finanzas_pagos').select(`*, usuario:usuario_id (nombre, apellidos, avatar_url)`).eq('estatus', 'Pendiente').order('created_at', { ascending: false })
     ])
     if (resProyectos.data) setProyectos(resProyectos.data)
     if (resUsuarios.data) setUsuariosDb(resUsuarios.data)
+    if (resPagos.data) setPagos(resPagos.data)
     setCargando(false)
   }
 
@@ -235,6 +241,15 @@ export default function Revision() {
     })
   }, [proyectos, busqueda, tabActiva])
 
+  const pagosFiltrados = useMemo(() => {
+    return pagos.filter(p => {
+      const matchBusqueda = (p.proveedor_nombre || '').toLowerCase().includes(busqueda.toLowerCase()) || 
+                            (p.tipo_solicitud || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+                            (p.id || '').toLowerCase().includes(busqueda.toLowerCase());
+      return matchBusqueda;
+    })
+  }, [pagos, busqueda])
+
   return (
     <div className="min-h-screen text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col" style={{ backgroundImage: `url(${degradadoBg})` }}>
 
@@ -259,15 +274,20 @@ export default function Revision() {
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-8 gap-4">
 
           {/* TABS DE NAVEGACION */}
-          <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 self-start md:self-auto w-full md:w-auto">
+          <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 self-start md:self-auto w-full md:w-auto overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {(usuarioLogueado?.permisos_especificos?.revision_cotizacion || !usuarioLogueado?.permisos_especificos) && (
-              <button onClick={() => setTabActiva('Aprobación Cotización')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Cotización' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
+              <button onClick={() => setTabActiva('Aprobación Cotización')} className={`shrink-0 flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Cotización' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
                 Aprobación Cotización
               </button>
             )}
             {(usuarioLogueado?.permisos_especificos?.revision_viabilidad || !usuarioLogueado?.permisos_especificos) && (
-              <button onClick={() => setTabActiva('Aprobación Viabilidad')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Viabilidad' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
+              <button onClick={() => setTabActiva('Aprobación Viabilidad')} className={`shrink-0 flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Viabilidad' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
                 Aprobación Viabilidad
+              </button>
+            )}
+            {(usuarioLogueado?.permisos_especificos?.aprobacion_pagos || !usuarioLogueado?.permisos_especificos) && (
+              <button onClick={() => setTabActiva('Aprobación Pagos')} className={`shrink-0 flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Pagos' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                Aprobación Pagos
               </button>
             )}
           </div>
@@ -281,6 +301,35 @@ export default function Revision() {
         <div className="flex flex-col gap-4">
           {cargando ? (
             <p className="text-center text-slate-400 font-bold py-10 uppercase tracking-widest text-xs">Cargando revisiones...</p>
+          ) : tabActiva === 'Aprobación Pagos' ? (
+             pagosFiltrados.length === 0 ? (
+                <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay pagos pendientes de aprobación.</p>
+                </div>
+             ) : (
+                pagosFiltrados.map((p) => {
+                  return (
+                    <div key={p.id} onClick={() => { setProyectoSeleccionado(p); setModalDetalle(true); }} className="bg-white border border-slate-100 rounded-[20px] md:rounded-[25px] p-4 md:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group hover:border-orange-400 transition-all hover:shadow-xl cursor-pointer relative overflow-hidden">
+                      <div className="flex items-center justify-between w-full">
+                         <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 md:w-14 md:h-14 bg-orange-100 text-orange-600 rounded-xl md:rounded-2xl flex items-center justify-center font-black text-lg md:text-xl flex-shrink-0 shadow-sm border border-orange-200">
+                               <Wallet size={24} />
+                            </div>
+                            <div>
+                               <h4 className="font-black text-slate-950 text-[12px] md:text-sm uppercase italic tracking-tighter leading-none">{p.proveedor_nombre}</h4>
+                               <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 mb-0.5">{p.usuario?.nombre} {p.usuario?.apellidos}</p>
+                               <p className="text-[10px] md:text-xs font-semibold text-slate-600 mt-1 uppercase flex items-center gap-1"><span className="bg-slate-100 px-2 py-0.5 rounded-lg">{p.tipo_solicitud}</span> {p.categoria}</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                            <p className="font-black text-base md:text-xl text-green-600 leading-none">${p.monto_iva?.toLocaleString('es-MX', {minimumFractionDigits: 2})}</p>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">SLA Rev</p>
+                         </div>
+                      </div>
+                    </div>
+                  )
+                })
+             )
           ) : proyectosFiltrados.length === 0 ? (
             <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
               <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay proyectos pendientes.</p>
@@ -350,7 +399,7 @@ export default function Revision() {
             />
           )}
 
-          {modalDetalle && proyectoSeleccionado && !(proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas') && (
+          {modalDetalle && proyectoSeleccionado && tabActiva !== 'Aprobación Pagos' && !(proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas') && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh] mt-12 md:mt-0 overflow-y-auto custom-scrollbar">
 
@@ -608,6 +657,17 @@ export default function Revision() {
               proyecto={proyectoSeleccionado}
               onClose={() => setModalLog(false)}
             />
+          )}
+
+          {modalDetalle && tabActiva === 'Aprobación Pagos' && proyectoSeleccionado && (
+             <ModalDetallePago 
+                pago={proyectoSeleccionado} 
+                onClose={() => setModalDetalle(false)} 
+                onSuccess={() => {setModalDetalle(false); fetchInicial()}}
+                usuarioLogueado={usuarioLogueado} 
+                showAlert={showAlert} 
+                showConfirm={showConfirm} 
+             />
           )}
         </AnimatePresence>
 

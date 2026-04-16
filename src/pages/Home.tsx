@@ -36,7 +36,7 @@ const modulosMenu = [
     { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'instalacion' },
     { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'interconexion' },
     { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'inventario' },
-    { nombre: 'Finanzas', icono: Banknote, ruta: '/finanzas', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: 'finanzas' },
+    { nombre: 'Pagos/Finanzas', icono: Banknote, ruta: '/pagos', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: '' },
     { nombre: 'Métricas SLA', icono: Clock, ruta: '/metricas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' },
     { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' },
     { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' }

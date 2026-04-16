@@ -76,7 +76,7 @@ export default function Viabilidad() {
    const [filtroPaso, setFiltroPaso] = useState<number | 'Todos'>('Todos')
 
    // Archivo
-   const [fileReporte, setFileReporte] = useState<File | null>(null)
+   const [filesReporte, setFilesReporte] = useState<File[]>([])
 
    // ESTADOS CHAT GLOBAL
    const [chatAbierto, setChatAbierto] = useState(false)
@@ -232,12 +232,19 @@ export default function Viabilidad() {
       try {
          const updates: any = { status: targetStatus }
          if (targetStatus === 4) updates.fecha_verificada = new Date().toISOString()
-         if (targetStatus === 5 && uploadPdf && fileReporte) {
-            const fileExt = fileReporte.name.split('.').pop()
-            const fileName = `viab_${proyectoSeleccionado.id}_${Date.now()}.${fileExt}`
-            const { error } = await supabase.storage.from('proyectos_media').upload(fileName, fileReporte)
-            if (!error) {
-               updates.reporte_ingenieria = supabase.storage.from('proyectos_media').getPublicUrl(fileName).data.publicUrl
+         if (targetStatus === 5 && uploadPdf && filesReporte.length > 0) {
+            const uploadedUrls = [];
+            for (const file of filesReporte) {
+                const fileExt = file.name.split('.').pop()
+                const fileName = `viab_${proyectoSeleccionado.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+                const { error } = await supabase.storage.from('proyectos_media').upload(fileName, file)
+                if (!error) {
+                   uploadedUrls.push(supabase.storage.from('proyectos_media').getPublicUrl(fileName).data.publicUrl)
+                }
+            }
+            if (uploadedUrls.length > 0) {
+                updates.reportes_ingenieria = uploadedUrls;
+                updates.reporte_ingenieria = uploadedUrls[0]; // Compatibility
             }
          }
          if (targetStatus === 7) updates.fecha_terminada = new Date().toISOString();
@@ -419,8 +426,9 @@ export default function Viabilidad() {
                avanzarA={avanzarA}
                procesando={procesando}
                setAgendaForm={setAgendaForm}
-               fileReporte={fileReporte}
-               setFileReporte={setFileReporte}
+               fileReporte={filesReporte.length > 0 ? filesReporte[0] : null} // compatibility prop
+               filesReporte={filesReporte}
+               setFilesReporte={setFilesReporte}
                onChatClick={() => {
                   setChatInicial({
                      tipo: 'proyecto',

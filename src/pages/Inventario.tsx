@@ -10,7 +10,7 @@ import {
     ClipboardSignature, FolderKanban, Camera, Barcode,
     AlertTriangle, CheckCircle2, History, X, Save,
     Wrench, Car, Laptop, Zap, Settings2, LayoutGrid, ScanLine,
-    Trash2, FileText, MapPin, Eye, Gauge, PenTool, DownloadCloud, RotateCcw, Loader2, Calendar
+    Trash2, PenTool, DownloadCloud, RotateCcw, Loader2, Calendar
 } from 'lucide-react'
 
 // IMPORTAR COMPONENTES GLOBALES
@@ -908,7 +908,7 @@ function ModalIngresoMaterial({ onClose, onSave, catalogo, categorias, usuarioLo
         if (escanerActivo?.tipo === 'sku') {
             setSku(text);
             // También buscamos si existe
-            const existe = catalogo.find(c => c.sku.toUpperCase() === text.toUpperCase());
+            const existe = catalogo.find((c: any) => c.sku.toUpperCase() === text.toUpperCase());
             if (existe) {
                 setTipoIngreso('existente');
                 setCatalogoId(existe.id);

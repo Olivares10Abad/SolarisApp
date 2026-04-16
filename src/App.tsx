@@ -8,6 +8,7 @@ import Cotizaciones from './pages/Cotizaciones'
 import Revision from './pages/Revisión'
 import Inventario from './pages/Inventario'
 import Viabilidad from './pages/Viabilidad'
+import Pagos from './pages/Pagos'
 import MetricasSLA from './pages/MetricasSLA'
 import RutaProtegida from './components/RutaProtegida'
 import { DialogProvider } from './context/DialogContext'
@@ -29,6 +30,7 @@ function App() {
         <Route path="/viabilidad" element={<RutaProtegida permisoRequerido="agendar_viabilidad"><Viabilidad /></RutaProtegida>} />
         <Route path="/inventario" element={<RutaProtegida permisoRequerido="inventario"><Inventario /></RutaProtegida>} />
         <Route path="/proyectos" element={<RutaProtegida permisoRequerido="proyectos"><ProyectosList /></RutaProtegida>} />
+        <Route path="/pagos" element={<RutaProtegida><Pagos /></RutaProtegida>} />
         <Route path="/metricas" element={<RutaProtegida><MetricasSLA /></RutaProtegida>} />
       </Routes>
       </BrowserRouter>

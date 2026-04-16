@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Pencil, Trash2, Search, X, Save,
   Building2, Briefcase, UserPlus, Mail, Phone, Users,
-  Network, ShieldCheck, Check, Award,
+  Network, ShieldCheck, Check, Award, AlertCircle,
   GitGraph, Minimize2, MapPin, Calendar, Fingerprint, Zap,
   FileText, FileBadge, Eye, UserCircle, ZoomIn, ZoomOut, Bell, BellRing, CheckCircle2,
   Wrench, Wallet, Package
@@ -69,7 +69,7 @@ const NodoOrganigrama = ({ usuario, todosLosUsuarios, busqueda }: any) => {
 };
 
 export default function Usuarios() {
-    const { showAlert, showConfirm } = useDialog();
+  const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate()
   const [tabActiva, setTabActiva] = useState<'empleados' | 'deptos' | 'roles'>('empleados')
   const [pestañaExpediente, setPestañaExpediente] = useState<'personales' | 'corporativo' | 'permisos' | 'documentos' | 'notificaciones'>('personales')
@@ -108,8 +108,8 @@ export default function Usuarios() {
     agendar_viabilidad: false, finanzas: false, cotizaciones: false,
     revision_cotizaciones: false, administrador_pagos: false,
     notif_cotizaciones: false, notif_revision: false,
-    notif_interconexion: false, notif_inventario: false, notif_finanzas: false,
-    permisos_especificos: { revision_cotizacion: false, revision_viabilidad: false }
+    notif_interconexion: false, notif_inventario: false, notif_finanzas: false, notif_finanzas_revision: false,
+    permisos_especificos: { revision_cotizacion: false, revision_viabilidad: false, aprobacion_pagos: false }
   }
   const [formData, setFormData] = useState<any>(initialFormState)
 
@@ -315,253 +315,258 @@ export default function Usuarios() {
 
       </main>
 
-        {/* ORGANIGRAMA DRAGGABLE CON ZOOM */}
-        <AnimatePresence>
-          {verOrganigrama && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-slate-50 overflow-hidden flex flex-col pt-16 md:pt-0">
-              {/* Header Organigrama */}
-              <div className="absolute md:relative top-0 left-0 right-0 md:top-auto md:left-auto md:right-auto bg-white border-b border-slate-200 p-4 md:p-6 flex flex-col md:flex-row justify-between items-center shadow-md z-50 gap-4 md:gap-0 h-16 md:h-auto">
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                  <img src={solarisLogo} alt="Logo" className="h-4 md:h-6 hidden md:block" />
-                  <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input type="text" placeholder="Buscar en estructura..." value={busquedaOrg} onChange={(e) => setBusquedaOrg(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-[10px] md:text-xs font-bold outline-none focus:border-orange-500" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200 mr-2">
-                    <button onClick={zoomOut} className="p-1.5 md:p-2 text-slate-500 hover:text-orange-500 hover:bg-white rounded-lg transition-all"><ZoomOut size={16} /></button>
-                    <span className="text-[10px] font-black text-slate-500 w-10 text-center">{Math.round(zoomOrg * 100)}%</span>
-                    <button onClick={zoomIn} className="p-1.5 md:p-2 text-slate-500 hover:text-orange-500 hover:bg-white rounded-lg transition-all"><ZoomIn size={16} /></button>
-                  </div>
-                  <button onClick={() => setVerOrganigrama(false)} className="bg-slate-900 text-white p-2 md:p-3 rounded-full hover:bg-red-500 transition-all border-2 border-white shadow-md"><Minimize2 className="w-4 h-4 md:w-5 md:h-5" /></button>
+      {/* ORGANIGRAMA DRAGGABLE CON ZOOM */}
+      <AnimatePresence>
+        {verOrganigrama && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-slate-50 overflow-hidden flex flex-col pt-16 md:pt-0">
+            {/* Header Organigrama */}
+            <div className="absolute md:relative top-0 left-0 right-0 md:top-auto md:left-auto md:right-auto bg-white border-b border-slate-200 p-4 md:p-6 flex flex-col md:flex-row justify-between items-center shadow-md z-50 gap-4 md:gap-0 h-16 md:h-auto">
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <img src={solarisLogo} alt="Logo" className="h-4 md:h-6 hidden md:block" />
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="text" placeholder="Buscar en estructura..." value={busquedaOrg} onChange={(e) => setBusquedaOrg(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-[10px] md:text-xs font-bold outline-none focus:border-orange-500" />
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200 mr-2">
+                  <button onClick={zoomOut} className="p-1.5 md:p-2 text-slate-500 hover:text-orange-500 hover:bg-white rounded-lg transition-all"><ZoomOut size={16} /></button>
+                  <span className="text-[10px] font-black text-slate-500 w-10 text-center">{Math.round(zoomOrg * 100)}%</span>
+                  <button onClick={zoomIn} className="p-1.5 md:p-2 text-slate-500 hover:text-orange-500 hover:bg-white rounded-lg transition-all"><ZoomIn size={16} /></button>
+                </div>
+                <button onClick={() => setVerOrganigrama(false)} className="bg-slate-900 text-white p-2 md:p-3 rounded-full hover:bg-red-500 transition-all border-2 border-white shadow-md"><Minimize2 className="w-4 h-4 md:w-5 md:h-5" /></button>
+              </div>
+            </div>
 
-              <div ref={scrollRef} onMouseDown={handleMouseDown} onMouseLeave={() => setIsDragging(false)} onMouseUp={() => setIsDragging(false)} onMouseMove={handleMouseMove} className="flex-1 overflow-auto custom-scrollbar cursor-grab active:cursor-grabbing p-10 md:p-20 relative">
-                <div className="min-w-max flex justify-center pb-40 transition-transform origin-top" style={{ transform: `scale(${zoomOrg})` }}>
-                  <div className="flex flex-col items-center">
-                    {raicesOrganigrama.map(root => <NodoOrganigrama key={root.id} usuario={root} todosLosUsuarios={usuarios} busqueda={busquedaOrg} />)}
-                  </div>
+            <div ref={scrollRef} onMouseDown={handleMouseDown} onMouseLeave={() => setIsDragging(false)} onMouseUp={() => setIsDragging(false)} onMouseMove={handleMouseMove} className="flex-1 overflow-auto custom-scrollbar cursor-grab active:cursor-grabbing p-10 md:p-20 relative">
+              <div className="min-w-max flex justify-center pb-40 transition-transform origin-top" style={{ transform: `scale(${zoomOrg})` }}>
+                <div className="flex flex-col items-center">
+                  {raicesOrganigrama.map(root => <NodoOrganigrama key={root.id} usuario={root} todosLosUsuarios={usuarios} busqueda={busquedaOrg} />)}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* MODAL EXPEDIENTE */}
-        <AnimatePresence>
-          {modalAbierto && (
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-4xl shadow-2xl relative overflow-hidden flex flex-col h-[85vh] md:max-h-[90vh] mt-12 md:mt-0 border border-white">
+      {/* MODAL EXPEDIENTE */}
+      <AnimatePresence>
+        {modalAbierto && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-4xl shadow-2xl relative overflow-hidden flex flex-col h-[85vh] md:max-h-[90vh] mt-12 md:mt-0 border border-white">
 
-                <div className="bg-slate-900 p-5 md:p-8 flex items-center justify-between text-white shrink-0">
-                  <div className="flex items-center gap-3 md:gap-5">
-                    <div className="w-12 h-12 md:w-16 md:h-16 bg-white/10 rounded-2xl flex items-center justify-center border border-white/10"><UserPlus className="w-6 h-6 md:w-7 md:h-7 text-orange-400" /></div>
-                    <div>
-                      <h2 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter leading-none">{modoEdicion ? 'Expediente' : 'Nuevo Ingreso'}</h2>
-                      {modoEdicion && <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 md:mt-1.5 truncate max-w-[200px] md:max-w-full">{formData.nombre} {formData.apellidos}</p>}
+              <div className="bg-slate-900 p-5 md:p-8 flex items-center justify-between text-white shrink-0">
+                <div className="flex items-center gap-3 md:gap-5">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white/10 rounded-2xl flex items-center justify-center border border-white/10"><UserPlus className="w-6 h-6 md:w-7 md:h-7 text-orange-400" /></div>
+                  <div>
+                    <h2 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter leading-none">{modoEdicion ? 'Expediente' : 'Nuevo Ingreso'}</h2>
+                    {modoEdicion && <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 md:mt-1.5 truncate max-w-[200px] md:max-w-full">{formData.nombre} {formData.apellidos}</p>}
+                  </div>
+                </div>
+                <button onClick={() => setModalAbierto(false)} className="p-2 md:p-3 bg-white/10 hover:bg-red-500 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
+              </div>
+
+              <div className="flex border-b border-slate-200 bg-slate-50 px-4 md:px-8 shrink-0 overflow-x-auto scrollbar-hide">
+                <button onClick={() => setPestañaExpediente('personales')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'personales' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><UserCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> Personales</button>
+                <button onClick={() => setPestañaExpediente('corporativo')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'corporativo' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><Briefcase className="w-3.5 h-3.5 md:w-4 md:h-4" /> Corporativo</button>
+                <button onClick={() => setPestañaExpediente('permisos')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'permisos' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" /> Permisos</button>
+                <button onClick={() => setPestañaExpediente('notificaciones')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'notificaciones' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><Bell className="w-3.5 h-3.5 md:w-4 md:h-4" /> Notificaciones</button>
+                <button onClick={() => setPestañaExpediente('documentos')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'documentos' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><FileBadge className="w-3.5 h-3.5 md:w-4 md:h-4" /> Expediente</button>
+              </div>
+
+              <form onSubmit={handleGuardarUsuario} className="p-5 md:p-10 overflow-y-auto flex-1 bg-white custom-scrollbar">
+
+                {pestañaExpediente === 'personales' && (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    <div className="col-span-1">Nombre(s) <input type="text" value={formData.nombre || ''} onChange={e => setFormData({ ...formData, nombre: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
+                    <div className="col-span-1">Apellidos <input type="text" value={formData.apellidos || ''} onChange={e => setFormData({ ...formData, apellidos: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
+
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Nacimiento</span><input type="date" value={formData.fecha_nacimiento || ''} onChange={e => setFormData({ ...formData, fecha_nacimiento: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Tel. Móvil</span><input type="text" value={formData.telefono_movil || ''} onChange={e => setFormData({ ...formData, telefono_movil: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
+
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> RFC</span><input type="text" value={formData.rfc || ''} onChange={e => setFormData({ ...formData, rfc: e.target.value.toUpperCase() })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> CURP</span><input type="text" value={formData.curp || ''} onChange={e => setFormData({ ...formData, curp: e.target.value.toUpperCase() })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
+
+                    <div className="col-span-1 sm:col-span-2 flex flex-col"><span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Dirección Completa</span><input type="text" value={formData.direccion || ''} onChange={e => setFormData({ ...formData, direccion: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
+                  </motion.div>
+                )}
+
+                {pestañaExpediente === 'corporativo' && (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    <div className="col-span-1 sm:col-span-2 bg-orange-50/50 p-4 md:p-6 rounded-2xl border border-orange-100 relative" ref={dropdownRef}>
+                      <span className="flex items-center gap-1.5 mb-2 md:mb-2.5 text-orange-600"><Network className="w-3.5 h-3.5 md:w-4 md:h-4" /> Jefe Directo</span>
+                      <div className="relative">
+                        <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-orange-300" />
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre..."
+                          value={mostrarListaJefes ? buscadorJefe : (jefeActual ? `${jefeActual.nombre} ${jefeActual.apellidos}` : '')}
+                          onFocus={() => setMostrarListaJefes(true)}
+                          onChange={(e) => { setBuscadorJefe(e.target.value); setMostrarListaJefes(true); }}
+                          className="w-full bg-white border border-orange-200 rounded-xl py-3 md:py-4 pl-10 md:pl-12 pr-4 outline-none text-slate-900 font-bold text-xs md:text-sm focus:border-orange-500 shadow-sm"
+                        />
+                        <AnimatePresence>{mostrarListaJefes && (
+                          <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-1 md:mt-2.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-40 overflow-y-auto">
+                            <div onClick={() => { setFormData({ ...formData, jefe_id: '' }); setMostrarListaJefes(false); setBuscadorJefe(''); }} className="p-3 md:p-4 border-b hover:bg-slate-50 cursor-pointer text-slate-400 italic font-medium text-xs md:text-sm">-- Sin Jefe --</div>
+                            {jefesFiltrados.map(j => (
+                              <div key={j.id} onClick={() => { setFormData({ ...formData, jefe_id: j.id }); setMostrarListaJefes(false); setBuscadorJefe(''); }} className="p-2 md:p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-2 md:gap-3 transition-colors">
+                                <div className="w-6 h-6 md:w-7 md:h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center font-black text-[9px] md:text-[10px]">{j.nombre.charAt(0)}</div>
+                                <div><p className="text-slate-900 font-bold text-[10px] md:text-xs leading-none">{j.nombre} {j.apellidos}</p><p className="text-slate-400 text-[7px] md:text-[8px] mt-0.5 md:mt-1 uppercase font-semibold">{j.rol_sistema}</p></div>
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}</AnimatePresence>
+                      </div>
                     </div>
-                  </div>
-                  <button onClick={() => setModalAbierto(false)} className="p-2 md:p-3 bg-white/10 hover:bg-red-500 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
-                </div>
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Fecha Ingreso</span><input type="date" value={formData.fecha_ingreso || ''} onChange={e => setFormData({ ...formData, fecha_ingreso: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Departamento</span><select value={formData.departamento || ''} onChange={e => setFormData({ ...formData, departamento: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required><option value="">Seleccionar...</option>{deptos.map(d => <option key={d.id} value={d.nombre}>{d.nombre}</option>)}</select></div>
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Award className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Rol Admin</span><select value={formData.rol_sistema || ''} onChange={e => setFormData({ ...formData, rol_sistema: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required><option value="">Seleccionar...</option>{roles.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}</select></div>
+                    <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Email Corporativo</span><input type="email" value={formData.email_corporativo || ''} onChange={e => setFormData({ ...formData, email_corporativo: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
+                    <div className="col-span-1 sm:col-span-2 flex flex-col"><span className="flex items-center gap-1.5 text-blue-600"><UserCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> Username Acceso (Lectura)</span><input type="text" value={formData.puesto_actual || ''} readOnly className="w-full bg-blue-50 border border-blue-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-black outline-none text-blue-900 shadow-sm" /></div>
+                  </motion.div>
+                )}
 
-                <div className="flex border-b border-slate-200 bg-slate-50 px-4 md:px-8 shrink-0 overflow-x-auto scrollbar-hide">
-                  <button onClick={() => setPestañaExpediente('personales')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'personales' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><UserCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> Personales</button>
-                  <button onClick={() => setPestañaExpediente('corporativo')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'corporativo' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><Briefcase className="w-3.5 h-3.5 md:w-4 md:h-4" /> Corporativo</button>
-                  <button onClick={() => setPestañaExpediente('permisos')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'permisos' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" /> Permisos</button>
-                  <button onClick={() => setPestañaExpediente('notificaciones')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'notificaciones' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><Bell className="w-3.5 h-3.5 md:w-4 md:h-4" /> Notificaciones</button>
-                  <button onClick={() => setPestañaExpediente('documentos')} className={`py-3 md:py-4 px-3 md:px-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${pestañaExpediente === 'documentos' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}><FileBadge className="w-3.5 h-3.5 md:w-4 md:h-4" /> Expediente</button>
-                </div>
-
-                <form onSubmit={handleGuardarUsuario} className="p-5 md:p-10 overflow-y-auto flex-1 bg-white custom-scrollbar">
-
-                  {pestañaExpediente === 'personales' && (
-                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      <div className="col-span-1">Nombre(s) <input type="text" value={formData.nombre || ''} onChange={e => setFormData({ ...formData, nombre: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
-                      <div className="col-span-1">Apellidos <input type="text" value={formData.apellidos || ''} onChange={e => setFormData({ ...formData, apellidos: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
-
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Nacimiento</span><input type="date" value={formData.fecha_nacimiento || ''} onChange={e => setFormData({ ...formData, fecha_nacimiento: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Tel. Móvil</span><input type="text" value={formData.telefono_movil || ''} onChange={e => setFormData({ ...formData, telefono_movil: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
-
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> RFC</span><input type="text" value={formData.rfc || ''} onChange={e => setFormData({ ...formData, rfc: e.target.value.toUpperCase() })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> CURP</span><input type="text" value={formData.curp || ''} onChange={e => setFormData({ ...formData, curp: e.target.value.toUpperCase() })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 uppercase focus:border-orange-400 shadow-inner" /></div>
-
-                      <div className="col-span-1 sm:col-span-2 flex flex-col"><span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Dirección Completa</span><input type="text" value={formData.direccion || ''} onChange={e => setFormData({ ...formData, direccion: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" /></div>
-                    </motion.div>
-                  )}
-
-                  {pestañaExpediente === 'corporativo' && (
-                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      <div className="col-span-1 sm:col-span-2 bg-orange-50/50 p-4 md:p-6 rounded-2xl border border-orange-100 relative" ref={dropdownRef}>
-                        <span className="flex items-center gap-1.5 mb-2 md:mb-2.5 text-orange-600"><Network className="w-3.5 h-3.5 md:w-4 md:h-4" /> Jefe Directo</span>
-                        <div className="relative">
-                          <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-orange-300" />
-                          <input
-                            type="text"
-                            placeholder="Buscar por nombre..."
-                            value={mostrarListaJefes ? buscadorJefe : (jefeActual ? `${jefeActual.nombre} ${jefeActual.apellidos}` : '')}
-                            onFocus={() => setMostrarListaJefes(true)}
-                            onChange={(e) => { setBuscadorJefe(e.target.value); setMostrarListaJefes(true); }}
-                            className="w-full bg-white border border-orange-200 rounded-xl py-3 md:py-4 pl-10 md:pl-12 pr-4 outline-none text-slate-900 font-bold text-xs md:text-sm focus:border-orange-500 shadow-sm"
-                          />
-                          <AnimatePresence>{mostrarListaJefes && (
-                            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-1 md:mt-2.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-40 overflow-y-auto">
-                              <div onClick={() => { setFormData({ ...formData, jefe_id: '' }); setMostrarListaJefes(false); setBuscadorJefe(''); }} className="p-3 md:p-4 border-b hover:bg-slate-50 cursor-pointer text-slate-400 italic font-medium text-xs md:text-sm">-- Sin Jefe --</div>
-                              {jefesFiltrados.map(j => (
-                                <div key={j.id} onClick={() => { setFormData({ ...formData, jefe_id: j.id }); setMostrarListaJefes(false); setBuscadorJefe(''); }} className="p-2 md:p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-2 md:gap-3 transition-colors">
-                                  <div className="w-6 h-6 md:w-7 md:h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center font-black text-[9px] md:text-[10px]">{j.nombre.charAt(0)}</div>
-                                  <div><p className="text-slate-900 font-bold text-[10px] md:text-xs leading-none">{j.nombre} {j.apellidos}</p><p className="text-slate-400 text-[7px] md:text-[8px] mt-0.5 md:mt-1 uppercase font-semibold">{j.rol_sistema}</p></div>
-                                </div>
-                              ))}
-                            </motion.div>
-                          )}</AnimatePresence>
-                        </div>
-                      </div>
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Fecha Ingreso</span><input type="date" value={formData.fecha_ingreso || ''} onChange={e => setFormData({ ...formData, fecha_ingreso: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Departamento</span><select value={formData.departamento || ''} onChange={e => setFormData({ ...formData, departamento: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required><option value="">Seleccionar...</option>{deptos.map(d => <option key={d.id} value={d.nombre}>{d.nombre}</option>)}</select></div>
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Award className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Rol Admin</span><select value={formData.rol_sistema || ''} onChange={e => setFormData({ ...formData, rol_sistema: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required><option value="">Seleccionar...</option>{roles.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}</select></div>
-                      <div className="col-span-1 flex flex-col"><span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" /> Email Corporativo</span><input type="email" value={formData.email_corporativo || ''} onChange={e => setFormData({ ...formData, email_corporativo: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-bold outline-none text-slate-900 focus:border-orange-400 shadow-inner" required /></div>
-                      <div className="col-span-1 sm:col-span-2 flex flex-col"><span className="flex items-center gap-1.5 text-blue-600"><UserCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> Username Acceso (Lectura)</span><input type="text" value={formData.puesto_actual || ''} readOnly className="w-full bg-blue-50 border border-blue-200 rounded-xl py-3 md:py-4 px-4 md:px-6 mt-1.5 md:mt-2 text-xs md:text-sm font-black outline-none text-blue-900 shadow-sm" /></div>
-                    </motion.div>
-                  )}
-
-                  {pestañaExpediente === 'permisos' && (
-                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                        {[
-                          { label: 'Usuarios', campo: 'usuarios' },
-                          { label: 'Proyectos', campo: 'proyectos' }, { label: 'Inventario', campo: 'inventario' },
-                          { label: 'Comunicados', campo: 'comunicados' }, { label: 'Panel', campo: 'panel' },
-                          { label: 'Instalación', campo: 'instalacion' }, { label: 'Interconexión', campo: 'interconexion' },
-                          { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
-                          { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
-                          { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' }
-                        ].map((perm) => (
-                          <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
-                            {perm.label}
-                            <div className={`w-3 h-3 md:w-4 md:h-4 rounded flex items-center justify-center border ${formData[perm.campo as keyof typeof formData] ? 'bg-white border-white text-slate-900' : 'bg-slate-100 border-slate-200'}`}>
-                              {formData[perm.campo as keyof typeof formData] && <Check size={12} className="text-orange-500 w-2.5 h-2.5 md:w-3 md:h-3" />}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {formData.revision_cotizaciones && (
-                        <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl flex flex-col sm:flex-row gap-4 sm:items-center">
-                          <div className="text-slate-800 font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-orange-500" /> Vistas de Revisión Disponibles:
-                          </div>
-                          <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
-                              <input type="checkbox" checked={formData.permisos_especificos?.revision_cotizacion || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_cotizacion: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
-                              Aprobación Cotización
-                            </label>
-                            <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
-                              <input type="checkbox" checked={formData.permisos_especificos?.revision_viabilidad || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_viabilidad: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
-                              Aprobación Viabilidad
-                            </label>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                  {pestañaExpediente === 'notificaciones' && (
-                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
-                      <div className="bg-orange-50/50 p-6 rounded-2xl border border-orange-100 flex flex-col md:flex-row items-center gap-6">
-                        <div className="bg-orange-100 text-orange-600 p-4 rounded-full">
-                          <BellRing size={32} />
-                        </div>
-                        <div>
-                          <h3 className="font-black text-slate-900 uppercase italic tracking-tighter text-lg md:text-xl">Alertas en Tiempo Real</h3>
-                          <p className="text-[10px] md:text-xs font-bold text-slate-500 mt-1 leading-relaxed">Configura qué módulos detonarán notificaciones push para este usuario estructural base.</p>
-                        </div>
-                      </div>
-
-                      <div className="flex bg-slate-50 p-1.5 rounded-[12px] border border-slate-200 mt-2 overflow-x-auto custom-scrollbar gap-1">
-                        {['Todas', 'Cotizaciones', 'Viabilidad', 'Operaciones', 'General'].map(tab => (
-                            <button 
-                                key={tab} type="button" onClick={() => setTabNotificacionesForm(tab)}
-                                className={`px-4 py-2 rounded-[8px] text-[10px] font-black transition-all whitespace-nowrap uppercase tracking-widest ${tabNotificacionesForm === tab ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
-                                {tab}
-                            </button>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        {[
-                          { k: 'notif_cotizaciones', tab: 'Cotizaciones', t: 'Nueva Cotización', d: 'Notificaciones cuando un proyecto entra a Cotización o retorna.', icon: FileText, c: 'blue' },
-                          { k: 'notif_revision', tab: 'Cotizaciones', t: 'Pase a Revisión (Cot.)', d: 'Avisos cuando un proyecto está en Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
-                          { k: 'notif_viabilidad_tecnica', tab: 'Viabilidad', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes y agendamientos técnicos.', icon: Zap, c: 'orange' },
-                          { k: 'notif_viabilidad_revision', tab: 'Viabilidad', t: 'Revisión Viabilidad (Ventas)', d: 'Avisos cuando ingeniería termina y pasa a revisión de gerencia/ventas.', icon: CheckCircle2, c: 'indigo' },
-                          { k: 'notif_instalacion', tab: 'Operaciones', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes.', icon: Wrench, c: 'teal' },
-                          { k: 'notif_interconexion', tab: 'Operaciones', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
-                          { k: 'notif_inventario', tab: 'General', t: 'Bajo Inventario', d: 'Alertas cuando materiales han llegado al stock mínimo.', icon: Package, c: 'amber' },
-                          { k: 'notif_finanzas', tab: 'General', t: 'Finanzas', d: 'Nuevos presupuestos, depósitos iniciales y liberación de comisiones.', icon: Wallet, c: 'rose' }
-                        ].filter(n => tabNotificacionesForm === 'Todas' || n.tab === tabNotificacionesForm).map((notif) => (
-                          <div key={notif.k} onClick={() => setFormData({ ...formData, [notif.k]: !formData[notif.k as keyof typeof formData] })} className={`border-2 p-5 rounded-2xl cursor-pointer transition-all group relative overflow-hidden ${formData[notif.k as keyof typeof formData] ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
-                            <div className="flex justify-between items-start mb-4">
-                              <div className={`p-2 rounded-lg ${formData[notif.k as keyof typeof formData] ? 'bg-white/10' : 'bg-slate-100 group-hover:bg-orange-50'}`}>
-                                <notif.icon className={`w-6 h-6 ${formData[notif.k as keyof typeof formData] ? 'text-white' : 'text-slate-500 group-hover:text-orange-500'}`} />
-                              </div>
-                              <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 transition-colors ${formData[notif.k as keyof typeof formData] ? 'bg-white border-white' : 'bg-slate-100 border-slate-200 group-hover:border-slate-300'}`}>
-                                {formData[notif.k as keyof typeof formData] && <Check className="w-3.5 h-3.5 text-slate-900" />}
-                              </div>
-                            </div>
-                            <h4 className={`font-black uppercase tracking-tighter text-sm md:text-base leading-none mb-2 ${formData[notif.k as keyof typeof formData] ? 'text-white' : 'text-slate-800'}`}>{notif.t}</h4>
-                            <p className={`text-[10px] md:text-xs font-bold leading-relaxed ${formData[notif.k as keyof typeof formData] ? 'text-slate-300' : 'text-slate-500'}`}>{notif.d}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {pestañaExpediente === 'documentos' && (
-                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
+                {pestañaExpediente === 'permisos' && (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                       {[
-                        { k: 'doc_ine', n: 'Identificación INE Frente/Detrás', c: 'text-emerald-500' },
-                        { k: 'doc_csf', n: 'Constancia Fiscal SAT (Actualizada)', c: 'text-blue-500' },
-                        { k: 'doc_domicilio', n: 'Comprobante de Domicilio (Luz/Agua)', c: 'text-orange-500' },
-                        { k: 'doc_acta', n: 'Acta de Nacimiento', c: 'text-pink-500' }
-                      ].map(doc => (
-                        <div key={doc.k} className="bg-white border border-slate-200 rounded-[20px] md:rounded-3xl p-4 md:p-6 flex items-center justify-between shadow-sm group hover:border-emerald-200 transition-colors">
-                          <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 transition-colors shrink-0"><FileText className={`w-5 h-5 md:w-6 md:h-6 ${doc.c}`} /></div>
-                            <div className="overflow-hidden"><p className="font-black text-[9px] md:text-[11px] uppercase italic text-slate-950 leading-none tracking-tighter truncate">{doc.n}</p><p className="text-[8px] md:text-[10px] font-bold text-slate-400 mt-1 md:mt-2 uppercase tracking-widest truncate">{formData[doc.k as keyof typeof formData] ? 'Archivo Cargado' : 'Sin Archivo'}</p></div>
+                        { label: 'Usuarios', campo: 'usuarios' },
+                        { label: 'Proyectos', campo: 'proyectos' }, { label: 'Inventario', campo: 'inventario' },
+                        { label: 'Comunicados', campo: 'comunicados' }, { label: 'Panel', campo: 'panel' },
+                        { label: 'Instalación', campo: 'instalacion' }, { label: 'Interconexión', campo: 'interconexion' },
+                        { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
+                        { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
+                        { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' }
+                      ].map((perm) => (
+                        <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
+                          {perm.label}
+                          <div className={`w-3 h-3 md:w-4 md:h-4 rounded flex items-center justify-center border ${formData[perm.campo as keyof typeof formData] ? 'bg-white border-white text-slate-900' : 'bg-slate-100 border-slate-200'}`}>
+                            {formData[perm.campo as keyof typeof formData] && <Check size={12} className="text-orange-500 w-2.5 h-2.5 md:w-3 md:h-3" />}
                           </div>
-                          {formData[doc.k as keyof typeof formData] && (
-                            <button type="button" onClick={() => setDocPreview({ url: formData[doc.k as keyof typeof formData] as string, nombre: doc.n })} className="p-2 md:p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shrink-0 ml-2"><Eye className="w-4 h-4 md:w-5 md:h-5" /></button>
-                          )}
                         </div>
                       ))}
-                    </motion.div>
-                  )}
+                    </div>
 
-                  <div className="pt-6 md:pt-8 mt-6 md:mt-10 flex flex-col-reverse sm:flex-row justify-end gap-3 md:gap-4 border-t border-slate-200">
-                    <button type="button" onClick={() => setModalAbierto(false)} className="w-full sm:w-auto text-slate-400 font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] px-6 md:px-8 py-3.5 md:py-4 hover:bg-slate-50 rounded-xl transition-colors">Cancelar</button>
-                    <button type="submit" className="w-full sm:w-auto bg-slate-900 text-white px-8 md:px-10 py-3.5 md:py-4 rounded-xl font-black shadow-xl hover:bg-orange-500 transition-all flex items-center justify-center gap-2 md:gap-3 uppercase text-[10px] md:text-[11px] tracking-widest">GUARDAR <Save className="w-3.5 h-3.5 md:w-4 md:h-4" /></button>
-                  </div>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+                    {formData.revision_cotizaciones && (
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl flex flex-col sm:flex-row gap-4 sm:items-center">
+                        <div className="text-slate-800 font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-orange-500" /> Vistas de Revisión Disponibles:
+                        </div>
+                        <div className="flex flex-wrap gap-4">
+                          <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
+                            <input type="checkbox" checked={formData.permisos_especificos?.revision_cotizacion || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_cotizacion: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+                            Aprobación Cotización
+                          </label>
+                          <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
+                            <input type="checkbox" checked={formData.permisos_especificos?.revision_viabilidad || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_viabilidad: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+                            Aprobación Viabilidad
+                          </label>
+                          <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
+                            <input type="checkbox" checked={formData.permisos_especificos?.aprobacion_pagos || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), aprobacion_pagos: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+                            Aprobación Pagos
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
 
-        {/* VISOR DE DOCUMENTOS */}
-        <AnimatePresence>
-          {docPreview && (
-            <div className="fixed inset-0 z-[1000] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-6xl h-[85vh] md:h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-white mt-12 md:mt-0" onClick={e => e.stopPropagation()}>
-                <div className="bg-white p-4 md:p-6 flex justify-between items-center border-b border-slate-100 shrink-0">
-                  <h3 className="font-black uppercase tracking-widest text-slate-900 flex items-center gap-2 md:gap-3 text-xs md:text-sm"><FileText className="w-4 h-4 md:w-6 md:h-6 text-orange-500 shrink-0" /> <span className="truncate">Visor: {docPreview.nombre}</span></h3>
-                  <button onClick={() => setDocPreview(null)} className="p-2 bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 rounded-full transition-colors shrink-0"><X className="w-4 h-4 md:w-6 md:h-6" /></button>
+                {pestañaExpediente === 'notificaciones' && (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
+                    <div className="bg-orange-50/50 p-6 rounded-2xl border border-orange-100 flex flex-col md:flex-row items-center gap-6">
+                      <div className="bg-orange-100 text-orange-600 p-4 rounded-full">
+                        <BellRing size={32} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-900 uppercase italic tracking-tighter text-lg md:text-xl">Alertas en Tiempo Real</h3>
+                        <p className="text-[10px] md:text-xs font-bold text-slate-500 mt-1 leading-relaxed">Configura qué módulos detonarán notificaciones push para este usuario estructural base.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex bg-slate-50 p-1.5 rounded-[12px] border border-slate-200 mt-2 overflow-x-auto custom-scrollbar gap-1">
+                      {['Todas', 'Cotizaciones', 'Viabilidad', 'Operaciones', 'General'].map(tab => (
+                        <button
+                          key={tab} type="button" onClick={() => setTabNotificacionesForm(tab)}
+                          className={`px-4 py-2 rounded-[8px] text-[10px] font-black transition-all whitespace-nowrap uppercase tracking-widest ${tabNotificacionesForm === tab ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                      {[
+                        { k: 'notif_cotizaciones', tab: 'Cotizaciones', t: 'Nueva Cotización', d: 'Notificaciones cuando un proyecto entra a Cotización o retorna.', icon: FileText, c: 'blue' },
+                        { k: 'notif_revision', tab: 'Cotizaciones', t: 'Pase a Revisión (Cot.)', d: 'Avisos cuando un proyecto está en Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
+                        { k: 'notif_viabilidad_tecnica', tab: 'Viabilidad', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes y agendamientos técnicos.', icon: Zap, c: 'orange' },
+                        { k: 'notif_viabilidad_revision', tab: 'Viabilidad', t: 'Revisión Viabilidad (Ventas)', d: 'Avisos cuando ingeniería termina y pasa a revisión de gerencia/ventas.', icon: CheckCircle2, c: 'indigo' },
+                        { k: 'notif_instalacion', tab: 'Operaciones', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes.', icon: Wrench, c: 'teal' },
+                        { k: 'notif_interconexion', tab: 'Operaciones', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
+                        { k: 'notif_inventario', tab: 'General', t: 'Bajo Inventario', d: 'Alertas cuando materiales han llegado al stock mínimo.', icon: Package, c: 'amber' },
+                        { k: 'notif_finanzas', tab: 'General', t: 'Notificación Finanzas', d: 'Pagos Auto-Aprobados menores a $5000.', icon: Wallet, c: 'rose' },
+                        { k: 'notif_finanzas_revision', tab: 'General', t: 'Revisión Finanzas', d: 'Alertas de pagos mayores a $5000 requiriendo revisión.', icon: AlertCircle, c: 'indigo' }
+                      ].filter(n => tabNotificacionesForm === 'Todas' || n.tab === tabNotificacionesForm).map((notif) => (
+                        <div key={notif.k} onClick={() => setFormData({ ...formData, [notif.k]: !formData[notif.k as keyof typeof formData] })} className={`border-2 p-5 rounded-2xl cursor-pointer transition-all group relative overflow-hidden ${formData[notif.k as keyof typeof formData] ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
+                          <div className="flex justify-between items-start mb-4">
+                            <div className={`p-2 rounded-lg ${formData[notif.k as keyof typeof formData] ? 'bg-white/10' : 'bg-slate-100 group-hover:bg-orange-50'}`}>
+                              <notif.icon className={`w-6 h-6 ${formData[notif.k as keyof typeof formData] ? 'text-white' : 'text-slate-500 group-hover:text-orange-500'}`} />
+                            </div>
+                            <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 transition-colors ${formData[notif.k as keyof typeof formData] ? 'bg-white border-white' : 'bg-slate-100 border-slate-200 group-hover:border-slate-300'}`}>
+                              {formData[notif.k as keyof typeof formData] && <Check className="w-3.5 h-3.5 text-slate-900" />}
+                            </div>
+                          </div>
+                          <h4 className={`font-black uppercase tracking-tighter text-sm md:text-base leading-none mb-2 ${formData[notif.k as keyof typeof formData] ? 'text-white' : 'text-slate-800'}`}>{notif.t}</h4>
+                          <p className={`text-[10px] md:text-xs font-bold leading-relaxed ${formData[notif.k as keyof typeof formData] ? 'text-slate-300' : 'text-slate-500'}`}>{notif.d}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {pestañaExpediente === 'documentos' && (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    {[
+                      { k: 'doc_ine', n: 'Identificación INE Frente/Detrás', c: 'text-emerald-500' },
+                      { k: 'doc_csf', n: 'Constancia Fiscal SAT (Actualizada)', c: 'text-blue-500' },
+                      { k: 'doc_domicilio', n: 'Comprobante de Domicilio (Luz/Agua)', c: 'text-orange-500' },
+                      { k: 'doc_acta', n: 'Acta de Nacimiento', c: 'text-pink-500' }
+                    ].map(doc => (
+                      <div key={doc.k} className="bg-white border border-slate-200 rounded-[20px] md:rounded-3xl p-4 md:p-6 flex items-center justify-between shadow-sm group hover:border-emerald-200 transition-colors">
+                        <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                          <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 transition-colors shrink-0"><FileText className={`w-5 h-5 md:w-6 md:h-6 ${doc.c}`} /></div>
+                          <div className="overflow-hidden"><p className="font-black text-[9px] md:text-[11px] uppercase italic text-slate-950 leading-none tracking-tighter truncate">{doc.n}</p><p className="text-[8px] md:text-[10px] font-bold text-slate-400 mt-1 md:mt-2 uppercase tracking-widest truncate">{formData[doc.k as keyof typeof formData] ? 'Archivo Cargado' : 'Sin Archivo'}</p></div>
+                        </div>
+                        {formData[doc.k as keyof typeof formData] && (
+                          <button type="button" onClick={() => setDocPreview({ url: formData[doc.k as keyof typeof formData] as string, nombre: doc.n })} className="p-2 md:p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shrink-0 ml-2"><Eye className="w-4 h-4 md:w-5 md:h-5" /></button>
+                        )}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+
+                <div className="pt-6 md:pt-8 mt-6 md:mt-10 flex flex-col-reverse sm:flex-row justify-end gap-3 md:gap-4 border-t border-slate-200">
+                  <button type="button" onClick={() => setModalAbierto(false)} className="w-full sm:w-auto text-slate-400 font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] px-6 md:px-8 py-3.5 md:py-4 hover:bg-slate-50 rounded-xl transition-colors">Cancelar</button>
+                  <button type="submit" className="w-full sm:w-auto bg-slate-900 text-white px-8 md:px-10 py-3.5 md:py-4 rounded-xl font-black shadow-xl hover:bg-orange-500 transition-all flex items-center justify-center gap-2 md:gap-3 uppercase text-[10px] md:text-[11px] tracking-widest">GUARDAR <Save className="w-3.5 h-3.5 md:w-4 md:h-4" /></button>
                 </div>
-                <div className="flex-1 bg-slate-800 p-2 md:p-0"><iframe src={docPreview.url} className="w-full h-full border-none bg-white rounded-xl md:rounded-none" title={docPreview.nombre} /></div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* VISOR DE DOCUMENTOS */}
+      <AnimatePresence>
+        {docPreview && (
+          <div className="fixed inset-0 z-[1000] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-6xl h-[85vh] md:h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-white mt-12 md:mt-0" onClick={e => e.stopPropagation()}>
+              <div className="bg-white p-4 md:p-6 flex justify-between items-center border-b border-slate-100 shrink-0">
+                <h3 className="font-black uppercase tracking-widest text-slate-900 flex items-center gap-2 md:gap-3 text-xs md:text-sm"><FileText className="w-4 h-4 md:w-6 md:h-6 text-orange-500 shrink-0" /> <span className="truncate">Visor: {docPreview.nombre}</span></h3>
+                <button onClick={() => setDocPreview(null)} className="p-2 bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 rounded-full transition-colors shrink-0"><X className="w-4 h-4 md:w-6 md:h-6" /></button>
+              </div>
+              <div className="flex-1 bg-slate-800 p-2 md:p-0"><iframe src={docPreview.url} className="w-full h-full border-none bg-white rounded-xl md:rounded-none" title={docPreview.nombre} /></div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   )
