@@ -9,7 +9,7 @@ import {
   Network, ShieldCheck, Check, Award, AlertCircle,
   GitGraph, Minimize2, MapPin, Calendar, Fingerprint, Zap,
   FileText, FileBadge, Eye, UserCircle, ZoomIn, ZoomOut, Bell, BellRing, CheckCircle2,
-  Wrench, Wallet, Package
+  Wrench, Wallet, Package, Car
 } from 'lucide-react'
 
 import solarisLogo from '../assets/solarislogo.png'
@@ -436,7 +436,8 @@ export default function Usuarios() {
                         { label: 'Instalación', campo: 'instalacion' }, { label: 'Interconexión', campo: 'interconexion' },
                         { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
                         { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
-                        { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' }
+                        { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' },
+                        { label: 'Vehículos', campo: 'vehiculos' }
                       ].map((perm) => (
                         <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
                           {perm.label}
@@ -503,7 +504,8 @@ export default function Usuarios() {
                         { k: 'notif_interconexion', tab: 'Operaciones', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
                         { k: 'notif_inventario', tab: 'General', t: 'Bajo Inventario', d: 'Alertas cuando materiales han llegado al stock mínimo.', icon: Package, c: 'amber' },
                         { k: 'notif_finanzas', tab: 'General', t: 'Notificación Finanzas', d: 'Pagos Auto-Aprobados menores a $5000.', icon: Wallet, c: 'rose' },
-                        { k: 'notif_finanzas_revision', tab: 'General', t: 'Revisión Finanzas', d: 'Alertas de pagos mayores a $5000 requiriendo revisión.', icon: AlertCircle, c: 'indigo' }
+                        { k: 'notif_finanzas_revision', tab: 'General', t: 'Revisión Finanzas', d: 'Alertas de pagos mayores a $5000 requiriendo revisión.', icon: AlertCircle, c: 'indigo' },
+                        { k: 'notif_vehiculos', tab: 'General', t: 'Alertas Vehiculares', d: 'Notificaciones de multas, fallas o choques de flotilla.', icon: Car, c: 'rose' }
                       ].filter(n => tabNotificacionesForm === 'Todas' || n.tab === tabNotificacionesForm).map((notif) => (
                         <div key={notif.k} onClick={() => setFormData({ ...formData, [notif.k]: !formData[notif.k as keyof typeof formData] })} className={`border-2 p-5 rounded-2xl cursor-pointer transition-all group relative overflow-hidden ${formData[notif.k as keyof typeof formData] ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                           <div className="flex justify-between items-start mb-4">
