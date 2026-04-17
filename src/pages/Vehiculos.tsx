@@ -107,7 +107,7 @@ export default function Vehiculos() {
     const [fotosExtra, setFotosExtra] = useState<File[]>([])
     const inputFileRef = useRef<HTMLInputElement>(null)
     const [reporteTitulo, setReporteTitulo] = useState('')
-    const [formNuevoVH, setFormNuevoVH] = useState({ marca: '', modelo: '', placas: '', km_actual: '' })
+    const [formNuevoVH, setFormNuevoVH] = useState({ marca: '', modelo: '', placas: '', km_actual: '', nivel_gasolina: 'Lleno' })
     const [formMotivo, setFormMotivo] = useState('')
     const [formSubMotivo, setFormSubMotivo] = useState('')
     const [formFechaTaller, setFormFechaTaller] = useState('')
@@ -410,7 +410,7 @@ export default function Vehiculos() {
             km_actual: Number(formNuevoVH.km_actual),
             imagen_url: urlImg,
             estatus: 'Disponible',
-            nivel_gasolina: 'Lleno',
+            nivel_gasolina: formNuevoVH.nivel_gasolina,
             poliza_seguro: formHojaVida.poliza_seguro || null,
             fin_poliza_seguro: formHojaVida.fin_poliza_seguro ? new Date(formHojaVida.fin_poliza_seguro).toISOString() : null,
             ultimo_mantenimiento: formHojaVida.ultimo_mantenimiento ? new Date(formHojaVida.ultimo_mantenimiento).toISOString() : null,
@@ -558,7 +558,7 @@ export default function Vehiculos() {
                                     {reportesAbiertos.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">{reportesAbiertos.length}</span>}
                                 </button>
                             </div>
-                            <button onClick={() => { setFormNuevoVH({ marca: '', modelo: '', placas: '', km_actual: '' }); setFotosExtra([]); setVehiculoSeleccionado(null); setModoModal('nuevo'); }} className="bg-slate-900 hover:bg-rose-500 text-white px-4 py-2 rounded-xl text-[10px] uppercase font-black tracking-widest shadow-md transition-all flex items-center gap-2 border border-slate-900"><Plus size={14} /> Auto</button>
+                            <button onClick={() => { setFormNuevoVH({ marca: '', modelo: '', placas: '', km_actual: '', nivel_gasolina: 'Lleno' }); setFotosExtra([]); setVehiculoSeleccionado(null); setModoModal('nuevo'); }} className="bg-slate-900 hover:bg-rose-500 text-white px-4 py-2 rounded-xl text-[10px] uppercase font-black tracking-widest shadow-md transition-all flex items-center gap-2 border border-slate-900"><Plus size={14} /> Auto</button>
                         </div>
                     )}
                 </div>
@@ -669,6 +669,16 @@ export default function Vehiculos() {
                                             <div>
                                                 <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Kilometraje Inicial (Tablero)</label>
                                                 <input type="number" value={formNuevoVH.km_actual} onChange={e => setFormNuevoVH({ ...formNuevoVH, km_actual: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 font-black text-slate-700 outline-none focus:border-rose-500" placeholder="Ej: 50000" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Gasolina Actual</label>
+                                                <select value={formNuevoVH.nivel_gasolina} onChange={e => setFormNuevoVH({ ...formNuevoVH, nivel_gasolina: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 font-black text-slate-700 outline-none focus:border-rose-500">
+                                                    <option value="Reserva">Reserva (Rojo)</option>
+                                                    <option value="1/4">1/4 Tanque</option>
+                                                    <option value="1/2">Medio Tanque (1/2)</option>
+                                                    <option value="3/4">3/4 Tanque</option>
+                                                    <option value="Lleno">Tanque Lleno</option>
+                                                </select>
                                             </div>
                                         </div>
 

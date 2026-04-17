@@ -39,8 +39,7 @@ const modulosMenu = [
     { nombre: 'Vehículos', icono: Car, ruta: '/vehiculos', color: 'text-rose-500', bg: 'hover:bg-rose-50', permiso: '' },
     { nombre: 'Pagos/Finanzas', icono: Banknote, ruta: '/pagos', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: '' },
     { nombre: 'Métricas SLA', icono: Clock, ruta: '/metricas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' },
-    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' },
-    { nombre: 'Panel', icono: LayoutDashboard, ruta: '/panel-control', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' }
+    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' }
 ]
 
 const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
