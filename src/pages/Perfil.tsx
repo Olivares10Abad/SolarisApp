@@ -3,12 +3,7 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
-import {
-    Camera, Calendar, MapPin, Fingerprint,
-    Briefcase, Network, Save, Loader2, PlaneTakeoff,
-    CheckCircle2, XCircle, FileBadge, Send, Eye, FileText,
-    X, ChevronLeft, ChevronRight, Clock, BellRing, Zap, Check
-} from 'lucide-react'
+import { Camera, Calendar, MapPin, Fingerprint, Briefcase, Network, Save, Loader2, PlaneTakeoff, CheckCircle2, XCircle, FileBadge, Send, Eye, FileText, X, ChevronLeft, ChevronRight, Clock, BellRing, Zap, Check, Wrench, Package, Wallet, AlertCircle, Car, Bell } from 'lucide-react'
 
 // IMPORTAR COMPONENTES GLOBALES
 import Header from '../components/Header'
@@ -343,8 +338,8 @@ export default function Perfil() {
                             <p className="text-[9px] md:text-[10px] font-black text-orange-600 bg-orange-50 px-2 md:px-3 py-1 rounded-md uppercase tracking-widest border border-orange-100 w-fit mx-auto mt-2 md:mt-3">{perfil?.rol_sistema}</p>
 
                             <div className="mt-6 md:mt-8 space-y-3 md:space-y-4 text-left border-t border-slate-100 pt-5 md:pt-6">
-                                <div className="flex items-center gap-3 text-slate-600"><Briefcase className="w-4 h-4 text-slate-400 shrink-0" /><div className="text-xs overflow-hidden"><p className="font-bold text-slate-900 uppercase">Departamento</p><p className="text-[10px] font-bold uppercase tracking-widest truncate">{perfil?.departamento}</p></div></div>
-                                <div className="flex items-center gap-3 text-slate-600"><Network className="w-4 h-4 text-slate-400 shrink-0" /><div className="text-xs overflow-hidden"><p className="font-bold text-slate-900 uppercase">Jefe Directo</p><p className="text-[10px] font-bold uppercase tracking-widest truncate">{perfil?.jefe?.nombre ? `${perfil.jefe.nombre} ${perfil.jefe.apellidos}` : 'Nivel Directivo'}</p></div></div>
+                                <div className="flex items-center gap-3 text-slate-600"><Briefcase className="w-4 h-4 text-orange-500 shrink-0" /><div className="text-xs overflow-hidden"><p className="font-bold text-slate-900 uppercase">Departamento</p><p className="text-[10px] font-black text-orange-600 uppercase tracking-widest truncate">{perfil?.departamento}</p></div></div>
+                                <div className="flex items-center gap-3 text-slate-600"><Network className="w-4 h-4 text-orange-500 shrink-0" /><div className="text-xs overflow-hidden"><p className="font-bold text-slate-900 uppercase">Jefe Directo</p><p className="text-[10px] font-black text-orange-600 uppercase tracking-widest truncate">{perfil?.jefe?.nombre ? `${perfil.jefe.nombre} ${perfil.jefe.apellidos}` : 'Nivel Directivo'}</p></div></div>
                                 <div className="flex items-center gap-3 text-slate-600"><Calendar className="w-4 h-4 text-orange-500 shrink-0" /><div className="text-xs overflow-hidden"><p className="font-bold text-slate-900 uppercase">Fecha de Ingreso</p><p className="text-[10px] font-black text-orange-600 uppercase tracking-widest truncate">{perfil?.fecha_ingreso ? new Date(perfil.fecha_ingreso).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) : 'No registrada'}</p></div></div>
                             </div>
                         </div>
@@ -441,7 +436,7 @@ export default function Perfil() {
                                                 <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
                                                     <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-orange-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
                                                     <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 md:mb-2">Utilizados</p>
-                                                    <p className="text-4xl md:text-5xl font-black italic text-slate-900">{resumenVacaciones.tomados}</p>
+                                                    <p className="text-4xl md:text-5xl font-black italic text-red-500">{resumenVacaciones.tomados}</p>
                                                 </div>
                                                 <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[20px] md:rounded-[35px] p-6 md:p-8 text-center relative overflow-hidden">
                                                     <div className="absolute -top-4 -right-4 w-20 h-20 md:w-24 md:h-24 bg-emerald-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
@@ -568,23 +563,41 @@ export default function Perfil() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                             {[
-                                                { k: 'notif_cotizaciones', t: 'Nueva Cotización', d: 'Proyectos que entran a Cotización o retornan por devolución.', icon: FileText, c: 'blue' },
-                                                { k: 'notif_revision', t: 'Pase a Revisión', d: 'Avisos cuando un proyecto está en estatus Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
-                                                { k: 'notificaciones_viabilidad', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes, agendamiento y revisiones técnicas.', icon: Zap, c: 'orange' }
-                                            ].map((notif) => (
-                                                <div key={notif.k} onClick={() => toggleNotificacion(notif.k)} className={`border-2 p-5 rounded-[24px] cursor-pointer transition-all group relative overflow-hidden ${perfil?.[notif.k] ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
+                                                { k: 'notif_cotizaciones', t: 'Nueva Cotización', d: 'Notificaciones cuando un proyecto entra a Cotización o retorna.', icon: FileText, c: 'blue' },
+                                                { k: 'notif_revision', t: 'Pase a Revisión (Cot.)', d: 'Avisos cuando un proyecto está en Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
+                                                { k: 'notif_viabilidad_tecnica', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes y agendamientos técnicos.', icon: Zap, c: 'orange' },
+                                                { k: 'notif_viabilidad_revision', t: 'Revisión Viabilidad (Ventas)', d: 'Avisos cuando ingeniería termina y pasa a revisión de gerencia/ventas.', icon: CheckCircle2, c: 'indigo' },
+                                                { k: 'notif_postventa', t: 'Postventa', d: 'Notificaciones sobre nuevas solicitudes de postventa y sus seguimientos.', icon: Wrench, c: 'violet' },
+                                                { k: 'notif_instalacion', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes.', icon: Wrench, c: 'teal' },
+                                                { k: 'notif_interconexion', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
+                                                { k: 'notif_inventario', t: 'Bajo Inventario', d: 'Alertas cuando materiales han llegado al stock mínimo.', icon: Package, c: 'amber' },
+                                                { k: 'notif_finanzas', t: 'Notificación Finanzas', d: 'Pagos Auto-Aprobados menores a $5000.', icon: Wallet, c: 'rose' },
+                                                { k: 'notif_finanzas_revision', t: 'Revisión Finanzas', d: 'Alertas de pagos mayores a $5000 requiriendo revisión.', icon: AlertCircle, c: 'indigo' },
+                                                { k: 'notif_vehiculos', t: 'Alertas Vehiculares', d: 'Notificaciones de multas, fallas o choques de flotilla.', icon: Car, c: 'rose' }
+                                            ].filter(n => perfil?.[n.k]).map((notif) => (
+                                                <div key={notif.k} className="border-slate-900 bg-slate-900 text-white shadow-xl border-2 p-5 rounded-[24px] transition-all group relative overflow-hidden cursor-default">
                                                     <div className="flex justify-between items-start mb-4">
-                                                        <div className={`p-2 rounded-xl ${perfil?.[notif.k] ? 'bg-white/10' : 'bg-slate-50 group-hover:bg-orange-50'}`}>
-                                                            <notif.icon className={`w-6 h-6 ${perfil?.[notif.k] ? 'text-white' : 'text-slate-500 group-hover:text-orange-500'}`} />
+                                                        <div className="p-2 rounded-xl bg-white/10">
+                                                            <notif.icon className="w-6 h-6 text-white" />
                                                         </div>
-                                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-colors ${perfil?.[notif.k] ? 'bg-white border-white' : 'bg-slate-100 border-slate-200'}`}>
-                                                            {perfil?.[notif.k] && <Check className="w-4 h-4 text-slate-900" />}
+                                                        <div className="w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-colors bg-white border-white">
+                                                            <Check className="w-4 h-4 text-slate-900" />
                                                         </div>
                                                     </div>
-                                                    <h4 className={`font-black uppercase tracking-tighter text-sm md:text-base leading-none mb-2 ${perfil?.[notif.k] ? 'text-white' : 'text-slate-800'}`}>{notif.t}</h4>
-                                                    <p className={`text-[9px] md:text-[10px] leading-relaxed font-bold ${perfil?.[notif.k] ? 'text-slate-300' : 'text-slate-400'}`}>{notif.d}</p>
+                                                    <h4 className="font-black uppercase tracking-tighter text-sm md:text-base leading-none mb-2 text-white">{notif.t}</h4>
+                                                    <p className="text-[9px] md:text-[10px] leading-relaxed font-bold text-slate-300">{notif.d}</p>
                                                 </div>
                                             ))}
+                                            
+                                            {/* Mensaje si no tiene alertas configuradas */}
+                                            {![
+                                                'notif_cotizaciones', 'notif_revision', 'notif_viabilidad_tecnica', 'notif_viabilidad_revision', 'notif_postventa', 'notif_instalacion', 'notif_interconexion', 'notif_inventario', 'notif_finanzas', 'notif_finanzas_revision', 'notif_vehiculos'
+                                            ].some(k => perfil?.[k]) && (
+                                                <div className="col-span-1 md:col-span-2 text-center p-6 border-2 border-dashed border-slate-200 rounded-[20px] bg-slate-50">
+                                                    <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No tienes alertas configuradas.</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </motion.div>
                                 )}
