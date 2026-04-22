@@ -11,6 +11,7 @@ import Viabilidad from './pages/Viabilidad'
 import Pagos from './pages/Pagos'
 import MetricasSLA from './pages/MetricasSLA'
 import Vehiculos from './pages/Vehiculos'
+import Calendario from './pages/Calendario'
 import RutaProtegida from './components/RutaProtegida'
 import { DialogProvider } from './context/DialogContext'
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="/pagos" element={<RutaProtegida><Pagos /></RutaProtegida>} />
         <Route path="/metricas" element={<RutaProtegida><MetricasSLA /></RutaProtegida>} />
         <Route path="/vehiculos" element={<RutaProtegida><Vehiculos /></RutaProtegida>} />
+        <Route path="/calendario" element={<RutaProtegida><Calendario /></RutaProtegida>} />
       </Routes>
       </BrowserRouter>
     </DialogProvider>

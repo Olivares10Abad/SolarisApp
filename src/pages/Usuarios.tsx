@@ -109,6 +109,7 @@ export default function Usuarios() {
     revision_cotizaciones: false, administrador_pagos: false,
     notif_cotizaciones: false, notif_revision: false,
     notif_interconexion: false, notif_inventario: false, notif_finanzas: false, notif_finanzas_revision: false,
+    admin_calendario: false,
     permisos_especificos: { revision_cotizacion: false, revision_viabilidad: false, aprobacion_pagos: false }
   }
   const [formData, setFormData] = useState<any>(initialFormState)
@@ -437,7 +438,7 @@ export default function Usuarios() {
                         { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
                         { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
                         { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' },
-                        { label: 'Vehículos', campo: 'vehiculos' }
+                        { label: 'Vehículos', campo: 'vehiculos' }, { label: 'Admin Calendario', campo: 'admin_calendario' }
                       ].map((perm) => (
                         <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
                           {perm.label}
