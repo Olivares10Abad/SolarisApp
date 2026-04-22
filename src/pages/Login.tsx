@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { User, ArrowRight, LoaderCircle, AlertTriangle } from 'lucide-react'
+import { User, ArrowRight, LoaderCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../supabaseClient' // Importamos la conexión a Supabase
 
 // Importamos tus activos de marca
@@ -12,6 +12,7 @@ export default function Login() {
   const [puestoActual, setPuestoActual] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
+  const [mostrarPassword, setMostrarPassword] = useState(false)
   const navigate = useNavigate()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -119,14 +120,22 @@ export default function Login() {
                 <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
                 <input 
                   id="puesto"
-                  type="text" 
+                  type={mostrarPassword ? "text" : "password"} 
                   placeholder="Escribe tu usuario..." 
                   value={puestoActual}
                   onChange={(e) => setPuestoActual(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleLogin(e as any); }}
                   disabled={cargando}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 font-bold rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all text-sm shadow-inner"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 font-bold rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all text-sm shadow-inner"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setMostrarPassword(!mostrarPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-orange-500 transition-colors focus:outline-none"
+                >
+                  {mostrarPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
