@@ -6,6 +6,7 @@ import Header from '../components/Header'
 import { useDialog } from '../context/DialogContext'
 import degradadoBg from '../assets/degradado.png'
 import ChatGlobal from '../components/ChatGlobal'
+import ImageAnnotator from '../components/ImageAnnotator'
 
 // COMPONENTE: TARJETA DE VEHÍCULO
 function VehiculoCard({ v, onClick, onClickAdmin, isAdmin }: any) {
@@ -70,7 +71,18 @@ function VehiculoCard({ v, onClick, onClickAdmin, isAdmin }: any) {
                     <div>
                         <p className="text-[9px] font-black uppercase tracking-widest text-orange-400 mb-0.5">Retirado Por</p>
                         <p className="text-xs font-bold text-orange-700 leading-none">{v.usuario_actual.nombre} {v.usuario_actual.apellidos}</p>
-                        {v.fecha_estimada_regreso && <p className="text-[9px] font-bold mt-1.5 text-orange-600 bg-orange-100/50 inline-block px-1.5 py-0.5 rounded border border-orange-200">Regresa: {new Date(v.fecha_estimada_regreso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
+                        <div className="flex flex-col 2xl:flex-row gap-1.5 mt-2">
+                            {v.vehiculos_bitacora?.find((b: any) => !b.fecha_regreso)?.fecha_salida && (
+                                <p className="text-[9px] font-bold text-blue-700 bg-blue-100/70 inline-flex px-1.5 py-0.5 rounded border border-blue-200 w-max">
+                                    Salida: {new Date(v.vehiculos_bitacora.find((b: any) => !b.fecha_regreso).fecha_salida).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            )}
+                            {v.fecha_estimada_regreso && (
+                                <p className="text-[9px] font-bold text-orange-700 bg-orange-100/70 inline-flex px-1.5 py-0.5 rounded border border-orange-200 w-max">
+                                    Entrega: {new Date(v.fecha_estimada_regreso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -97,6 +109,7 @@ export default function Vehiculos() {
     // Modales
     const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<any>(null)
     const [modoModal, setModoModal] = useState<'checkout' | 'checkin' | 'reporte' | 'historial' | 'visor' | 'nuevo' | 'admin_hoja_vida' | null>(null)
+    const [fotoEditandoIndex, setFotoEditandoIndex] = useState<number | null>(null)
 
     // Estados Formularios
     const [procesando, setProcesando] = useState(false)
@@ -139,7 +152,8 @@ export default function Vehiculos() {
         setCargando(true)
         const { data } = await supabase.from('vehiculos').select(`
             *,
-            usuario_actual:usuario_actual_id (id, nombre, apellidos, avatar_url)
+            usuario_actual:usuario_actual_id (id, nombre, apellidos, avatar_url),
+            vehiculos_bitacora(fecha_salida, fecha_regreso)
         `).order('created_at', { ascending: true })
         if (data) setVehiculos(data)
     }
@@ -508,23 +522,23 @@ export default function Vehiculos() {
         return (
             <div className="flex flex-col gap-4 bg-slate-900 border border-slate-700 text-white p-5 rounded-2xl shadow-xl h-full">
                 <div>
-                    <p className="text-rose-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 mb-1"><Gauge size={12}/> Dashboard Inteligente</p>
+                    <p className="text-rose-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 mb-1"><Gauge size={12} /> Dashboard Inteligente</p>
                     <h4 className="text-white text-lg font-black uppercase italic tracking-tighter">Analíticas en Vivo</h4>
                 </div>
 
                 <div className={`p-4 rounded-xl border ${servStatus.bg}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${servStatus.color} mb-1 flex items-center gap-1`}><Wrench size={10}/> Próximo Servicio</p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${servStatus.color} mb-1 flex items-center gap-1`}><Wrench size={10} /> Próximo Servicio</p>
                     <p className={`font-black text-sm ${servStatus.color}`}>{servStatus.km}</p>
                     <p className={`text-[10px] font-bold ${servStatus.color} opacity-80 mt-1`}>Realizado {servStatus.texto}</p>
                 </div>
 
                 <div className={`p-4 rounded-xl border ${seguroStatus.bg}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${seguroStatus.color} mb-1 flex items-center gap-1`}><ShieldCheck size={10}/> Póliza de Seguro</p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${seguroStatus.color} mb-1 flex items-center gap-1`}><ShieldCheck size={10} /> Póliza de Seguro</p>
                     <p className={`font-black text-sm ${seguroStatus.color}`}>{seguroStatus.texto}</p>
                 </div>
 
                 <div className="p-4 rounded-xl border bg-slate-800 border-slate-700">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-1 flex items-center gap-1"><Car size={10}/> Desgaste Llantas</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-1 flex items-center gap-1"><Car size={10} /> Desgaste Llantas</p>
                     <p className="font-black text-sm text-white">{llantasStatus.km}</p>
                     <p className="text-[10px] font-bold text-slate-400 mt-1">{llantasStatus.texto}</p>
                 </div>
@@ -691,7 +705,8 @@ export default function Vehiculos() {
                                             {fotosExtra.length > 0 && (
                                                 <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 group">
                                                     <img src={URL.createObjectURL(fotosExtra[0])} className="w-full h-full object-cover" />
-                                                    <button onClick={() => setFotosExtra([])} className="absolute top-1 right-1 bg-red-500 rounded-full p-1 text-white shadow"><X size={12} /></button>
+                                                    <button onClick={(e) => { e.preventDefault(); setFotoEditandoIndex(0); }} className="absolute top-1 right-8 bg-blue-500 rounded-md p-1.5 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity"><Edit size={12} /></button>
+                                                    <button onClick={(e) => { e.preventDefault(); setFotosExtra([]); }} className="absolute top-1 right-1 bg-red-500 rounded-md p-1.5 text-white shadow"><X size={12} /></button>
                                                 </div>
                                             )}
                                         </div>
@@ -803,7 +818,7 @@ export default function Vehiculos() {
                                                         {historialBitacora.filter(b => b.motivo_salida === 'Taller').map(b => (
                                                             <div key={b.id} className="bg-orange-50 border border-orange-100 p-4 rounded-xl shadow-sm">
                                                                 <div className="flex justify-between items-center mb-2">
-                                                                    <p className="text-orange-600 font-black uppercase text-xs tracking-widest"><Wrench size={10} className="inline mr-1"/> {b.sub_motivo_taller || 'Taller General'}</p>
+                                                                    <p className="text-orange-600 font-black uppercase text-xs tracking-widest"><Wrench size={10} className="inline mr-1" /> {b.sub_motivo_taller || 'Taller General'}</p>
                                                                     <p className="text-slate-500 text-[9px] font-bold uppercase">{new Date(b.fecha_taller || b.fecha_salida).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                                                 </div>
                                                                 <p className="text-sm font-bold text-slate-700 italic">KM Registrado: {b.km_salida}</p>
@@ -854,6 +869,7 @@ export default function Vehiculos() {
                                                             <div>
                                                                 <p className="font-black text-sm uppercase text-slate-700 leading-none">{b.usuario?.nombre} {b.usuario?.apellidos}</p>
                                                                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Salida: {new Date(b.fecha_salida).toLocaleString('es-MX')}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Entrega: {new Date(b.fecha_regreso).toLocaleString('es-MX')}</p>
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
@@ -922,7 +938,7 @@ export default function Vehiculos() {
                                             {modoModal === 'checkout' && formMotivo === 'Taller' && (
                                                 <>
                                                     <div className="col-span-1">
-                                                        <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2 flex items-center gap-1 text-orange-600"><Wrench size={12}/> Servicio en Taller</label>
+                                                        <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2 flex items-center gap-1 text-orange-600"><Wrench size={12} /> Servicio en Taller</label>
                                                         <select value={formSubMotivo} onChange={e => setFormSubMotivo(e.target.value)} className="w-full bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 font-black text-orange-700 outline-none focus:border-orange-500">
                                                             <option value="">Selecciona tipo...</option>
                                                             <option value="Mantenimiento">Mantenimiento Preventivo</option>
@@ -954,7 +970,8 @@ export default function Vehiculos() {
                                                 {fotosExtra.map((f, i) => (
                                                     <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 group">
                                                         <img src={URL.createObjectURL(f)} className="w-full h-full object-cover" />
-                                                        <button onClick={() => setFotosExtra(fotosExtra.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-red-500 rounded-full p-1 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                                                        <button onClick={(e) => { e.preventDefault(); setFotoEditandoIndex(i); }} className="absolute top-1 right-7 bg-blue-500 rounded-md p-1 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600"><Edit size={12} /></button>
+                                                        <button onClick={(e) => { e.preventDefault(); setFotosExtra(fotosExtra.filter((_, idx) => idx !== i)); }} className="absolute top-1 right-1 bg-red-500 rounded-md p-1 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"><X size={12} /></button>
                                                     </div>
                                                 ))}
                                                 {fotosExtra.length === 0 && <p className="text-xs italic text-slate-400 m-auto">Sin fotos. Require {modoModal === 'checkout' ? '4 fotos (lados)' : '2 fotos (tablero/exterior)'}.</p>}
@@ -1008,7 +1025,8 @@ export default function Vehiculos() {
                                                 {fotosExtra.map((f, i) => (
                                                     <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 group">
                                                         <img src={URL.createObjectURL(f)} className="w-full h-full object-cover" />
-                                                        <button onClick={() => setFotosExtra(fotosExtra.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-red-500 rounded-full p-1 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                                                        <button onClick={(e) => { e.preventDefault(); setFotoEditandoIndex(i); }} className="absolute top-1 right-7 bg-blue-500 rounded-md p-1 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600"><Edit size={12} /></button>
+                                                        <button onClick={(e) => { e.preventDefault(); setFotosExtra(fotosExtra.filter((_, idx) => idx !== i)); }} className="absolute top-1 right-1 bg-red-500 rounded-md p-1 text-white shadow opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"><X size={12} /></button>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1025,6 +1043,19 @@ export default function Vehiculos() {
                     </div>
                 )}
             </AnimatePresence>
+
+            {fotoEditandoIndex !== null && fotosExtra[fotoEditandoIndex] && (
+                <ImageAnnotator
+                    file={fotosExtra[fotoEditandoIndex]}
+                    onSave={(editedFile) => {
+                        const newFotos = [...fotosExtra];
+                        newFotos[fotoEditandoIndex] = editedFile;
+                        setFotosExtra(newFotos);
+                        setFotoEditandoIndex(null);
+                    }}
+                    onCancel={() => setFotoEditandoIndex(null)}
+                />
+            )}
         </div>
     )
 }
