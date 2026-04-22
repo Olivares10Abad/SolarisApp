@@ -7,6 +7,7 @@ import { useDialog } from '../context/DialogContext'
 import degradadoBg from '../assets/degradado.png'
 import ChatGlobal from '../components/ChatGlobal'
 import ImageAnnotator from '../components/ImageAnnotator'
+import ImageViewer from '../components/ImageViewer'
 
 // COMPONENTE: TARJETA DE VEHÍCULO
 function VehiculoCard({ v, onClick, onClickAdmin, isAdmin }: any) {
@@ -110,6 +111,8 @@ export default function Vehiculos() {
     const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<any>(null)
     const [modoModal, setModoModal] = useState<'checkout' | 'checkin' | 'reporte' | 'historial' | 'visor' | 'nuevo' | 'admin_hoja_vida' | null>(null)
     const [fotoEditandoIndex, setFotoEditandoIndex] = useState<number | null>(null)
+    const [viewerImages, setViewerImages] = useState<string[] | null>(null)
+    const [viewerIndex, setViewerIndex] = useState<number>(0)
 
     // Estados Formularios
     const [procesando, setProcesando] = useState(false)
@@ -549,7 +552,7 @@ export default function Vehiculos() {
     return (
         <div className="min-h-screen flex flex-col font-sans text-slate-900 relative bg-fixed bg-cover" style={{ backgroundImage: `url(${degradadoBg})` }}>
             <ChatGlobal isOpen={chatAbierto} onClose={() => setChatAbierto(false)} usuarioLogueado={usuarioLogueado} chatInicial={chatInicial} />
-            <Header usuarioLogueado={usuarioLogueado} titulo="Flotilla" onAbrirChat={(c: any) => { setChatInicial(c || null); setChatAbierto(true); }} />
+            <Header titulo="Flotilla" onAbrirChat={(c: any) => { setChatInicial(c || null); setChatAbierto(true); }} />
 
             <div className="flex-1 w-full max-w-[1700px] mx-auto p-4 md:p-6 lg:p-8">
 
@@ -610,7 +613,7 @@ export default function Vehiculos() {
                                         <div className="flex flex-col gap-3 shrink-0">
                                             {rep.fotos && rep.fotos.length > 0 && (
                                                 <div className="flex gap-2">
-                                                    {rep.fotos.map((f: string, i: number) => <img key={i} src={f} className="w-10 h-10 rounded-lg object-cover border" onClick={() => window.open(f, '_blank')} />)}
+                                                    {rep.fotos.map((f: string, i: number) => <img key={i} src={f} className="w-10 h-10 rounded-lg object-cover border cursor-pointer" onClick={() => { setViewerImages(rep.fotos); setViewerIndex(i); }} />)}
                                                 </div>
                                             )}
                                             <button onClick={() => resolverReporte(rep.id)} disabled={procesando} className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 w-full py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center justify-center gap-2">
@@ -889,8 +892,8 @@ export default function Vehiculos() {
                                                     </div>
 
                                                     <div className="mt-3 flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                                                        {(b.fotos_salida || []).map((f: string, i: number) => <img key={`s${i}`} onClick={() => window.open(f, '_blank')} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-orange-100 cursor-pointer" title="Auto Salida" />)}
-                                                        {(b.fotos_regreso || []).map((f: string, i: number) => <img key={`r${i}`} onClick={() => window.open(f, '_blank')} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-emerald-100 cursor-pointer" title="Auto Regreso" />)}
+                                                        {(b.fotos_salida || []).map((f: string, i: number) => <img key={`s${i}`} onClick={() => { setViewerImages(b.fotos_salida); setViewerIndex(i); }} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-orange-100 cursor-pointer" title="Auto Salida" />)}
+                                                        {(b.fotos_regreso || []).map((f: string, i: number) => <img key={`r${i}`} onClick={() => { setViewerImages(b.fotos_regreso); setViewerIndex(i); }} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-emerald-100 cursor-pointer" title="Auto Regreso" />)}
                                                     </div>
                                                 </div>
                                             ))}
@@ -1054,6 +1057,14 @@ export default function Vehiculos() {
                         setFotoEditandoIndex(null);
                     }}
                     onCancel={() => setFotoEditandoIndex(null)}
+                />
+            )}
+
+            {viewerImages && (
+                <ImageViewer
+                    images={viewerImages}
+                    initialIndex={viewerIndex}
+                    onClose={() => setViewerImages(null)}
                 />
             )}
         </div>

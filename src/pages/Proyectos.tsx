@@ -5,7 +5,7 @@ import { supabase, enviarNotificacionRoles } from '../supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, X, Save,
-  Briefcase, MapPin, FileText, CheckCircle2, AlertCircle, Clock, ChevronRight, History,
+  Briefcase, MapPin, FileText, CheckCircle2, AlertCircle, Clock, ChevronRight, ChevronLeft, History,
   Timer, Calendar as CalendarIcon, Edit3, UploadCloud, File as FileIcon, MessageCircle, MessageSquare,
   Image as ImageIcon, Info, Settings, Trash2, RefreshCcw
 } from 'lucide-react'
@@ -576,7 +576,7 @@ export default function ProyectosList() {
             onClose={() => setModalDetalle(false)}
             onAbrirArchivos={abrirVisorArchivos}
             onVerLogs={verLogs}
-            onEditar={(accion: string) => handleAbrirEdicion(proyectoSeleccionado, accion)}
+            onEditar={() => handleAbrirEdicion(proyectoSeleccionado)}
             onChat={() => handleAbrirChatProyecto(proyectoSeleccionado)}
           />
         )}
