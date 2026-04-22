@@ -66,7 +66,7 @@ export default function Calendario() {
     const cargarDatos = async (uid: string) => {
         setCargando(true);
 
-        const [resEventos, resProy, resUsr, resViabilidades, resVacaciones] = await Promise.all([
+        const [resEventos, resProy, resUsr, resViabilidades, resVacaciones, resPostventas] = await Promise.all([
             supabase.from('calendario_eventos')
                 .select('*, proyecto:proyecto_id(nombre_proyecto, vendedor_id), responsable:asignado_a(nombre, apellidos)'),
             supabase.from('proyectos').select('id, nombre_proyecto'),
@@ -74,7 +74,10 @@ export default function Calendario() {
             supabase.from('viabilidad_control')
                 .select('*, proyecto:proyecto_id(nombre_proyecto, vendedor_id)')
                 .not('fecha_agendada', 'is', null),
-            supabase.from('solicitudes_vacaciones').select('*').eq('estado', 'Aprobada')
+            supabase.from('solicitudes_vacaciones').select('*').eq('estado', 'Aprobada'),
+            supabase.from('postventa_control')
+                .select('*, proyecto:proyecto_id(nombre_proyecto, vendedor_id)')
+                .not('fecha_agendada', 'is', null)
         ]);
 
         let evsCombinados: any[] = [];
@@ -161,6 +164,55 @@ export default function Calendario() {
             });
         }
 
+        if (resPostventas.data) {
+            resPostventas.data.forEach((p: any) => {
+                // Checar si el usuario filtro está involucrado
+                const soyVendedor = typeof p.proyecto?.vendedor_id === 'object' ? p.proyecto?.vendedor_id?.id === uid : p.proyecto?.vendedor_id === uid;
+                const soyIngeniero = p.ingeniero_id === uid;
+                
+                if (soyVendedor || soyIngeniero) {
+                    const [y, m, dStr] = p.fecha_agendada.split('-');
+                    const [hIni, minIni] = (p.hora_agendada_inicio || '09:00').split(':');
+                    const [hFin, minFin] = (p.hora_agendada_fin || '10:00').split(':');
+                    
+                    const dInicio = new Date(parseInt(y), parseInt(m) - 1, parseInt(dStr), parseInt(hIni), parseInt(minIni), 0);
+                    const dFin = new Date(parseInt(y), parseInt(m) - 1, parseInt(dStr), parseInt(hFin), parseInt(minFin), 0);
+                    
+                    if (soyIngeniero) {
+                        evsCombinados.push({
+                            id: `postv-ing-${p.id}`,
+                            user_id: 'system',
+                            es_postventa: true,
+                            titulo: `Postventa (Asignada): ${p.proyecto?.nombre_proyecto || 'S/N'}`,
+                            descripcion: `Eres el ingeniero responsable de esta postventa.`,
+                            fecha_inicio: dInicio.toISOString(),
+                            fecha_fin: dFin.toISOString(),
+                            todo_el_dia: (!p.hora_agendada_inicio),
+                            color: '#6366f1', // Indigo (Para diferenciarlo de viabilidad roja)
+                            proyecto_id: p.proyecto_id,
+                            proyecto: { nombre_proyecto: p.proyecto?.nombre_proyecto }
+                        });
+                    }
+
+                    if (soyVendedor) {
+                        evsCombinados.push({
+                            id: `postv-ven-${p.id}`,
+                            user_id: 'system',
+                            es_postventa: true,
+                            titulo: `Postventa (Tu Proyecto): ${p.proyecto?.nombre_proyecto || 'S/N'}`,
+                            descripcion: `Eres el vendedor de este proyecto.`,
+                            fecha_inicio: dInicio.toISOString(),
+                            fecha_fin: dFin.toISOString(),
+                            todo_el_dia: (!p.hora_agendada_inicio),
+                            color: '#8b5cf6', // Violet
+                            proyecto_id: p.proyecto_id,
+                            proyecto: { nombre_proyecto: p.proyecto?.nombre_proyecto }
+                        });
+                    }
+                }
+            });
+        }
+
         const añoActual = new Date().getFullYear();
 
         // 1. Festivos
@@ -233,7 +285,7 @@ export default function Calendario() {
 
     const handleAbrirModal = (evento?: any) => {
         if (evento) {
-            const esMio = evento.user_id === usuarioLogueado?.id && !evento.es_viabilidad && !evento.solo_lectura_forzado;
+            const esMio = evento.user_id === usuarioLogueado?.id && !evento.es_viabilidad && !evento.es_postventa && !evento.solo_lectura_forzado;
             setSoloLectura(!esMio);
             setEventoEditando(evento);
 
@@ -493,7 +545,7 @@ export default function Calendario() {
                                                     style={{ top: `${ev.top}px`, height: ev.todo_el_dia ? 'auto' : `${ev.height}px`, backgroundColor: ev.color, zIndex: ev.todo_el_dia ? 30 : 20, width: widthCalc, left: leftCalc, right: rightCalc }}>
                                                     <span className="text-[8px] font-black tracking-widest uppercase opacity-90 leading-none mb-0.5">
                                                         {ev.todo_el_dia ? 'TODO EL DÍA' : `${ev.evS.getHours().toString().padStart(2, '0')}:${ev.evS.getMinutes().toString().padStart(2, '0')}`}
-                                                        {ev.es_viabilidad && ' (Viab)'}
+                                                        {ev.es_viabilidad && ' (Viab)'}{ev.es_postventa && ' (PostV)'}
                                                     </span>
                                                     <span className="text-[9px] font-bold leading-tight line-clamp-2">{ev.titulo}</span>
                                                 </div>
@@ -554,7 +606,7 @@ export default function Calendario() {
                                         style={{ top: `${evTop}px`, height: ev.todo_el_dia ? 'auto' : `${evHeight}px`, backgroundColor: ev.color, zIndex: ev.todo_el_dia ? 30 : 20, width: widthCalc, left: leftCalc }}>
                                         <span className="text-[10px] font-black tracking-widest uppercase opacity-90 mb-1">
                                             {ev.todo_el_dia ? 'TODO EL DÍA' : `${ev.evS.getHours().toString().padStart(2, '0')}:${ev.evS.getMinutes().toString().padStart(2, '0')} - ${new Date(ev.fecha_fin).getHours().toString().padStart(2, '0')}:${new Date(ev.fecha_fin).getMinutes().toString().padStart(2, '0')}`}
-                                            {ev.es_viabilidad && ' (Viabilidad)'}
+                                            {ev.es_viabilidad && ' (Viabilidad)'}{ev.es_postventa && ' (Postventa)'}
                                         </span>
                                         <span className="text-base font-bold leading-tight">{ev.titulo}</span>
                                         {ev.descripcion && <span className="text-xs opacity-80 mt-1 whitespace-pre-wrap">{ev.descripcion}</span>}

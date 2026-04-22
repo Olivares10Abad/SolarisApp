@@ -8,6 +8,7 @@ import Cotizaciones from './pages/Cotizaciones'
 import Revision from './pages/Revisión'
 import Inventario from './pages/Inventario'
 import Viabilidad from './pages/Viabilidad'
+import Postventa from './pages/Postventa'
 import Pagos from './pages/Pagos'
 import MetricasSLA from './pages/MetricasSLA'
 import Vehiculos from './pages/Vehiculos'
@@ -29,6 +30,7 @@ function App() {
         <Route path="/usuarios" element={<RutaProtegida permisoRequerido="usuarios"><Usuarios /></RutaProtegida>} />
         <Route path="/cotizaciones" element={<RutaProtegida permisoRequerido="cotizaciones"><Cotizaciones /></RutaProtegida>} />
         <Route path="/revision" element={<RutaProtegida permisoRequerido="revision_cotizaciones"><Revision /></RutaProtegida>} />
+        <Route path="/postventa" element={<RutaProtegida permisoRequerido="postventa"><Postventa /></RutaProtegida>} />
         <Route path="/viabilidad" element={<RutaProtegida permisoRequerido="agendar_viabilidad"><Viabilidad /></RutaProtegida>} />
         <Route path="/inventario" element={<RutaProtegida permisoRequerido="inventario"><Inventario /></RutaProtegida>} />
         <Route path="/proyectos" element={<RutaProtegida permisoRequerido="proyectos"><ProyectosList /></RutaProtegida>} />

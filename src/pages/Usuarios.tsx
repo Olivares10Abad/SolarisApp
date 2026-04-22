@@ -74,6 +74,7 @@ export default function Usuarios() {
   const [tabActiva, setTabActiva] = useState<'empleados' | 'deptos' | 'roles'>('empleados')
   const [pestañaExpediente, setPestañaExpediente] = useState<'personales' | 'corporativo' | 'permisos' | 'documentos' | 'notificaciones'>('personales')
   const [tabNotificacionesForm, setTabNotificacionesForm] = useState('Todas')
+  const [tabPermisosForm, setTabPermisosForm] = useState('Todas')
   const [verOrganigrama, setVerOrganigrama] = useState(false)
   const [zoomOrg, setZoomOrg] = useState(1) // <-- ESTADO PARA ZOOM
 
@@ -429,17 +430,39 @@ export default function Usuarios() {
 
                 {pestañaExpediente === 'permisos' && (
                   <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                    <div className="flex bg-slate-50 p-1.5 rounded-[12px] border border-slate-200 mt-2 overflow-x-auto custom-scrollbar gap-1">
+                      {['Todas', 'Ventas', 'Ingeniería & Ops', 'Finanzas', 'Administración'].map(tab => (
+                        <button
+                          key={tab} type="button" onClick={() => setTabPermisosForm(tab)}
+                          className={`px-4 py-2 rounded-[8px] text-[10px] font-black transition-all whitespace-nowrap uppercase tracking-widest ${tabPermisosForm === tab ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mt-2">
                       {[
-                        { label: 'Usuarios', campo: 'usuarios' },
-                        { label: 'Proyectos', campo: 'proyectos' }, { label: 'Inventario', campo: 'inventario' },
-                        { label: 'Comunicados', campo: 'comunicados' }, { label: 'Panel', campo: 'panel' },
-                        { label: 'Instalación', campo: 'instalacion' }, { label: 'Interconexión', campo: 'interconexion' },
-                        { label: 'Ingeniería', campo: 'ingenieria' }, { label: 'Viabilidad', campo: 'agendar_viabilidad' },
-                        { label: 'Finanzas', campo: 'finanzas' }, { label: 'Cotizaciones', campo: 'cotizaciones' },
-                        { label: 'Revisión', campo: 'revision_cotizaciones' }, { label: 'Pagos', campo: 'administrador_pagos' },
-                        { label: 'Vehículos', campo: 'vehiculos' }, { label: 'Admin Calendario', campo: 'admin_calendario' }
-                      ].map((perm) => (
+                        { label: 'Usuarios', campo: 'usuarios', tab: 'Administración' },
+                        { label: 'Panel', campo: 'panel', tab: 'Administración' },
+                        { label: 'Comunicados', campo: 'comunicados', tab: 'Administración' },
+                        
+                        { label: 'Proyectos', campo: 'proyectos', tab: 'Ventas' },
+                        { label: 'Cotizaciones', campo: 'cotizaciones', tab: 'Ventas' },
+                        { label: 'Revisión', campo: 'revision_cotizaciones', tab: 'Ventas' },
+                        
+                        { label: 'Ingeniería', campo: 'ingenieria', tab: 'Ingeniería & Ops' },
+                        { label: 'Viabilidad', campo: 'agendar_viabilidad', tab: 'Ingeniería & Ops' },
+                        { label: 'Postventa', campo: 'postventa', tab: 'Ingeniería & Ops' },
+                        { label: 'Instalación', campo: 'instalacion', tab: 'Ingeniería & Ops' },
+                        { label: 'Interconexión', campo: 'interconexion', tab: 'Ingeniería & Ops' },
+                        { label: 'Inventario', campo: 'inventario', tab: 'Ingeniería & Ops' },
+                        { label: 'Vehículos', campo: 'vehiculos', tab: 'Ingeniería & Ops' },
+                        
+                        { label: 'Finanzas', campo: 'finanzas', tab: 'Finanzas' },
+                        { label: 'Pagos', campo: 'administrador_pagos', tab: 'Finanzas' },
+                        
+                        { label: 'Admin Calendario', campo: 'admin_calendario', tab: 'Administración' }
+                      ].filter(p => tabPermisosForm === 'Todas' || p.tab === tabPermisosForm).map((perm) => (
                         <div key={perm.campo} onClick={() => setFormData({ ...formData, [perm.campo]: !formData[perm.campo as keyof typeof formData] })} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 cursor-pointer transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest ${formData[perm.campo as keyof typeof formData] ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
                           {perm.label}
                           <div className={`w-3 h-3 md:w-4 md:h-4 rounded flex items-center justify-center border ${formData[perm.campo as keyof typeof formData] ? 'bg-white border-white text-slate-900' : 'bg-slate-100 border-slate-200'}`}>
@@ -450,7 +473,7 @@ export default function Usuarios() {
                     </div>
 
                     {formData.revision_cotizaciones && (
-                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl flex flex-col sm:flex-row gap-4 sm:items-center">
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl flex flex-col sm:flex-row gap-4 sm:items-center mt-2">
                         <div className="text-slate-800 font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-orange-500" /> Vistas de Revisión Disponibles:
                         </div>
@@ -486,7 +509,7 @@ export default function Usuarios() {
                     </div>
 
                     <div className="flex bg-slate-50 p-1.5 rounded-[12px] border border-slate-200 mt-2 overflow-x-auto custom-scrollbar gap-1">
-                      {['Todas', 'Cotizaciones', 'Viabilidad', 'Operaciones', 'General'].map(tab => (
+                      {['Todas', 'Cotizaciones', 'Viabilidad', 'Postventa', 'Operaciones', 'General'].map(tab => (
                         <button
                           key={tab} type="button" onClick={() => setTabNotificacionesForm(tab)}
                           className={`px-4 py-2 rounded-[8px] text-[10px] font-black transition-all whitespace-nowrap uppercase tracking-widest ${tabNotificacionesForm === tab ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
@@ -501,6 +524,7 @@ export default function Usuarios() {
                         { k: 'notif_revision', tab: 'Cotizaciones', t: 'Pase a Revisión (Cot.)', d: 'Avisos cuando un proyecto está en Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
                         { k: 'notif_viabilidad_tecnica', tab: 'Viabilidad', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes y agendamientos técnicos.', icon: Zap, c: 'orange' },
                         { k: 'notif_viabilidad_revision', tab: 'Viabilidad', t: 'Revisión Viabilidad (Ventas)', d: 'Avisos cuando ingeniería termina y pasa a revisión de gerencia/ventas.', icon: CheckCircle2, c: 'indigo' },
+                        { k: 'notif_postventa', tab: 'Postventa', t: 'Postventa', d: 'Notificaciones sobre nuevas solicitudes de postventa y sus seguimientos.', icon: Wrench, c: 'violet' },
                         { k: 'notif_instalacion', tab: 'Operaciones', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes.', icon: Wrench, c: 'teal' },
                         { k: 'notif_interconexion', tab: 'Operaciones', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
                         { k: 'notif_inventario', tab: 'General', t: 'Bajo Inventario', d: 'Alertas cuando materiales han llegado al stock mínimo.', icon: Package, c: 'amber' },

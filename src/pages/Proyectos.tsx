@@ -524,6 +524,19 @@ export default function ProyectosList() {
             onClose={() => setModalAcciones(false)}
             onRequestRecotizacion={() => { setModalAcciones(false); handleAbrirRecotizacion(proyectoSeleccionado); }}
             onRequestViabilidad={() => handleAbrirViabilidad(proyectoSeleccionado)}
+            onRequestPostventa={async () => {
+              setModalAcciones(false);
+              const { error: errorPC } = await supabase.from('postventa_control').insert([{
+                proyecto_id: proyectoSeleccionado.id,
+                status: 1,
+                fecha_solicitada: new Date().toISOString()
+              }]);
+              if (!errorPC) {
+                await supabase.from('proyectos').update({ estatus: 'Postventa', sub_estatus: 'Pendiente' }).eq('id', proyectoSeleccionado.id);
+                fetchInicial();
+                enviarNotificacionRoles('notif_postventa', `Nueva solicitud de Postventa: ${proyectoSeleccionado.nombre_proyecto}|||/postventa`, usuarioLogueado?.id);
+              }
+            }}
           />
         )}
       </AnimatePresence>
@@ -661,7 +674,7 @@ export default function ProyectosList() {
 // --- HELPER COMPONENTS (Modales Nuevos) ---
 // ==========================================
 
-const ModalAccionesProyecto = ({ proyecto, onClose, onRequestRecotizacion, onRequestViabilidad }: any) => {
+const ModalAccionesProyecto = ({ proyecto, onClose, onRequestRecotizacion, onRequestViabilidad, onRequestPostventa }: any) => {
   return (
     <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-slate-50 rounded-[30px] md:rounded-[40px] w-full max-w-xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh]">
@@ -704,6 +717,20 @@ const ModalAccionesProyecto = ({ proyecto, onClose, onRequestRecotizacion, onReq
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500" />
+            </button>
+
+            <button
+              onClick={onRequestPostventa}
+              className="bg-white border border-slate-200 shadow-sm p-4 rounded-2xl flex items-center justify-between group hover:border-orange-400 hover:shadow-lg transition-all text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-50 text-indigo-500 rounded-xl group-hover:bg-indigo-500 group-hover:text-white transition-colors"><Timer className="w-6 h-6" /></div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm uppercase">Solicitar Postventa</h4>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Inicia el flujo de seguimiento de postventa.</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500" />
             </button>
           </div>
         </div>

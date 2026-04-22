@@ -36,6 +36,7 @@ const modulosMenu = [
     { nombre: 'Viabilidad', icono: CalendarCheck, ruta: '/viabilidad', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'agendar_viabilidad' },
     { nombre: 'Instalación', icono: Wrench, ruta: '/instalacion', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'instalacion' },
     { nombre: 'Interconexión', icono: Zap, ruta: '/interconexion', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'interconexion' },
+    { nombre: 'Postventa', icono: Wrench, ruta: '/postventa', color: 'text-indigo-500', bg: 'hover:bg-indigo-50', permiso: 'postventa' },
     { nombre: 'Inventario', icono: Package, ruta: '/inventario', color: 'text-emerald-500', bg: 'hover:bg-emerald-50', permiso: 'inventario' },
     { nombre: 'Vehículos', icono: Car, ruta: '/vehiculos', color: 'text-rose-500', bg: 'hover:bg-rose-50', permiso: '' },
     { nombre: 'Pagos/Finanzas', icono: Banknote, ruta: '/pagos', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: '' },
