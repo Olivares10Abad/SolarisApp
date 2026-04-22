@@ -3,12 +3,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
-import {
-    BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, CalendarCheck,
-    Banknote, FileText, LogOut, Image as ImageIcon, Send, Heart, Cake,
-    Calendar as CalendarIcon, X, Loader2, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2,
-    CheckCircle2, Clock, PlaneTakeoff, Menu, ChevronDown, ChevronUp, MessageSquare, Car
-} from 'lucide-react'
+import { BarChart3, Users, LayoutGrid, Package, LayoutDashboard, Wrench, Zap, CalendarCheck, Banknote, FileText, LogOut, Image as ImageIcon, Send, Heart, Cake, Calendar as CalendarIcon, X, Loader2, Trash2, Edit2, ChevronLeft, ChevronRight, BarChart2, CheckCircle2, Clock, PlaneTakeoff, Menu, ChevronDown, ChevronUp, MessageSquare, Car, Terminal } from 'lucide-react'
 
 // IMPORTAR COMPONENTES GLOBALES
 import ChatGlobal from '../components/ChatGlobal'
@@ -41,7 +36,8 @@ const modulosMenu = [
     { nombre: 'Vehículos', icono: Car, ruta: '/vehiculos', color: 'text-rose-500', bg: 'hover:bg-rose-50', permiso: '' },
     { nombre: 'Pagos/Finanzas', icono: Banknote, ruta: '/pagos', color: 'text-purple-500', bg: 'hover:bg-purple-50', permiso: '' },
     { nombre: 'Métricas SLA', icono: Clock, ruta: '/metricas', color: 'text-orange-500', bg: 'hover:bg-orange-50', permiso: 'panel' },
-    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' }
+    { nombre: 'Usuarios', icono: Users, ruta: '/usuarios', color: 'text-blue-500', bg: 'hover:bg-blue-50', permiso: 'usuarios' },
+    { nombre: 'Logs del Sistema', icono: Terminal, ruta: '/logs', color: 'text-slate-500', bg: 'hover:bg-slate-100', permiso: 'usuarios' }
 ]
 
 const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];

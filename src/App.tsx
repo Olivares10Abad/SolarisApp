@@ -13,6 +13,8 @@ import Pagos from './pages/Pagos'
 import MetricasSLA from './pages/MetricasSLA'
 import Vehiculos from './pages/Vehiculos'
 import Calendario from './pages/Calendario'
+import SystemLogs from './pages/SystemLogs'
+import GlobalErrorCatcher from './components/GlobalErrorCatcher'
 import RutaProtegida from './components/RutaProtegida'
 import { DialogProvider } from './context/DialogContext'
 
@@ -20,6 +22,7 @@ function App() {
   return (
     <DialogProvider>
       <BrowserRouter>
+        <GlobalErrorCatcher />
         <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
@@ -38,6 +41,7 @@ function App() {
         <Route path="/metricas" element={<RutaProtegida><MetricasSLA /></RutaProtegida>} />
         <Route path="/vehiculos" element={<RutaProtegida><Vehiculos /></RutaProtegida>} />
         <Route path="/calendario" element={<RutaProtegida><Calendario /></RutaProtegida>} />
+        <Route path="/logs" element={<RutaProtegida permisoRequerido="usuarios"><SystemLogs /></RutaProtegida>} />
       </Routes>
       </BrowserRouter>
     </DialogProvider>

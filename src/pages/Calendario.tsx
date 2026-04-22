@@ -74,7 +74,7 @@ export default function Calendario() {
             supabase.from('viabilidad_control')
                 .select('*, proyecto:proyecto_id(nombre_proyecto, vendedor_id)')
                 .not('fecha_agendada', 'is', null),
-            supabase.from('solicitudes_vacaciones').select('*').eq('estado', 'Aprobada'),
+            supabase.from('solicitudes_ausencia').select('*').eq('estado', 'Aprobada'),
             supabase.from('postventa_control')
                 .select('*, proyecto:proyecto_id(nombre_proyecto, vendedor_id)')
                 .not('fecha_agendada', 'is', null)
