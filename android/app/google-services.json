@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "916403568983",
+    "project_id": "solarisapp-58d2b",
+    "storage_bucket": "solarisapp-58d2b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:916403568983:android:2d2f5cbd846c41aa137e12",
+        "android_client_info": {
+          "package_name": "com.solarisapp.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrdGr9CMORfqf-0rD9l7cF5T5Z-NJGOSY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
