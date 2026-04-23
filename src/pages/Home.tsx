@@ -461,7 +461,7 @@ export default function Home() {
     }
 
     const WidgetCalendario = () => (
-        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
+        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5  border border-white">
             <div className="flex items-center justify-between mb-4 px-2">
                 <button onClick={() => setFechaCalendario(new Date(fechaCalendario.getFullYear(), fechaCalendario.getMonth() - 1, 1))} className="hover:bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-orange-500"><ChevronLeft size={16} /></button>
                 <h3 className="text-[11px] font-black uppercase tracking-widest">{mesesNombres[fechaCalendario.getMonth()]} {fechaCalendario.getFullYear()}</h3>
@@ -513,7 +513,7 @@ export default function Home() {
                             {dia}
                             <AnimatePresence>
                                 {hoveredDay === dia && evs.length > 0 && (
-                                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute bottom-full mb-2 bg-slate-900 text-white p-2 rounded-xl z-50 w-max min-w-[120px] pointer-events-none text-[9px] font-bold shadow-2xl border border-slate-700">
+                                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute bottom-full mb-2 bg-slate-900 text-white p-2 rounded-xl z-50 w-max min-w-[120px] pointer-events-none text-[9px] font-bold  border border-slate-700">
                                         {evs.map((ev, idx) => (<div key={idx} className="flex items-center gap-1.5 mb-1.5 last:mb-0"><div className="flex-shrink-0 text-xs">{ev.iniciales}</div> <span>{ev.titulo}</span></div>))}
                                     </motion.div>
                                 )}
@@ -566,7 +566,7 @@ export default function Home() {
                 {menuMovilAbierto && (
                     <div className="fixed inset-0 z-[100] lg:hidden">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMenuMovilAbierto(false)} />
-                        <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="absolute inset-y-0 left-0 w-72 bg-white shadow-2xl flex flex-col">
+                        <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="absolute inset-y-0 left-0 w-72 bg-white  flex flex-col">
                             <div className="p-6 flex justify-between items-center border-b border-slate-50"><img src={solarisLogo} alt="GEA" className="h-6" /><button onClick={() => setMenuMovilAbierto(false)} className="p-2 bg-slate-100 rounded-lg"><X size={20} /></button></div>
                             <div className="flex-1 overflow-y-auto p-4 space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
@@ -582,7 +582,7 @@ export default function Home() {
                 {mostrarPanelDerecho && (
                     <div className="fixed inset-0 z-[100] lg:hidden">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMostrarPanelDerecho(false)} />
-                        <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="absolute inset-y-0 right-0 w-80 bg-white shadow-2xl flex flex-col">
+                        <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="absolute inset-y-0 right-0 w-80 bg-white  flex flex-col">
                             <div className="p-6 flex justify-between items-center border-b border-slate-50"><h3 className="font-black text-xs uppercase tracking-widest text-slate-900 italic">Utilidades</h3><button onClick={() => setMostrarPanelDerecho(false)} className="p-2 bg-slate-100 rounded-full"><X size={20} /></button></div>
                             <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-20">
                                 <WidgetCalendario />
@@ -628,12 +628,11 @@ export default function Home() {
 
             <main className="max-w-[1800px] mx-auto w-full px-4 md:px-6 py-6 lg:py-8 relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 flex-1 overflow-hidden">
 
-                {/* SIDEBAR IZQUIERDA (DESKTOP) - COMPACTA Y SCROLL INVISIBLE */}
-                <aside className="hidden lg:block w-64 shrink-0 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-10">
-                    <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2">Menú</h3>
-                        <div className="space-y-1">
-                            {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${mod.bg}`}><div className={`p-1.5 rounded-lg bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={14} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
+                <aside className="hidden lg:flex flex-col w-64 shrink-0 h-full pb-10">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 border border-white flex flex-col h-full overflow-hidden">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-2 shrink-0">Menú</h3>
+                        <div className="space-y-1 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                            {modulosMenu.filter(mod => !mod.permiso || usuario?.[mod.permiso]).map((mod) => (<button key={mod.nombre} onClick={() => navigate(mod.ruta)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group shrink-0 ${mod.bg}`}><div className={`p-1.5 rounded-lg bg-white shadow-sm border border-slate-100 group-hover:scale-110 transition-transform ${mod.color}`}><mod.icono size={14} /></div><span className="font-black text-[10px] uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{mod.nombre}</span></button>))}
                         </div>
                     </div>
                 </aside>
@@ -641,7 +640,7 @@ export default function Home() {
                 {/* FEED CENTRAL (Scroll Natural Interno sin barra visible) */}
                 <section className="flex-1 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-2 pb-20 space-y-6">
                     {/* PUBLICAR */}
-                    <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6 shadow-2xl border border-white relative z-20">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6  border border-white relative z-20">
                         <form onSubmit={handlePublicarPost}>
                             <div className="flex gap-3 md:gap-4">
                                 {renderAvatar(usuario)}
@@ -649,7 +648,7 @@ export default function Home() {
                                     <textarea value={nuevoPost} onChange={handleTextareaChange} placeholder="Escribe un comunicado..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all resize-none h-24 shadow-inner" />
                                     <AnimatePresence>
                                         {mostrarMenciones && (
-                                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute left-0 mt-2 w-72 bg-white rounded-2xl  border border-slate-100 overflow-hidden z-50 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                                 {usuariosDb.filter(u => `${u.nombre} ${u.apellidos}`.toLowerCase().includes(busquedaMencion.toLowerCase())).map(u => (<div key={u.id} onClick={() => insertarMencion(u)} className="p-3 border-b hover:bg-orange-50 cursor-pointer flex items-center gap-3">{renderAvatar(u, "w-8 h-8 text-[10px] rounded-lg")}<p className="text-slate-900 font-black text-[10px] uppercase">{u.nombre} {u.apellidos}</p></div>))}
                                             </motion.div>
                                         )}
@@ -694,7 +693,7 @@ export default function Home() {
                                     const tooltipNombres = listLikes.map(uid => usuariosDb.find(u => u.id === uid)?.nombre).join(', ');
 
                                     return (
-                                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6 shadow-2xl border border-white relative">
+                                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={post.id} className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 md:p-6  border border-white relative">
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
                                                     {renderAvatar(post.autor)}
@@ -795,7 +794,7 @@ export default function Home() {
                     <div className="space-y-4">
 
                         {/* WIDGET SOLICITUDES */}
-                        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white transition-all">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5  border border-white transition-all">
                             <div
                                 className="flex items-center justify-between cursor-pointer group"
                                 onClick={() => setWidgetSolicitudesAbierto(!widgetSolicitudesAbierto)}
@@ -838,7 +837,7 @@ export default function Home() {
                         <WidgetCalendario />
 
                         {/* WIDGET PRÓXIMOS */}
-                        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5 shadow-2xl border border-white flex flex-col transition-all">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-[30px] p-5  border border-white flex flex-col transition-all">
                             <div
                                 className="flex items-center justify-between cursor-pointer group"
                                 onClick={() => setWidgetProximosAbierto(!widgetProximosAbierto)}
@@ -881,7 +880,7 @@ export default function Home() {
             <AnimatePresence>
                 {verLikesModal && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md" onClick={() => setVerLikesModal(null)}>
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] w-full max-w-xs overflow-hidden shadow-2xl border border-white" onClick={e => e.stopPropagation()}>
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[30px] w-full max-w-xs overflow-hidden  border border-white" onClick={e => e.stopPropagation()}>
                             <div className="p-5 bg-slate-900 text-white flex justify-between items-center font-black uppercase text-[10px] tracking-widest">Reacciones <button onClick={() => setVerLikesModal(null)}><X size={14} /></button></div>
                             <div className="p-3 max-h-60 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 {verLikesModal.map(uid => {
