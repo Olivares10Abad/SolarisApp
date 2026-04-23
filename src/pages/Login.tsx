@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { User, ArrowRight, LoaderCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../supabaseClient' // Importamos la conexión a Supabase
+import { Capacitor } from '@capacitor/core'
+import { PushNotifications } from '@capacitor/push-notifications'
 
 // Importamos tus activos de marca
 import solarisLogo from '../assets/solarislogo.png'
@@ -46,6 +48,21 @@ export default function Login() {
             
             // Simulamos una sesión guardando los datos básicos en el navegador
             localStorage.setItem('session_gea_solar', JSON.stringify(data))
+
+            // Solicitar permisos de notificaciones push si estamos en iOS/Android
+            if (Capacitor.isNativePlatform()) {
+                try {
+                    let permStatus = await PushNotifications.checkPermissions()
+                    if (permStatus.receive === 'prompt' || permStatus.receive !== 'granted') {
+                        permStatus = await PushNotifications.requestPermissions()
+                    }
+                    if (permStatus.receive === 'granted') {
+                        await PushNotifications.register()
+                    }
+                } catch (pushErr) {
+                    console.log('Push notifications not available in this environment:', pushErr)
+                }
+            }
             
             // Navegamos al Home
             navigate('/home')

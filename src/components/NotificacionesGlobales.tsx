@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, Trash } from 'lucide-react';
 import { playNotificationSound } from '../utils/audio';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 export default function NotificacionesGlobales({ usuarioLogueado, onClickNotificacion }: any) {
     const [notificaciones, setNotificaciones] = useState<any[]>([]);
@@ -26,7 +28,21 @@ export default function NotificacionesGlobales({ usuarioLogueado, onClickNotific
             .on('postgres_changes', { event: '*', schema: 'public', table: 'notificaciones', filter: `usuario_id=eq.${usuarioLogueado.id}` }, (payload) => {
                 cargarNotificaciones();
                 if (payload.eventType === 'INSERT') {
+                    
                     playNotificationSound();
+                    if (Capacitor.isNativePlatform()) {
+                        try {
+                            LocalNotifications.schedule({
+                                notifications: [{
+                                    title: 'SolarisApp',
+                                    body: payload.new.mensaje ? payload.new.mensaje.split('|||')[0] : 'Nueva Notificación',
+                                    id: new Date().getTime(),
+                                    actionTypeId: '',
+                                }]
+                            });
+                        } catch (e) { console.warn("Error local notif", e); }
+                    }
+                
                 }
             }).subscribe();
 

@@ -1,7 +1,9 @@
 import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../supabaseClient'
+import { CapacitorCalendar } from '@ebarooni/capacitor-calendar'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Capacitor } from '@capacitor/core'
 import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Save, Clock, Trash2, CalendarDays, Edit3, CalendarRange, Users, Lock
 } from 'lucide-react'
@@ -30,6 +32,30 @@ export default function Calendario() {
 
     // States for Calendar
     const [vistaActual, setVistaActual] = useState<'mes' | 'semana' | 'dia'>('mes');
+
+    const handleAñadirCalendarioNativo = async (ev: any) => {
+        try {
+            if (!Capacitor.isNativePlatform()) {
+                showAlert("Aviso", "Esta función es solo para la App Móvil. Usa el botón de Google Calendar en Web.");
+                return;
+            }
+            const req = await CapacitorCalendar.requestWriteOnlyCalendarAccess();
+            if (req.result !== 'granted') {
+                showAlert('Permiso Denegado', `No has dado permiso para escribir en el calendario. Si estás en iOS 17+, asegúrate de añadir "NSCalendarsWriteOnlyAccessUsageDescription" en el Info.plist de Xcode. Resultado: ${req.result}`);
+                return;
+            }
+            await CapacitorCalendar.createEventWithPrompt({
+                title: ev.titulo || 'Evento Solaris',
+                startDate: new Date(ev.fecha_inicio).getTime(),
+                endDate: ev.fecha_fin ? new Date(ev.fecha_fin).getTime() : new Date(ev.fecha_inicio).getTime() + 3600000,
+                isAllDay: ev.todo_el_dia,
+                description: ev.descripcion || ''
+            });
+        } catch(e) {
+            console.error("Error Calendario Nativo:", e);
+        }
+    };
+
     const [fechaBase, setFechaBase] = useState(new Date());
 
     // Data
@@ -668,7 +694,7 @@ export default function Calendario() {
                         )}
                     </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
                         <div className="flex bg-white rounded-xl p-1 shadow-sm border border-slate-200 flex-1 md:flex-none">
                             <button onClick={() => setVistaActual('mes')} className={`flex-1 md:flex-none px-4 py-2 font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors ${vistaActual === 'mes' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Mes</button>
                             <button onClick={() => setVistaActual('semana')} className={`flex-1 md:flex-none px-4 py-2 font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors ${vistaActual === 'semana' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Semana</button>
@@ -707,9 +733,17 @@ export default function Calendario() {
                                 </h2>
                                 <div className="flex gap-2">
                                     {eventoEditando && (
-                                        <a href={generarLinkGoogle(eventoEditando)} target="_blank" rel="noreferrer" className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition-colors tooltip" title="Añadir a Google Calendar">
-                                            <CalendarDays size={18} />
-                                        </a>
+                                        <>
+                                            {Capacitor.isNativePlatform() ? (
+                                                <button type="button" onClick={() => handleAñadirCalendarioNativo(eventoEditando)} className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl transition-colors tooltip flex items-center" title="Añadir al Calendario del Celular">
+                                                    <CalendarDays size={18} />
+                                                </button>
+                                            ) : (
+                                                <a href={generarLinkGoogle(eventoEditando)} target="_blank" rel="noreferrer" className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition-colors tooltip" title="Añadir a Google Calendar">
+                                                    <CalendarDays size={18} />
+                                                </a>
+                                            )}
+                                        </>
                                     )}
                                     <button onClick={() => setModalAbierto(false)} className="p-2 hover:bg-slate-200 text-slate-500 rounded-xl transition-colors"><X size={18} /></button>
                                 </div>

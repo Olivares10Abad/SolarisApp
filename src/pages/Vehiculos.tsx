@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { supabase, enviarNotificacionRoles } from '../supabaseClient'
+import { Capacitor } from '@capacitor/core'
+import { Geolocation } from '@capacitor/geolocation'
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Car, Loader2, FileText, MapPin, Gauge, ShieldCheck, Fuel, CheckCircle2, AlertCircle, Wrench, CalendarDays, ChevronRight, X, User as UserIcon, Calendar, Edit, Camera, Key, MessageSquare, ToolCase, Plus, Save } from 'lucide-react'
+import { Car, Loader2, FileText, MapPin, Gauge, ShieldCheck, Fuel, CheckCircle2, AlertCircle, Wrench, CalendarDays, ChevronRight, ChevronLeft, Clock, X, User as UserIcon, Calendar, Edit, Camera, Key, MessageSquare, ToolCase, Plus, Save, AlertTriangle } from 'lucide-react'
 import Header from '../components/Header'
 import { useDialog } from '../context/DialogContext'
 import degradadoBg from '../assets/degradado.png'
@@ -109,10 +112,11 @@ export default function Vehiculos() {
 
     // Modales
     const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<any>(null)
-    const [modoModal, setModoModal] = useState<'checkout' | 'checkin' | 'reporte' | 'historial' | 'visor' | 'nuevo' | 'admin_hoja_vida' | null>(null)
+    const [modoModal, setModoModal] = useState<'checkout' | 'checkin' | 'reporte' | 'historial' | 'visor' | 'nuevo' | 'admin_hoja_vida' | 'detalle_viaje' | null>(null)
     const [fotoEditandoIndex, setFotoEditandoIndex] = useState<number | null>(null)
     const [viewerImages, setViewerImages] = useState<string[] | null>(null)
     const [viewerIndex, setViewerIndex] = useState<number>(0)
+    const [viajeSeleccionado, setViajeSeleccionado] = useState<any>(null)
 
     // Estados Formularios
     const [procesando, setProcesando] = useState(false)
@@ -122,7 +126,34 @@ export default function Vehiculos() {
     const [formComentarios, setFormComentarios] = useState('')
     const [fotosExtra, setFotosExtra] = useState<File[]>([])
     const inputFileRef = useRef<HTMLInputElement>(null)
+
+    const openFilePicker = async (multiple = true) => {
+        if (Capacitor.isNativePlatform()) {
+            try {
+                if (multiple) {
+                    const result = await CapacitorCamera.pickImages({ quality: 80, limit: 10 });
+                    const files = await Promise.all(result.photos.map(async (p) => {
+                        const response = await fetch(p.webPath!);
+                        const blob = await response.blob();
+                        return new File([blob], `photo_${Date.now()}.${p.format}`, { type: `image/${p.format}` });
+                    }));
+                    setFotosExtra(prev => [...prev, ...files]);
+                } else {
+                    const image = await CapacitorCamera.getPhoto({ quality: 80, allowEditing: false, resultType: CameraResultType.Uri, source: CameraSource.Prompt });
+                    const response = await fetch(image.webPath!);
+                    const blob = await response.blob();
+                    const file = new File([blob], `photo_${Date.now()}.${image.format}`, { type: `image/${image.format}` });
+                    setFotosExtra([file]);
+                }
+            } catch (e) {
+                console.log("Cámara cancelada o falló:", e);
+            }
+        } else {
+            inputFileRef.current?.click();
+        }
+    }
     const [reporteTitulo, setReporteTitulo] = useState('')
+    const [formIncidente, setFormIncidente] = useState(false)
     const [formNuevoVH, setFormNuevoVH] = useState({ marca: '', modelo: '', placas: '', km_actual: '', nivel_gasolina: 'Lleno' })
     const [formMotivo, setFormMotivo] = useState('')
     const [formSubMotivo, setFormSubMotivo] = useState('')
@@ -131,6 +162,7 @@ export default function Vehiculos() {
 
     // Visor Documentos Historial
     const [historialBitacora, setHistorialBitacora] = useState<any[]>([])
+    const [filtroIncidentes, setFiltroIncidentes] = useState(false)
     const [reportesAbiertos, setReportesAbiertos] = useState<any[]>([])
 
     // Filtros Admin
@@ -159,6 +191,7 @@ export default function Vehiculos() {
             vehiculos_bitacora(fecha_salida, fecha_regreso)
         `).order('created_at', { ascending: true })
         if (data) setVehiculos(data)
+        setCargando(false)
     }
 
     const cargarHistorialVehiculo = async (vid: string) => {
@@ -253,6 +286,18 @@ export default function Vehiculos() {
     }
 
     const handleSubmitCheckout = async () => {
+
+        let currentLat = null;
+        let currentLng = null;
+        if (Capacitor.isNativePlatform()) {
+            try {
+                const permission = await Geolocation.checkPermissions();
+                if (permission.location !== 'granted') await Geolocation.requestPermissions();
+                const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+                currentLat = position.coords.latitude;
+                currentLng = position.coords.longitude;
+            } catch (e) { console.log("GPS no disponible", e) }
+        }
         if (!formKM || isNaN(Number(formKM)) || Number(formKM) < Number(vehiculoSeleccionado.km_actual)) {
             return showAlert('Aviso', 'Ingresa un kilometraje válido (mayor o igual al actual).')
         }
@@ -301,7 +346,7 @@ export default function Vehiculos() {
         if (errV) { setProcesando(false); return showAlert('Error Base de Datos', errV.message); }
 
         // Create bitacora
-        const { error: errBit } = await supabase.from('vehiculos_bitacora').insert([{
+        const { error: errBit, data: newBitData } = await supabase.from('vehiculos_bitacora').insert([{
             vehiculo_id: vehiculoSeleccionado.id,
             usuario_id: usuarioLogueado.id,
             fecha_salida: new Date().toISOString(),
@@ -311,8 +356,22 @@ export default function Vehiculos() {
             comentarios_salida: formComentarios,
             motivo_salida: formMotivo,
             sub_motivo_taller: formSubMotivo || null,
-            fecha_taller: formMotivo === 'Taller' && formFechaTaller ? new Date(formFechaTaller).toISOString() : null
-        }])
+            fecha_taller: formMotivo === 'Taller' && formFechaTaller ? new Date(formFechaTaller).toISOString() : null,
+            incidente_salida: formIncidente,
+            lat_salida: currentLat,
+            lng_salida: currentLng
+        }]).select().single()
+
+        if (formIncidente) {
+            await supabase.from('vehiculos_reportes').insert([{
+                vehiculo_id: vehiculoSeleccionado.id,
+                usuario_id: usuarioLogueado.id,
+                titulo: 'Incidente Reportado en Checkout',
+                descripcion: formComentarios || 'El usuario reportó un incidente sin dejar comentarios adicionales.',
+                fotos: urlsFotos,
+                estatus: 'Reportado'
+            }]);
+        }
 
         if (errBit) { setProcesando(false); return showAlert('Error Bitácora', errBit.message); }
 
@@ -338,11 +397,23 @@ export default function Vehiculos() {
         // Find active bitacora
         const { data: bita } = await supabase.from('vehiculos_bitacora')
             .select('*').eq('vehiculo_id', vehiculoSeleccionado.id).eq('usuario_id', usuarioLogueado.id)
-            .is('fecha_regreso', null).order('fecha_salida', { ascending: false }).limit(1).single()
+            .is('fecha_regreso', null).order('fecha_salida', { ascending: false }).limit(1).maybeSingle()
 
         if (bita) {
             const ms = new Date().getTime() - new Date(bita.fecha_salida).getTime();
             const mins = Math.floor(ms / 60000);
+
+            let currentLat = null;
+            let currentLng = null;
+            if (Capacitor.isNativePlatform()) {
+                try {
+                    const permission = await Geolocation.checkPermissions();
+                    if (permission.location !== 'granted') await Geolocation.requestPermissions();
+                    const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                } catch (e) { console.log("GPS no disponible", e) }
+            }
 
             const { error: errBit } = await supabase.from('vehiculos_bitacora').update({
                 fecha_regreso: new Date().toISOString(),
@@ -350,8 +421,22 @@ export default function Vehiculos() {
                 gasolina_regreso: formGas,
                 fotos_regreso: urlsFotos,
                 comentarios_regreso: formComentarios,
-                tiempo_uso_minutos: mins
+                tiempo_uso_minutos: mins,
+                incidente_regreso: formIncidente,
+                lat_regreso: currentLat,
+                lng_regreso: currentLng
             }).eq('id', bita.id)
+
+            if (formIncidente) {
+                await supabase.from('vehiculos_reportes').insert([{
+                    vehiculo_id: vehiculoSeleccionado.id,
+                    usuario_id: usuarioLogueado.id,
+                    titulo: 'Incidente Reportado en Check-in',
+                    descripcion: formComentarios || 'El usuario reportó un incidente al entregar el vehículo sin dejar comentarios adicionales.',
+                    fotos: urlsFotos,
+                    estatus: 'Reportado'
+                }]);
+            }
             if (errBit) { setProcesando(false); return showAlert('Error Bitácora', errBit.message); }
         }
 
@@ -702,7 +787,7 @@ export default function Vehiculos() {
                                         <div>
                                             <div className="flex justify-between items-center mb-2">
                                                 <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest">Foto Perfil (1 imagen frontal)</label>
-                                                <button onClick={() => inputFileRef.current?.click()} className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors border border-blue-200 bg-white">Subir Foto Única</button>
+                                                <button onClick={() => openFilePicker(true)} className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors border border-blue-200 bg-white">Subir Foto Única</button>
                                                 <input type="file" ref={inputFileRef} accept="image/*" className="hidden" onChange={e => { if (e.target.files) setFotosExtra([e.target.files[0]]) }} />
                                             </div>
                                             {fotosExtra.length > 0 && (
@@ -862,29 +947,37 @@ export default function Vehiculos() {
                                             </div>
                                         </div>
 
-                                        <h4 className="font-black uppercase tracking-tighter italic text-slate-400 border-b border-slate-200 pb-2">Bitácora Reciente</h4>
-                                        <div className="space-y-4">
-                                            {historialBitacora.map(b => (
-                                                <div key={b.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                                            <h4 className="font-black uppercase tracking-tighter italic text-slate-400">Bitácora Reciente</h4>
+                                            <button onClick={() => setFiltroIncidentes(!filtroIncidentes)} className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${filtroIncidentes ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}>
+                                                <AlertTriangle size={12} /> {filtroIncidentes ? 'Ver Todos' : 'Filtrar Incidentes'}
+                                            </button>
+                                        </div>
+                                        <div className="space-y-4 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                                            {(filtroIncidentes ? historialBitacora.filter(b => b.incidente_salida || b.incidente_regreso) : historialBitacora).map(b => (
+                                                <div key={b.id} onClick={() => { setViajeSeleccionado(b); setModoModal('detalle_viaje'); }} className={`p-4 rounded-2xl border shadow-sm relative overflow-hidden group cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md ${(b.incidente_salida || b.incidente_regreso) ? 'bg-red-50 border-red-200 hover:border-red-400' : 'bg-white border-slate-200 hover:border-blue-400'}`}>
                                                     <div className="flex justify-between items-start mb-3">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold"><UserIcon size={14} /></div>
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${(b.incidente_salida || b.incidente_regreso) ? 'bg-red-500' : 'bg-slate-300'}`}><UserIcon size={14} className={(b.incidente_salida || b.incidente_regreso) ? 'text-white' : 'text-slate-500'} /></div>
                                                             <div>
-                                                                <p className="font-black text-sm uppercase text-slate-700 leading-none">{b.usuario?.nombre} {b.usuario?.apellidos}</p>
+                                                                <p className="font-black text-sm uppercase text-slate-700 leading-none flex items-center gap-2">
+                                                                    {b.usuario?.nombre} {b.usuario?.apellidos}
+                                                                    {(b.incidente_salida || b.incidente_regreso) && <span title="Incidente Reportado"><AlertTriangle className="w-4 h-4 text-red-500" /></span>}
+                                                                </p>
                                                                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Salida: {new Date(b.fecha_salida).toLocaleString('es-MX')}</p>
-                                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Entrega: {new Date(b.fecha_regreso).toLocaleString('es-MX')}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Entrega: {b.fecha_regreso ? new Date(b.fecha_regreso).toLocaleString('es-MX') : 'En Curso...'}</p>
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
                                                             {b.tiempo_uso_minutos ? (
-                                                                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">{b.tiempo_uso_minutos} mins uso</span>
+                                                                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">{Math.floor(b.tiempo_uso_minutos / 60)}h {b.tiempo_uso_minutos % 60}m uso</span>
                                                             ) : (
                                                                 <span className="bg-orange-50 text-orange-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-orange-100 animate-pulse">En Curso</span>
                                                             )}
                                                         </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs font-bold text-slate-600">
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50/50 rounded-xl p-3 border border-slate-100 text-xs font-bold text-slate-600">
                                                         <div><span className="flex items-center gap-1 text-slate-400 text-[9px] uppercase tracking-widest mb-1"><MapPin size={10} /> KM Salida</span>{b.km_salida} km</div>
                                                         <div><span className="flex items-center gap-1 text-slate-400 text-[9px] uppercase tracking-widest mb-1"><MapPin size={10} /> KM Llegada</span>{b.km_regreso || '---'} km</div>
                                                         <div><span className="flex items-center gap-1 text-slate-400 text-[9px] uppercase tracking-widest mb-1"><Fuel size={10} /> Gas Salida</span>{b.gasolina_salida}</div>
@@ -892,13 +985,105 @@ export default function Vehiculos() {
                                                     </div>
 
                                                     <div className="mt-3 flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                                                        {(b.fotos_salida || []).map((f: string, i: number) => <img key={`s${i}`} onClick={() => { setViewerImages(b.fotos_salida); setViewerIndex(i); }} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-orange-100 cursor-pointer" title="Auto Salida" />)}
-                                                        {(b.fotos_regreso || []).map((f: string, i: number) => <img key={`r${i}`} onClick={() => { setViewerImages(b.fotos_regreso); setViewerIndex(i); }} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-emerald-100 cursor-pointer" title="Auto Regreso" />)}
+                                                        {(b.fotos_salida || []).map((f: string, i: number) => <img key={`s${i}`} onClick={(e) => { e.stopPropagation(); setViewerImages(b.fotos_salida); setViewerIndex(i); }} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-orange-100 cursor-pointer hover:scale-105 transition-transform" title="Auto Salida" />)}
+                                                        {(b.fotos_regreso || []).map((f: string, i: number) => <img key={`r${i}`} onClick={(e) => { e.stopPropagation(); setViewerImages(b.fotos_regreso); setViewerIndex(i); }} src={f} className="w-12 h-12 rounded-lg object-cover border-2 border-emerald-100 cursor-pointer hover:scale-105 transition-transform" title="Auto Regreso" />)}
                                                     </div>
                                                 </div>
                                             ))}
                                             {historialBitacora.length === 0 && <p className="text-xs font-bold text-slate-400 italic text-center py-6">No hay registros históricos de viajes aún.</p>}
+                                            {historialBitacora.length > 0 && filtroIncidentes && historialBitacora.filter(b => b.incidente_salida || b.incidente_regreso).length === 0 && <p className="text-xs font-bold text-red-400 italic text-center py-6">Excelente, no hay incidentes reportados en esta unidad.</p>}
                                         </div>
+                                    </div>
+                                )}
+
+                                {modoModal === 'detalle_viaje' && viajeSeleccionado && (
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
+                                            <button onClick={() => setModoModal('historial')} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-colors"><ChevronLeft size={20} /></button>
+                                            <div>
+                                                <h3 className="font-black text-lg uppercase text-slate-800 flex items-center gap-2">Detalle de Viaje</h3>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Conductor: {viajeSeleccionado.usuario?.nombre} {viajeSeleccionado.usuario?.apellidos}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Columna Salida */}
+                                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                                <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
+                                                    <span className="font-black text-xs text-slate-500 uppercase tracking-widest flex items-center gap-2"><MapPin size={14} className="text-blue-500" /> Check-Out (Salida)</span>
+                                                    <span className="text-[9px] font-bold text-slate-400">{new Date(viajeSeleccionado.fecha_salida).toLocaleString('es-MX')}</span>
+                                                </div>
+                                                <div className="p-4 space-y-4">
+                                                    <div className="flex justify-between">
+                                                        <div><p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Kilometraje</p><p className="font-black text-slate-700 text-sm">{viajeSeleccionado.km_salida} km</p></div>
+                                                        <div className="text-right"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Gasolina</p><p className="font-black text-slate-700 text-sm">{viajeSeleccionado.gasolina_salida}</p></div>
+                                                    </div>
+
+                                                    <div className={`p-3 rounded-xl border text-xs font-bold ${viajeSeleccionado.incidente_salida ? 'bg-red-50 border-red-200 text-red-700' : 'bg-slate-50 border-slate-100 text-slate-600'}`}>
+                                                        {viajeSeleccionado.incidente_salida && <AlertTriangle size={14} className="mb-1 text-red-500" />}
+                                                        <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Comentarios / Incidentes</span>
+                                                        {viajeSeleccionado.comentarios_salida || 'Sin comentarios adicionales.'}
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Evidencia Fotográfica</span>
+                                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                            {(viajeSeleccionado.fotos_salida || []).map((f: string, i: number) => <img key={i} src={f} onClick={() => { setViewerImages(viajeSeleccionado.fotos_salida); setViewerIndex(i); }} className="w-16 h-16 rounded-xl object-cover border-2 border-slate-100 cursor-pointer hover:border-blue-400 transition-colors" />)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Columna Llegada */}
+                                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                                <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
+                                                    <span className="font-black text-xs text-slate-500 uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-500" /> Check-In (Llegada)</span>
+                                                    <span className="text-[9px] font-bold text-slate-400">{viajeSeleccionado.fecha_regreso ? new Date(viajeSeleccionado.fecha_regreso).toLocaleString('es-MX') : 'En Curso...'}</span>
+                                                </div>
+
+                                                {viajeSeleccionado.fecha_regreso ? (
+                                                    <div className="p-4 space-y-4">
+                                                        <div className="flex justify-between">
+                                                            <div><p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Kilometraje Final</p><p className="font-black text-slate-700 text-sm">{viajeSeleccionado.km_regreso} km</p></div>
+                                                            <div className="text-right"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Gasolina</p><p className="font-black text-slate-700 text-sm">{viajeSeleccionado.gasolina_regreso}</p></div>
+                                                        </div>
+
+                                                        <div className={`p-3 rounded-xl border text-xs font-bold ${viajeSeleccionado.incidente_regreso ? 'bg-red-50 border-red-200 text-red-700' : 'bg-slate-50 border-slate-100 text-slate-600'}`}>
+                                                            {viajeSeleccionado.incidente_regreso && <AlertTriangle size={14} className="mb-1 text-red-500" />}
+                                                            <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Comentarios / Incidentes</span>
+                                                            {viajeSeleccionado.comentarios_regreso || 'Sin comentarios adicionales.'}
+                                                        </div>
+
+                                                        <div>
+                                                            <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Evidencia Fotográfica</span>
+                                                            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                                {(viajeSeleccionado.fotos_regreso || []).map((f: string, i: number) => <img key={i} src={f} onClick={() => { setViewerImages(viajeSeleccionado.fotos_regreso); setViewerIndex(i); }} className="w-16 h-16 rounded-xl object-cover border-2 border-slate-100 cursor-pointer hover:border-emerald-400 transition-colors" />)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-10 flex flex-col items-center justify-center text-center opacity-50">
+                                                        <Clock size={32} className="mb-3 text-slate-400 animate-pulse" />
+                                                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Aún no se entrega</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Sumario Inferior */}
+                                        {viajeSeleccionado.fecha_regreso && (
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Total Recorrido</p>
+                                                    <p className="font-black text-xl text-emerald-700">{viajeSeleccionado.km_regreso - viajeSeleccionado.km_salida} km</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Tiempo de Uso</p>
+                                                    <p className="font-black text-xl text-emerald-700">{Math.floor(viajeSeleccionado.tiempo_uso_minutos / 60)}h {viajeSeleccionado.tiempo_uso_minutos % 60}m</p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                     </div>
                                 )}
 
@@ -966,7 +1151,7 @@ export default function Vehiculos() {
                                         <div>
                                             <div className="flex justify-between items-center mb-2">
                                                 <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest">Evidencia Fotográfica ({fotosExtra.length} subidas)</label>
-                                                <button onClick={() => inputFileRef.current?.click()} className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors border border-blue-200 bg-white">Añadir Archivo/Cámara</button>
+                                                <button onClick={() => openFilePicker(true)} className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors border border-blue-200 bg-white">Añadir Archivo/Cámara</button>
                                                 <input type="file" ref={inputFileRef} multiple accept="image/*" capture="environment" className="hidden" onChange={e => { if (e.target.files) setFotosExtra([...fotosExtra, ...Array.from(e.target.files)]) }} />
                                             </div>
                                             <div className="flex flex-wrap gap-3 p-4 bg-white border border-slate-200 rounded-xl min-h-[100px] shadow-inner">
@@ -984,6 +1169,10 @@ export default function Vehiculos() {
                                         <div>
                                             <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Comentarios (Opcional)</label>
                                             <textarea value={formComentarios} onChange={e => setFormComentarios(e.target.value)} rows={2} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 outline-none focus:border-rose-500" placeholder="¿Huele mal? ¿Está rayado? Déjalo por escrito aquí..."></textarea>
+                                            <label className="flex items-center gap-2 mt-3 cursor-pointer p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
+                                                <input type="checkbox" checked={formIncidente} onChange={e => setFormIncidente(e.target.checked)} className="w-4 h-4 accent-red-600 rounded" />
+                                                <span className="text-[10px] md:text-xs font-black text-red-700 uppercase tracking-widest flex items-center gap-1.5"><AlertTriangle className="w-3 h-3 md:w-4 md:h-4" /> Reportar incidente / avería encontrada</span>
+                                            </label>
                                         </div>
 
                                         <div className="pt-4 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-3">
@@ -1021,7 +1210,7 @@ export default function Vehiculos() {
                                         <div>
                                             <div className="flex justify-between items-center mb-2">
                                                 <label className="block text-[10px] font-black uppercase text-slate-500 tracking-widest">Evidencias ({fotosExtra.length} subidas) Opcional</label>
-                                                <button onClick={() => inputFileRef.current?.click()} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 border border-slate-200 bg-white px-3 py-1 rounded-lg transition-colors">Cámara / Fotos</button>
+                                                <button onClick={() => openFilePicker(true)} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 border border-slate-200 bg-white px-3 py-1 rounded-lg transition-colors">Cámara / Fotos</button>
                                                 <input type="file" ref={inputFileRef} multiple accept="image/*" capture="environment" className="hidden" onChange={e => { if (e.target.files) setFotosExtra([...fotosExtra, ...Array.from(e.target.files)]) }} />
                                             </div>
                                             <div className="flex flex-wrap gap-3 p-4 bg-white border border-slate-200 rounded-xl min-h-[100px] shadow-inner">

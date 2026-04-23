@@ -529,7 +529,8 @@ export default function Home() {
         <div className="h-screen w-full text-slate-900 font-sans relative bg-fixed bg-cover flex flex-col overflow-hidden" style={{ backgroundImage: `url(${degradadoBg})` }}>
 
             {/* NAV BAR PERSONALIZADA DEL HOME */}
-            <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 shadow-sm h-16 shrink-0 flex items-center relative z-50">
+            <nav className="bg-white/95 backdrop-blur-2xl border-b border-white/20 shadow-sm relative z-50 w-full" style={{ paddingTop: Capacitor.isNativePlatform() ? '48px' : 'env(safe-area-inset-top, 0px)' }}>
+                <div className="w-full h-16 flex items-center shrink-0">
                 <div className="max-w-[1800px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
                     <div className="flex items-center gap-2 md:gap-4">
                         <button onClick={() => setMenuMovilAbierto(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"><Menu size={24} /></button>
@@ -557,6 +558,7 @@ export default function Home() {
                         </div>
                     </div>
                 </div>
+            </div>
             </nav>
 
             {/* --- MENU MOVIL IZQUIERDO --- */}

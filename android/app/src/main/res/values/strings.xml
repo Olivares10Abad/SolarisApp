@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">solarisapp</string>
+    <string name="title_activity_main">solarisapp</string>
+    <string name="package_name">com.solarisapp.app</string>
+    <string name="custom_url_scheme">com.solarisapp.app</string>
+</resources>

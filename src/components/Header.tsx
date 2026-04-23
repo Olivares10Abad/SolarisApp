@@ -6,6 +6,7 @@ import solarisLogo from '../assets/solarislogo.png'
 
 import NotificacionesGlobales from './NotificacionesGlobales'
 import { useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import VisualizadorBitacoraGlobal from './VisualizadorBitacoraGlobal'
 
 interface HeaderProps {
@@ -52,8 +53,8 @@ export default function Header({ titulo, onAbrirChat }: HeaderProps) {
   };
 
   return (
-    <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-[60] shadow-sm h-16 flex items-center relative">
-      <div className="max-w-[1700px] mx-auto px-4 md:px-6 w-full flex items-center justify-between">
+    <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-[60] shadow-sm relative w-full" style={{ paddingTop: Capacitor.isNativePlatform() ? '48px' : 'env(safe-area-inset-top, 0px)' }}>
+      <div className="max-w-[1700px] mx-auto px-4 md:px-6 w-full h-16 flex items-center justify-between">
         
         {/* IZQUIERDA: Logo y Título */}
         <div className="flex items-center gap-2 md:gap-4">
