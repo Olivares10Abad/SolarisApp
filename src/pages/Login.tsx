@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { User, ArrowRight, LoaderCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react'
@@ -16,6 +16,13 @@ export default function Login() {
   const [cargando, setCargando] = useState(false)
   const [mostrarPassword, setMostrarPassword] = useState(false)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const session = localStorage.getItem('session_gea_solar');
+    if (session) {
+      navigate('/home');
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

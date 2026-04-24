@@ -1,3 +1,4 @@
+import solarisLogo from '../assets/solarislogo.png'
 import { useDialog } from '../context/DialogContext'
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -474,7 +475,7 @@ export default function ProyectosList() {
                   )}
 
                   <div className="flex items-center gap-4">
-                    <img src="/src/assets/default.jpg" alt="proyecto" className="w-14 h-14 object-cover rounded-2xl shadow-md border-2 border-slate-100" />
+                    <img src={solarisLogo} alt="proyecto" className="w-14 h-14 object-cover rounded-2xl shadow-md border-2 border-slate-100" />
                     <div className="flex-1 overflow-hidden sm:hidden">
                       <h4 className="font-black text-slate-950 text-[13px] uppercase italic tracking-tighter leading-none truncate pr-16">{p.nombre_proyecto}</h4>
                       <span className={`text-[8px] font-black mt-2 px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${getEstiloEstatus(p.estatus).bg} ${getEstiloEstatus(p.estatus).text}`}>

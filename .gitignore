@@ -24,4 +24,5 @@ dist-ssr
 *.sw?
 
 node_modules
-.envgoogle-services.json
+.env
+google-services.json
