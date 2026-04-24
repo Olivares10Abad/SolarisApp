@@ -14,7 +14,7 @@ const STEPS = [
 interface ModalViabilidadDetalleProps {
    proyectoSeleccionado: any;
    setProyectoSeleccionado: (p: any) => void;
-   showModalSecundario: 'Agendar' | 'Visor' | 'Info' | 'Confirmar' | 'Cancelar' | null;
+   showModalSecundario: 'Agendar' | 'Visor' | 'Info' | 'Confirmar' | 'Cancelar' | 'Incidente' | 'Formulario' | null;
    setShowModalSecundario: (s: any) => void;
    cancelarViabilidad?: () => void;
    avanzarA?: (target: number, uploadPdf?: boolean) => void;
@@ -212,28 +212,27 @@ export default function ModalViabilidadDetalle({
                               </div>
                            </div>
 
-                           {/* Viabilidad (Upload File) */}
+                           {/* Viabilidad (Upload File / Formulario / Incidente) */}
                            <div className="flex items-center gap-2">
                               <span className="flex-1">Viabilidad:</span>
-                              <label className="cursor-pointer flex items-center relative">
-                                 <div className={`w-[28px] h-[28px] rounded-[6px] ${(filesReporte && filesReporte.length > 0) ? 'bg-green-50 text-green-500 border-green-200' : 'bg-slate-50 text-slate-400 border-slate-200'} flex items-center justify-center border shadow-sm hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors`}>
-                                    <FileText size={14} strokeWidth={2.5} />
+                              
+                              {viabilidadRef?.status >= 4 ? (
+                                 <div className="flex gap-1.5 items-center">
+                                    {/* Botón Hoja */}
+                                    <button onClick={() => setShowModalSecundario('Formulario')} className="w-[28px] h-[28px] rounded-[6px] bg-slate-50 text-slate-700 hover:bg-[#ffb000] hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-200 hover:border-[#ffb000]">
+                                       <FileText size={14} strokeWidth={2.5} />
+                                    </button>
+                                    
+                                    {/* Botón Cruz (Incidente) */}
+                                    <button onClick={() => setShowModalSecundario('Incidente')} className="w-[28px] h-[28px] rounded-[6px] bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center justify-center border border-red-200 hover:border-red-500">
+                                       <X size={16} strokeWidth={3} />
+                                    </button>
                                  </div>
-                                 {(filesReporte && filesReporte.length > 0) && (
-                                     <span className="absolute -top-1.5 -right-1.5 text-[8px] bg-green-500 text-white font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 border border-white">
-                                        {filesReporte.length}
-                                     </span>
-                                 )}
-                                 <input type="file" accept=".pdf,image/*" multiple className="hidden" onChange={e => {
-                                    if (e.target.files && setFilesReporte) {
-                                       setFilesReporte([...(filesReporte || []), ...Array.from(e.target.files)]);
-                                    }
-                                 }} />
-                              </label>
-                              {(filesReporte && filesReporte.length > 0) && setFilesReporte && (
-                                 <button onClick={() => setFilesReporte([])} className="text-red-500 hover:bg-red-50 p-1 rounded-full"><X size={14} strokeWidth={3} /></button>
+                              ) : (
+                                 <div className="text-[9px] font-bold text-slate-400 italic">No disponible</div>
                               )}
-
+                              
+                              {/* Legacy Upload File fallback */}
                               {viabilidadRef?.reportes_ingenieria?.length > 0 ? (
                                  <div className="flex gap-1 ml-1 overflow-x-auto custom-scrollbar max-w-[80px]">
                                      {viabilidadRef.reportes_ingenieria.map((url: string, idx: number) => (

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
    X, Search, Camera, Info, MapPin, Clock, FileText,
    MessageSquare, History, Check, Calendar, MapPin as MapIcon, ChevronRight,
-   Timer, AlertCircle, CheckCircle2, Settings
+   Timer, AlertCircle, CheckCircle2, Settings, AlertTriangle
 } from 'lucide-react'
 
 import Header from '../components/Header'
@@ -48,7 +48,7 @@ const getFechaSLA = (v: any) => {
 }
 
 export default function Viabilidad() {
-    const { showAlert, showConfirm } = useDialog();
+   const { showAlert, showConfirm } = useDialog();
    const navigate = useNavigate()
    const [viabilidades, setViabilidades] = useState<any[]>([])
    const [ingenieros, setIngenieros] = useState<any[]>([])
@@ -59,8 +59,9 @@ export default function Viabilidad() {
    // MODALES
    const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
    const [modalCalendarioAbierto, setModalCalendarioAbierto] = useState(false)
-   const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | 'Cancelar' | 'Confirmar' | null>(null)
+   const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | 'Cancelar' | 'Confirmar' | 'Incidente' | 'Formulario' | null>(null)
    const [showBitacora, setShowBitacora] = useState(false)
+   const [motivoIncidenteTexto, setMotivoIncidenteTexto] = useState('')
 
    // Formulario Agenda
    const [agendaForm, setAgendaForm] = useState({
@@ -212,8 +213,8 @@ export default function Viabilidad() {
          }]);
 
          await enviarNotificacionVendedor(
-            proyectoSeleccionado.proyecto?.vendedor_id, 
-            `❌ Tu solicitud de Viabilidad Técnica ha sido rechazada. Motivo: ${motivoCancelacion}|||/evaluacion?proyecto_id=${proyectoSeleccionado.proyecto_id}`, 
+            proyectoSeleccionado.proyecto?.vendedor_id,
+            `❌ Tu solicitud de Viabilidad Técnica ha sido rechazada. Motivo: ${motivoCancelacion}|||/evaluacion?proyecto_id=${proyectoSeleccionado.proyecto_id}`,
             usuarioLogueado?.id
          );
 
@@ -235,16 +236,16 @@ export default function Viabilidad() {
          if (targetStatus === 5 && uploadPdf && filesReporte.length > 0) {
             const uploadedUrls = [];
             for (const file of filesReporte) {
-                const fileExt = file.name.split('.').pop()
-                const fileName = `viab_${proyectoSeleccionado.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
-                const { error } = await supabase.storage.from('proyectos_media').upload(fileName, file)
-                if (!error) {
-                   uploadedUrls.push(supabase.storage.from('proyectos_media').getPublicUrl(fileName).data.publicUrl)
-                }
+               const fileExt = file.name.split('.').pop()
+               const fileName = `viab_${proyectoSeleccionado.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+               const { error } = await supabase.storage.from('proyectos_media').upload(fileName, file)
+               if (!error) {
+                  uploadedUrls.push(supabase.storage.from('proyectos_media').getPublicUrl(fileName).data.publicUrl)
+               }
             }
             if (uploadedUrls.length > 0) {
-                updates.reportes_ingenieria = uploadedUrls;
-                updates.reporte_ingenieria = uploadedUrls[0]; // Compatibility
+               updates.reportes_ingenieria = uploadedUrls;
+               updates.reporte_ingenieria = uploadedUrls[0]; // Compatibility
             }
          }
          if (targetStatus === 7) updates.fecha_terminada = new Date().toISOString();
@@ -271,7 +272,7 @@ export default function Viabilidad() {
          } else {
             const map: any = { 4: 'Verificada', 5: 'Ingeniería' }
             if (map[targetStatus]) await supabase.from('proyectos').update({ sub_estatus: map[targetStatus] }).eq('id', proyectoSeleccionado.proyecto_id);
-            
+
             if (targetStatus === 4) {
                await enviarNotificacionVendedor(proyectoSeleccionado.proyecto?.vendedor_id, `✅ Tu solicitud de Viabilidad Técnica ha sido verificada y confirmada en agenda: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/proyectos?proyecto_id=${proyectoSeleccionado.proyecto_id}`, usuarioLogueado?.id);
             }
@@ -281,6 +282,47 @@ export default function Viabilidad() {
          setProyectoSeleccionado(null);
       } catch (e) {
          await showAlert('Aviso', 'Error al avanzar viabilidad.')
+      } finally {
+         setProcesando(false)
+      }
+   }
+
+   const reportarIncidente = async () => {
+      if (!motivoIncidenteTexto.trim()) {
+         await showAlert('Aviso', "Debe ingresar el motivo del incidente.");
+         return;
+      }
+      setProcesando(true);
+      try {
+         await supabase.from('viabilidad_control').update({
+            incidente_visita: true,
+            motivo_incidente: motivoIncidenteTexto,
+            fecha_incidente: new Date().toISOString()
+         }).eq('id', proyectoSeleccionado.id)
+
+         await supabase.from('proyectos_interacciones').insert([{
+            proyecto_id: proyectoSeleccionado.proyecto_id,
+            usuario_id: usuarioLogueado?.id,
+            estado_anterior: 'Viabilidad',
+            estado_nuevo: 'Viabilidad',
+            accion: 'Incidente Visita',
+            mensaje: `Incidente reportado en visita técnica. Motivo: ${motivoIncidenteTexto}`
+         }]);
+
+         await enviarNotificacionVendedor(
+            proyectoSeleccionado.proyecto?.vendedor_id,
+            `⚠️ Inconveniente en Visita Técnica de tu proyecto ${proyectoSeleccionado.proyecto?.nombre_proyecto}. Motivo: ${motivoIncidenteTexto}|||/proyectos?proyecto_id=${proyectoSeleccionado.proyecto_id}`,
+            usuarioLogueado?.id
+         );
+
+         await enviarNotificacionRoles('notif_viabilidad_tecnica', `⚠️ Incidente reportado en visita de viabilidad: ${proyectoSeleccionado.proyecto?.nombre_proyecto}. Motivo: ${motivoIncidenteTexto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.proyecto_id}`, usuarioLogueado?.id);
+
+         setProyectoSeleccionado(null);
+         setShowModalSecundario(null);
+         setMotivoIncidenteTexto('');
+         await fetchViabilidades();
+      } catch (e) {
+         console.error(e)
       } finally {
          setProcesando(false)
       }
@@ -334,7 +376,7 @@ export default function Viabilidad() {
                         <input type="text" placeholder="Buscar por nombre, ID o vendedor..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="bg-white border border-slate-200 rounded-xl py-2.5 pl-9 pr-4 w-full font-bold text-xs outline-none focus:border-slate-400 shadow-inner" />
                      </div>
                   </div>
-                  <button 
+                  <button
                      onClick={() => setModalCalendarioAbierto(true)}
                      className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-xl px-4 py-2.5 font-black text-xs flex items-center justify-center gap-2 transition-all shadow-sm shrink-0 uppercase tracking-widest min-w-max"
                   >
@@ -377,18 +419,32 @@ export default function Viabilidad() {
 
                                  <div className="flex-1 overflow-hidden sm:hidden">
                                     <h4 className="font-black text-slate-950 text-[13px] uppercase italic tracking-tighter leading-none truncate pr-16">{v.proyecto?.nombre_proyecto || 'Sin Titulo'}</h4>
-                                    <span className={`text-[8px] font-black mt-2 px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${badgeColor}`}>
-                                       {v.status === 1 ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />} {labelEstatus}
-                                    </span>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                       <span className={`text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${badgeColor}`}>
+                                          {v.status === 1 ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />} {labelEstatus}
+                                       </span>
+                                       {v.incidente_visita && (
+                                          <span className="text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit bg-red-50 text-red-600 border-red-200 animate-pulse">
+                                             <AlertTriangle size={10} /> Visita Fallida
+                                          </span>
+                                       )}
+                                    </div>
                                     <p className="text-[9px] font-semibold text-slate-600 uppercase mt-1.5 truncate flex items-center gap-1.5 leading-none"><MapPin size={11} className="text-slate-400" /> ID: {tagId}</p>
                                  </div>
                               </div>
 
                               <div className="flex-1 overflow-hidden hidden sm:block">
                                  <h4 className="font-black text-slate-950 text-[13px] uppercase italic tracking-tighter leading-none truncate">{v.proyecto?.nombre_proyecto || 'Sin Titulo'}</h4>
-                                 <span className={`text-[8px] font-black mt-2 px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${badgeColor}`}>
-                                    {v.status === 1 ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />} {labelEstatus}
-                                 </span>
+                                 <div className="flex flex-wrap gap-2 mt-2">
+                                    <span className={`text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${badgeColor}`}>
+                                       {v.status === 1 ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />} {labelEstatus}
+                                    </span>
+                                    {v.incidente_visita && (
+                                       <span className="text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit bg-red-50 text-red-600 border-red-200 animate-pulse">
+                                          <AlertTriangle size={10} /> Visita Fallida
+                                       </span>
+                                    )}
+                                 </div>
                                  <p className="text-[9px] font-semibold text-slate-600 uppercase mt-1.5 truncate flex items-center gap-1.5 leading-none">
                                     <MapPin size={11} className="text-slate-400" /> ID: {tagId}
                                  </p>
@@ -518,10 +574,10 @@ export default function Viabilidad() {
                            <X size={24} strokeWidth={3} />
                         </div>
                         <p className="text-xs font-bold text-slate-600">Al rechazar, el proyecto regresará al área de Evaluación para su revisión y corrección.</p>
-                        
+
                         <div className="text-left w-full mt-2">
                            <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1 block">Motivo de Cancelación</label>
-                           <textarea 
+                           <textarea
                               value={motivoCancelacion}
                               onChange={(e) => setMotivoCancelacion(e.target.value)}
                               placeholder="Ej. La ubicación es incorrecta, falta un documento..."
@@ -537,7 +593,7 @@ export default function Viabilidad() {
                   </motion.div>
                </div>
             )}
-            
+
             {showModalSecundario === 'Confirmar' && (
                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[320px] rounded-[32px] overflow-hidden shadow-2xl relative">
@@ -559,7 +615,7 @@ export default function Viabilidad() {
                   </motion.div>
                </div>
             )}
-            
+
             {showModalSecundario === 'Agendar' && (
                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[420px] rounded-[32px] overflow-hidden shadow-2xl relative">
@@ -574,16 +630,16 @@ export default function Viabilidad() {
                            <div>
                               <label className="block text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-1">Fecha Viabilidad Inicio</label>
                               <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden w-full bg-white relative hover:border-[#ffb000] focus-within:border-[#ffb000] transition-colors">
-                                 <input type="datetime-local" 
-                                    value={agendaForm.fecha_inicio && agendaForm.hora_inicio ? `${agendaForm.fecha_inicio}T${agendaForm.hora_inicio.substring(0, 5)}` : ''} 
+                                 <input type="datetime-local"
+                                    value={agendaForm.fecha_inicio && agendaForm.hora_inicio ? `${agendaForm.fecha_inicio}T${agendaForm.hora_inicio.substring(0, 5)}` : ''}
                                     onChange={e => {
-                                       if(e.target.value) {
+                                       if (e.target.value) {
                                           const [d, t] = e.target.value.split('T');
                                           setAgendaForm({ ...agendaForm, fecha_inicio: d, hora_inicio: t });
                                        } else {
                                           setAgendaForm({ ...agendaForm, fecha_inicio: '', hora_inicio: '' });
                                        }
-                                    }} 
+                                    }}
                                     className="w-full p-3.5 outline-none text-[12px] uppercase font-black bg-transparent z-10 cursor-pointer" />
                                  <div className="bg-slate-900 text-white w-12 absolute right-0 inset-y-0 flex items-center justify-center pointer-events-none"><Calendar size={18} strokeWidth={2.5} /></div>
                               </div>
@@ -593,16 +649,16 @@ export default function Viabilidad() {
                            <div>
                               <label className="block text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-1">Fecha Viabilidad Fin</label>
                               <div className="flex border-2 border-slate-900 rounded-xl overflow-hidden w-full bg-white relative hover:border-[#ffb000] focus-within:border-[#ffb000] transition-colors">
-                                 <input type="datetime-local" 
-                                    value={agendaForm.fecha_fin && agendaForm.hora_fin ? `${agendaForm.fecha_fin}T${agendaForm.hora_fin.substring(0, 5)}` : ''} 
+                                 <input type="datetime-local"
+                                    value={agendaForm.fecha_fin && agendaForm.hora_fin ? `${agendaForm.fecha_fin}T${agendaForm.hora_fin.substring(0, 5)}` : ''}
                                     onChange={e => {
-                                       if(e.target.value) {
+                                       if (e.target.value) {
                                           const [d, t] = e.target.value.split('T');
                                           setAgendaForm({ ...agendaForm, fecha_fin: d, hora_fin: t });
                                        } else {
                                           setAgendaForm({ ...agendaForm, fecha_fin: '', hora_fin: '' });
                                        }
-                                    }} 
+                                    }}
                                     className="w-full p-3.5 outline-none text-[12px] uppercase font-black bg-transparent z-10 cursor-pointer" />
                                  <div className="bg-slate-900 text-white w-12 absolute right-0 inset-y-0 flex items-center justify-center pointer-events-none"><Calendar size={18} strokeWidth={2.5} /></div>
                               </div>
@@ -627,6 +683,66 @@ export default function Viabilidad() {
                               {procesando ? 'CARGANDO...' : 'Programar Visita'}
                            </button>
                         </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
+         {/* MODAL INCIDENTE */}
+         <AnimatePresence>
+            {showModalSecundario === 'Incidente' && (
+               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[340px] rounded-[32px] overflow-hidden shadow-2xl relative">
+                     <div className="bg-white px-5 py-4 flex justify-between items-center border-b-[4px] border-red-500">
+                        <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px]">Reportar Incidente</h3>
+                        <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
+                     </div>
+                     <div className="p-6 text-center flex flex-col gap-4 bg-white">
+                        <div className="mx-auto bg-red-50 text-red-500 w-12 h-12 rounded-full flex items-center justify-center mb-1">
+                           <AlertTriangle size={24} strokeWidth={3} />
+                        </div>
+                        <p className="text-xs font-bold text-slate-600">Al reportar un incidente, se notificará al área de Viabilidad y al vendedor para reprogramar o aclarar detalles con el cliente.</p>
+
+                        <div className="text-left w-full mt-2">
+                           <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1 block">Motivo del Inconveniente</label>
+                           <textarea
+                              value={motivoIncidenteTexto}
+                              onChange={(e) => setMotivoIncidenteTexto(e.target.value)}
+                              placeholder="Ej. El cliente no estaba, lluvia intensa, portón cerrado..."
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 outline-none focus:border-red-400 resize-none h-20"
+                           />
+                        </div>
+
+                        <div className="flex gap-2 w-full mt-2">
+                           <button onClick={() => setShowModalSecundario(null)} className="flex-1 bg-slate-100 text-slate-500 hover:bg-slate-200 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors">Cancelar</button>
+                           <button onClick={reportarIncidente} disabled={!motivoIncidenteTexto.trim() || procesando} className="flex-1 bg-red-500 text-white shadow-md hover:bg-red-600 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors disabled:opacity-50">Reportar</button>
+                        </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
+         {/* MODAL FORMULARIO VIABILIDAD */}
+         <AnimatePresence>
+            {showModalSecundario === 'Formulario' && (
+               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[600px] rounded-[32px] overflow-hidden shadow-2xl relative">
+                     <div className="bg-white px-5 py-4 flex justify-between items-center border-b-[4px] border-[#ffb000]">
+                        <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px]">Hoja de Viabilidad</h3>
+                        <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
+                     </div>
+                     <div className="p-8 text-center flex flex-col gap-6 bg-white min-h-[400px] items-center justify-center">
+                        <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                           <FileText size={32} />
+                        </div>
+                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Formulario en Construcción</h2>
+                        <p className="text-sm font-bold text-slate-500 max-w-sm">Aquí se habilitará próximamente el llenado digital de la Hoja de Viabilidad con todos los campos requeridos.</p>
+
+                        <button onClick={() => setShowModalSecundario(null)} className="mt-4 bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#ffb000] hover:text-slate-900 transition-colors">
+                           Cerrar
+                        </button>
                      </div>
                   </motion.div>
                </div>
