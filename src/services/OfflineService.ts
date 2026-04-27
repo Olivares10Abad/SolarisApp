@@ -5,7 +5,7 @@ const DB_VERSION = 1;
 
 interface SyncTask {
   id: string;
-  type: 'avanzar' | 'agendar' | 'cancelar' | 'incidente' | 'upload_file';
+  type: 'avanzar' | 'agendar' | 'cancelar' | 'incidente' | 'upload_file' | 'submit_hoja' | 'reporte_ingenieria' | 'upload_evidencia';
   payload: any;
   timestamp: number;
 }

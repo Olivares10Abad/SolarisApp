@@ -15,6 +15,7 @@ import Header from '../components/Header'
 import ChatGlobal from '../components/ChatGlobal'
 import ModalLineaTiempo from '../components/ModalLineaTiempo'
 import ModalViabilidadDetalle from '../components/ModalViabilidadDetalle'
+import ModalVisorGlobal from '../components/ModalVisorGlobal'
 import ModalCalendarioViabilidad from '../components/ModalCalendarioViabilidad'
 import degradadoBg from '../assets/degradado.png'
 
@@ -61,9 +62,11 @@ export default function Viabilidad() {
    // MODALES
    const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
    const [modalCalendarioAbierto, setModalCalendarioAbierto] = useState(false)
-   const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | 'Cancelar' | 'Confirmar' | 'Incidente' | 'Formulario' | null>(null)
+   const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | 'Cancelar' | 'Confirmar' | 'Incidente' | 'Formulario' | 'ReporteIngenieria' | null>(null)
    const [showBitacora, setShowBitacora] = useState(false)
    const [motivoIncidenteTexto, setMotivoIncidenteTexto] = useState('')
+   const [reporteIngenieriaForm, setReporteIngenieriaForm] = useState({ comentarios: '', archivos: [] as File[] })
+   const [docPreview, setDocPreview] = useState<{ urls: string[], currentIndex: number, nombre: string } | null>(null)
    
    // OFFLINE SYNC STATES
    const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -89,6 +92,7 @@ export default function Viabilidad() {
    // ESTADOS CHAT GLOBAL
    const [chatAbierto, setChatAbierto] = useState(false)
    const [chatInicial, setChatInicial] = useState<any>(null)
+   const [logsProyecto, setLogsProyecto] = useState<any[]>([])
 
    const usuarioLogueado = useMemo(() => {
       const data = localStorage.getItem('session_gea_solar')
@@ -270,6 +274,19 @@ export default function Viabilidad() {
       }
    }
 
+   const verLogsBitacora = async () => {
+      if (!proyectoSeleccionado) return;
+      setShowBitacora(false);
+      const { data } = await supabase.from('proyectos_interacciones').select(`*, perfiles:usuario_id (nombre, apellidos, avatar_url)`).eq('proyecto_id', proyectoSeleccionado.proyecto_id).order('created_at', { ascending: false });
+      if (data) setLogsProyecto(data);
+      setShowBitacora(true);
+   };
+
+   const abrirVisorArchivos = (titulo: string, urls: string[]) => {
+      if (!urls || urls.length === 0) return;
+      setDocPreview({ urls, currentIndex: 0, nombre: titulo });
+   };
+
    useEffect(() => {
       fetchViabilidades()
       procesarColaSync()
@@ -402,7 +419,7 @@ export default function Viabilidad() {
          const { targetStatus, filesReporte } = payload;
          const updates: any = { status: targetStatus }
          if (targetStatus === 4) updates.fecha_verificada = new Date().toISOString()
-         if (targetStatus === 5 && filesReporte && filesReporte.length > 0) {
+         if ((targetStatus === 5 || targetStatus === 7) && filesReporte && filesReporte.length > 0) {
             const uploadedUrls = [];
             for (const file of filesReporte) {
                const fileExt = file.name.split('.').pop()
@@ -431,8 +448,15 @@ export default function Viabilidad() {
             }]);
             await enviarNotificacionVendedor(proyectoSeleccionado.proyecto?.vendedor_id, `⚙️ Ingeniería aceptó tu Solicitud de Viabilidad. Requiere que apruebes el proyecto en la bandeja de Aprobaciones.`, usuarioLogueado?.id);
          } else if (targetStatus === 7) {
-            await supabase.from('proyectos').update({ estatus: 'Viabilidad - Revisión', sub_estatus: null }).eq('id', proyectoSeleccionado.proyecto_id);
-            await enviarNotificacionRoles('notif_viabilidad_revision', `Viabilidad Técnica finalizada, requiere revisión gerencial: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/revision`, usuarioLogueado?.id);
+            await supabase.from('proyectos').update({ estatus: 'Viabilidad', sub_estatus: 'Terminado' }).eq('id', proyectoSeleccionado.proyecto_id);
+            
+            await supabase.from('proyectos_interacciones').insert([{
+               proyecto_id: proyectoSeleccionado.proyecto_id, usuario_id: usuarioLogueado?.id,
+               estado_anterior: 'Viabilidad', estado_nuevo: 'Viabilidad', accion: 'Reporte Técnico Subido',
+               mensaje: `Ingeniería finalizó la viabilidad técnica. ${payload.comentarios ? 'Comentarios: ' + payload.comentarios : ''}`
+            }]);
+
+            await enviarNotificacionRoles('notif_revision_viabilidad_terminada', `Viabilidad Técnica finalizada, requiere revisión gerencial: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/revision`, usuarioLogueado?.id);
          } else {
             const map: any = { 4: 'Verificada', 5: 'Ingeniería' }
             if (map[targetStatus]) await supabase.from('proyectos').update({ sub_estatus: map[targetStatus] }).eq('id', proyectoSeleccionado.proyecto_id);
@@ -623,7 +647,8 @@ export default function Viabilidad() {
                   });
                   setChatAbierto(true);
                }}
-               onBitacoraClick={() => setShowBitacora(true)}
+               onBitacoraClick={() => verLogsBitacora()}
+               onVerArchivos={abrirVisorArchivos}
             />
          )}
 
@@ -816,6 +841,50 @@ export default function Viabilidad() {
             )}
          </AnimatePresence>
 
+         {/* MODAL REPORTE INGENIERIA */}
+         <AnimatePresence>
+            {showModalSecundario === 'ReporteIngenieria' && (
+               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border-[3px] border-white w-full max-w-[400px] rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col">
+                     <div className="bg-orange-500 px-5 py-4 flex justify-between items-center">
+                        <h3 className="font-black text-white uppercase tracking-widest text-[11px] flex items-center gap-2"><FileText size={16}/> Reporte Ingeniería</h3>
+                        <button onClick={() => setShowModalSecundario(null)} className="text-white hover:text-orange-100 transition-colors"><X size={20} /></button>
+                     </div>
+                     <div className="p-5 flex flex-col gap-4 bg-slate-50">
+                        <div>
+                           <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Comentarios del Reporte</label>
+                           <textarea rows={4} value={reporteIngenieriaForm.comentarios} onChange={e => setReporteIngenieriaForm({...reporteIngenieriaForm, comentarios: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none resize-none shadow-inner" placeholder="Escribe tus observaciones..."></textarea>
+                        </div>
+                        <div>
+                           <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Adjuntar Archivos (Fotos/PDF)</label>
+                           <input type="file" multiple accept="image/*,.pdf" onChange={e => {
+                              if (e.target.files) {
+                                 setReporteIngenieriaForm({ ...reporteIngenieriaForm, archivos: Array.from(e.target.files) });
+                              }
+                           }} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100" />
+                           {reporteIngenieriaForm.archivos.length > 0 && (
+                              <div className="mt-2 text-[10px] font-bold text-slate-500">
+                                 {reporteIngenieriaForm.archivos.length} archivo(s) seleccionado(s)
+                              </div>
+                           )}
+                        </div>
+                     </div>
+                     <div className="p-4 bg-white border-t border-slate-100">
+                        <button onClick={() => {
+                           if (!reporteIngenieriaForm.comentarios && reporteIngenieriaForm.archivos.length === 0) {
+                              alert("Debes agregar comentarios o archivos"); return;
+                           }
+                           ejecutarTareaSync({ type: 'avanzar', payload: { targetStatus: 7, filesReporte: reporteIngenieriaForm.archivos, comentarios: reporteIngenieriaForm.comentarios }});
+                           setShowModalSecundario(null);
+                        }} disabled={procesando} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-3.5 text-[11px] font-black uppercase tracking-widest transition-colors shadow-md disabled:opacity-50">
+                           {procesando ? 'Guardando...' : 'Finalizar Viabilidad'}
+                        </button>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
          {/* MODAL INCIDENTE */}
          <AnimatePresence>
             {showModalSecundario === 'Incidente' && (
@@ -876,16 +945,15 @@ export default function Viabilidad() {
             )}
          </AnimatePresence>
 
-         {/* Visor Fachada */}
+         {/* Visor Documentos */}
          <AnimatePresence>
-            {showModalSecundario === 'Visor' && proyectoSeleccionado && (
-               <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setShowModalSecundario(null)}>
-                  <motion.img initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
-                     src={proyectoSeleccionado.proyecto.fachada_url} className="max-w-full max-h-screen object-contain rounded-[30px] border-4 border-white/10"
-                     onClick={(e: any) => e.stopPropagation()}
-                  />
-                  <button onClick={() => setShowModalSecundario(null)} className="absolute top-6 right-6 text-white p-3 bg-white/20 hover:bg-red-500 rounded-full transition-colors backdrop-blur-md border border-white/20"><X size={32} /></button>
-               </div>
+            {docPreview && (
+               <ModalVisorGlobal
+                  titulo={docPreview.nombre}
+                  urls={docPreview.urls}
+                  initialIndex={docPreview.currentIndex}
+                  onClose={() => setDocPreview(null)}
+               />
             )}
          </AnimatePresence>
 

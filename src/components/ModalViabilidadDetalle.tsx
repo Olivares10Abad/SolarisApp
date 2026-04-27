@@ -29,6 +29,10 @@ interface ModalViabilidadDetalleProps {
    isRevisionMode?: boolean; // Toggles actions for Ventas in Revisión vs Ingeniería in Viabilidad
    onAprobarRevision?: () => void;
    onRechazarRevision?: () => void;
+   isRevisionTerminadaMode?: boolean;
+   onRecotizar?: () => void;
+   onReingenieriaRevision?: () => void;
+   onVerArchivos?: (titulo: string, urls: string[]) => void;
 }
 
 export default function ModalViabilidadDetalle({
@@ -37,12 +41,15 @@ export default function ModalViabilidadDetalle({
    cancelarViabilidad, avanzarA, procesando,
    setAgendaForm, fileReporte, setFileReporte, filesReporte, setFilesReporte,
    onChatClick, onBitacoraClick,
-   isRevisionMode, onAprobarRevision, onRechazarRevision
+   isRevisionMode, onAprobarRevision, onRechazarRevision,
+   isRevisionTerminadaMode, onRecotizar, onReingenieriaRevision, onVerArchivos
 }: ModalViabilidadDetalleProps) {
 
    // Dependiendo del modo, normalizamos el objeto de proyecto
    const isVControl = !!proyectoSeleccionado.proyecto_id; // Viene de viabilidad_control
-   const viabilidadRef = isVControl ? proyectoSeleccionado : (proyectoSeleccionado.viabilidad_data || proyectoSeleccionado);
+   const viabilidadDataRaw = proyectoSeleccionado.viabilidad_data;
+   const unwrappedViabilidadData = Array.isArray(viabilidadDataRaw) && viabilidadDataRaw.length > 0 ? viabilidadDataRaw[0] : viabilidadDataRaw;
+   const viabilidadRef = isVControl ? proyectoSeleccionado : (unwrappedViabilidadData || proyectoSeleccionado);
    const proyectoDatos = isVControl ? proyectoSeleccionado.proyecto : proyectoSeleccionado;
 
    const idRefStr = proyectoDatos?.id_referencia ? `${proyectoDatos.id_referencia}` : `${(proyectoDatos?.id || viabilidadRef.id)?.split('-')[0].toUpperCase()}`;
@@ -149,6 +156,45 @@ export default function ModalViabilidadDetalle({
                               </button>
                            </div>
                         </div>
+                     ) : isRevisionTerminadaMode ? (
+                        <div className="mt-auto pt-4 border-t border-slate-100 text-center flex flex-col gap-3">
+                           <p className="text-[10px] font-black text-[#ffb000] uppercase tracking-widest leading-tight">Revisión de Viabilidad Terminada</p>
+                           <div className="flex gap-2">
+                              <button onClick={onAprobarRevision} disabled={procesando} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white shadow-md rounded-[12px] py-3 text-[10px] uppercase font-black tracking-widest transition-all">
+                                 Aprobar
+                              </button>
+                              <button onClick={onRecotizar} disabled={procesando} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 shadow-sm rounded-[12px] py-3 text-[10px] uppercase font-black tracking-widest transition-all">
+                                 Recotizar
+                              </button>
+                              <button onClick={onReingenieriaRevision} disabled={procesando} className="flex-1 bg-white border-2 border-red-200 text-red-500 hover:bg-red-50 shadow-sm rounded-[12px] py-3 text-[10px] uppercase font-black tracking-widest transition-all">
+                                 Reingeniería
+                              </button>
+                           </div>
+                           
+                           {viabilidadRef?.reportes_ingenieria?.length > 0 ? (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                  {viabilidadRef.reportes_ingenieria.map((url: string, idx: number) => (
+                                     <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [url]) : window.open(url, '_blank')} className="flex items-center justify-center gap-1.5 flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl py-2 px-3 text-[9px] uppercase font-black tracking-widest border border-blue-200 transition-colors" title={`Ver Reporte ${idx+1}`}>
+                                       <FileText size={12} strokeWidth={2.5}/> Reporte de Viabilidad {viabilidadRef.reportes_ingenieria.length > 1 ? idx+1 : ''}
+                                     </button>
+                                  ))}
+                              </div>
+                           ) : viabilidadRef?.reporte_ingenieria ? (
+                              <button onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [viabilidadRef.reporte_ingenieria]) : window.open(viabilidadRef.reporte_ingenieria, '_blank')} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl py-2.5 text-[10px] uppercase font-black tracking-widest border border-blue-200 mt-2 transition-colors">
+                                 <FileText size={14} strokeWidth={2.5}/> Ver Reporte de Viabilidad
+                              </button>
+                           ) : null}
+
+                           {proyectoDatos?.archivos_cotizacion?.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                  {proyectoDatos.archivos_cotizacion.map((url: string, idx: number) => (
+                                     <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Cotización', [url]) : window.open(url, '_blank')} className="flex items-center justify-center gap-1.5 flex-1 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-xl py-2 px-3 text-[9px] uppercase font-black tracking-widest border border-orange-200 transition-colors" title={`Ver Cotización ${idx+1}`}>
+                                       <FileText size={12} strokeWidth={2.5}/> Cotización {proyectoDatos.archivos_cotizacion.length > 1 ? idx+1 : ''}
+                                     </button>
+                                  ))}
+                              </div>
+                           )}
+                        </div>
                      ) : proyectoDatos?.sub_estatus === 'Pendiente Aprobacion Ventas' ? (
                         <div className="mt-auto pt-4 border-t border-slate-100 text-center flex flex-col gap-3">
                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
@@ -236,11 +282,11 @@ export default function ModalViabilidadDetalle({
                               {viabilidadRef?.reportes_ingenieria?.length > 0 ? (
                                  <div className="flex gap-1 ml-1 overflow-x-auto custom-scrollbar max-w-[80px]">
                                      {viabilidadRef.reportes_ingenieria.map((url: string, idx: number) => (
-                                        <button key={idx} onClick={() => window.open(url, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1 rounded-md shrink-0 border border-blue-100" title={`Ver Adjunto ${idx+1}`}><FileText size={12} strokeWidth={3}/></button>
+                                        <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [url]) : window.open(url, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1 rounded-md shrink-0 border border-blue-100" title={`Ver Adjunto ${idx+1}`}><FileText size={12} strokeWidth={3}/></button>
                                      ))}
                                  </div>
                               ) : viabilidadRef?.reporte_ingenieria && (
-                                 <button onClick={() => window.open(viabilidadRef.reporte_ingenieria, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-md ml-2 border border-blue-100" title="Ver Reporte Técnico"><FileText size={12} strokeWidth={3}/></button>
+                                 <button onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [viabilidadRef.reporte_ingenieria]) : window.open(viabilidadRef.reporte_ingenieria, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-md ml-2 border border-blue-100" title="Ver Reporte de Viabilidad"><FileText size={12} strokeWidth={3}/></button>
                               )}
                            </div>
 

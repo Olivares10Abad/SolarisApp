@@ -15,6 +15,7 @@ import ChatGlobal from '../components/ChatGlobal'
 import ModalLineaTiempo from '../components/ModalLineaTiempo'
 import ModalViabilidadDetalle from '../components/ModalViabilidadDetalle'
 import ModalDetallePago from '../components/finanzas/ModalDetallePago'
+import ModalVisorGlobal from '../components/ModalVisorGlobal'
 
 
 import degradadoBg from '../assets/degradado.png'
@@ -91,8 +92,10 @@ export default function Revision() {
 
   const [modalRechazo, setModalRechazo] = useState(false)
   const [modalAprobar, setModalAprobar] = useState(false)
+  const [modalRecotizar, setModalRecotizar] = useState(false)
   const [destinoRechazo, setDestinoRechazo] = useState<'Cotizador' | 'Vendedor'>('Cotizador')
   const [mensajeRechazo, setMensajeRechazo] = useState('')
+  const [mensajeRecotizar, setMensajeRecotizar] = useState('')
   const [mensajeAprobacion, setMensajeAprobacion] = useState('')
   const [procesando, setProcesando] = useState(false)
 
@@ -103,7 +106,7 @@ export default function Revision() {
   const fetchInicial = async () => {
     setCargando(true)
     const [resProyectos, resUsuarios, resPagos] = await Promise.all([
-      supabase.from('proyectos').select(`*, vendedor:vendedor_id (nombre, apellidos, avatar_url, departamento, telefono_movil, email_corporativo)`).order('created_at', { ascending: false }),
+      supabase.from('proyectos').select(`*, vendedor:vendedor_id (nombre, apellidos, avatar_url, departamento, telefono_movil, email_corporativo), viabilidad_data:viabilidad_control(*)`).order('created_at', { ascending: false }),
       supabase.from('perfiles').select(`id, nombre, apellidos, avatar_url, rol_sistema`).order('nombre', { ascending: true }),
       supabase.from('finanzas_pagos').select(`*, usuario:usuario_id (nombre, apellidos, avatar_url)`).eq('estatus', 'Pendiente').order('created_at', { ascending: false })
     ])
@@ -135,10 +138,14 @@ export default function Revision() {
     setProcesando(true);
     try {
       const isViabilidad = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas';
-      const nuevoEstatus = isViabilidad ? 'Evaluación' : (destinoRechazo === 'Vendedor' ? 'Cotización – Corrección' : 'Cotización');
+      const isViabilidadTerminada = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Terminado';
+      
+      let nuevoEstatus = isViabilidad ? 'Evaluación' : (destinoRechazo === 'Vendedor' ? 'Cotización – Corrección' : 'Cotización');
+      if (isViabilidadTerminada) nuevoEstatus = 'Viabilidad';
 
       const payload: any = { estatus: nuevoEstatus };
       if (isViabilidad) payload.sub_estatus = null;
+      if (isViabilidadTerminada) payload.sub_estatus = 'Ingeniería';
 
       await supabase.from('proyectos').update(payload).eq('id', proyectoSeleccionado.id);
 
@@ -147,18 +154,25 @@ export default function Revision() {
         usuario_id: usuarioLogueado?.id,
         estado_anterior: proyectoSeleccionado.estatus,
         estado_nuevo: nuevoEstatus,
-        accion: isViabilidad ? 'Viabilidad Rechazada' : (destinoRechazo === 'Vendedor' ? 'Regresado a Vendedor' : 'Revisión Rechazada'),
+        accion: isViabilidadTerminada ? 'Reingeniería Solicitada' : (isViabilidad ? 'Viabilidad Rechazada' : (destinoRechazo === 'Vendedor' ? 'Regresado a Vendedor' : 'Revisión Rechazada')),
         mensaje: mensajeRechazo
       }]);
 
       if (isViabilidad) {
-        // Also reset viabilidad_control
         await supabase.from('viabilidad_control').update({
           status: 0,
           fecha_agendada: null, fecha_verificada: null, fecha_terminada: null,
           hora_agendada_inicio: null, hora_agendada_fin: null
         }).eq('proyecto_id', proyectoSeleccionado.id)
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `🚨 Análisis de Viabilidad Rechazado por Ventas/Gerencia: ${proyectoSeleccionado.nombre_proyecto}. Ha regresado a Evaluación.`, usuarioLogueado?.id);
+      } else if (isViabilidadTerminada) {
+        if (proyectoSeleccionado.viabilidad_data?.[0]?.id) {
+           await supabase.from('viabilidad_control').update({ status: 5 }).eq('id', proyectoSeleccionado.viabilidad_data[0].id);
+        }
+        const ingenieroId = proyectoSeleccionado.viabilidad_data?.[0]?.ingeniero_id;
+        if (ingenieroId) {
+          await enviarNotificacionVendedor(ingenieroId, `🔄 Tu reporte técnico ha sido rechazado y requiere Reingeniería: ${proyectoSeleccionado.nombre_proyecto}. Motivo: ${mensajeRechazo}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+        }
       } else if (destinoRechazo === 'Vendedor') {
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `🚨 Corrección solicitada: Tu solicitud ha regresado a tu bandeja: ${proyectoSeleccionado.nombre_proyecto}`, usuarioLogueado?.id);
       } else {
@@ -169,16 +183,50 @@ export default function Revision() {
     } catch (err: any) { await showAlert('Aviso', "Error: " + err.message); } finally { setProcesando(false); }
   }
 
+  const handleRecotizar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mensajeRecotizar.trim()) { await showAlert('Aviso', "Debes ingresar un motivo para recotizar."); return; }
+    setProcesando(true);
+    try {
+      await supabase.from('proyectos').update({ estatus: 'Recotización', sub_estatus: null }).eq('id', proyectoSeleccionado.id);
+      
+      await supabase.from('proyectos_interacciones').insert([{
+        proyecto_id: proyectoSeleccionado.id,
+        usuario_id: usuarioLogueado?.id,
+        estado_anterior: proyectoSeleccionado.estatus,
+        estado_nuevo: 'Recotización',
+        accion: 'Enviado a Recotizar',
+        mensaje: `Se requiere nueva cotización por viabilidad. Motivo: ${mensajeRecotizar}`
+      }]);
+
+      await enviarNotificacionRoles('notif_cotizaciones', `⚠️ Se requiere Recotización por viabilidad técnica: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+      await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `⚠️ Se terminó la viabilidad técnica y se tuvo que recotizar: ${proyectoSeleccionado.nombre_proyecto}. Motivo: ${mensajeRecotizar}|||/proyectos?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+      
+      setModalRecotizar(false);
+      setModalDetalle(false);
+      setMensajeRecotizar('');
+      setProyectos(proyectos.filter(p => p.id !== proyectoSeleccionado.id));
+      await showAlert('Éxito', "El proyecto ha sido enviado al vendedor y cotizadores para Recotización.");
+    } catch (error: any) {
+      console.error(error);
+      await showAlert('Error', error.message);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   const handleAprobar = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcesando(true);
     try {
       const isRecot = proyectoSeleccionado.estatus.includes('Recotización');
       const isViabilidad = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas';
+      const isViabilidadTerminada = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Terminado';
 
       let nuevoEstado = 'Cotizado';
       if (isViabilidad) nuevoEstado = 'Viabilidad';
       else if (isRecot) nuevoEstado = 'Recotizado';
+      else if (isViabilidadTerminada) nuevoEstado = 'Evaluación';
 
       const payload: any = { estatus: nuevoEstado, fecha_revision: new Date().toISOString() };
 
@@ -189,6 +237,9 @@ export default function Revision() {
         if (vControl) {
           await supabase.from('viabilidad_control').update({ status: 2, fecha_revisada_ventas: new Date().toISOString() }).eq('id', vControl.id);
         }
+      } else if (isViabilidadTerminada) {
+         payload.sub_estatus = null;
+         payload.fecha_aprobacion_viabilidad = new Date().toISOString();
       } else if (isRecot) {
         payload.fecha_aprobacion_recotizacion = new Date().toISOString();
       } else {
@@ -196,11 +247,13 @@ export default function Revision() {
       }
 
       await supabase.from('proyectos').update(payload).eq('id', proyectoSeleccionado.id);
-      await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: nuevoEstado, accion: isViabilidad ? 'Aprobación de Viabilidad' : 'Revisión Aprobada', mensaje: mensajeAprobacion || (isViabilidad ? 'Ventas aprobó continuar con la Viabilidad técnica.' : 'Validado y liberado.') }]);
+      await supabase.from('proyectos_interacciones').insert([{ proyecto_id: proyectoSeleccionado.id, usuario_id: usuarioLogueado?.id, estado_anterior: proyectoSeleccionado.estatus, estado_nuevo: nuevoEstado, accion: isViabilidadTerminada ? 'Viabilidad Finalizada' : (isViabilidad ? 'Aprobación de Viabilidad' : 'Revisión Aprobada'), mensaje: mensajeAprobacion || (isViabilidadTerminada ? 'Viabilidad técnica finalizada con éxito.' : (isViabilidad ? 'Ventas aprobó continuar con la Viabilidad técnica.' : 'Validado y liberado.')) }]);
 
       if (isViabilidad) {
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Ventas ha aprobado solicitud de viabilidad: ${proyectoSeleccionado.nombre_proyecto}. Continúa en proceso.`, usuarioLogueado?.id);
         await enviarNotificacionRoles('notif_viabilidad_tecnica', `Se ha validado la revisión por ventas, la Viabilidad pasa a estar lista para agendar: ${proyectoSeleccionado.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+      } else if (isViabilidadTerminada) {
+         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Se ha terminado la viabilidad técnica y aprobado exitosamente: ${proyectoSeleccionado.nombre_proyecto}. Listo para avanzar a Contrato/Finanzas.|||/proyectos?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       } else {
         await enviarNotificacionRoles('notif_cotizaciones', `Revisión validada y aprobada: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✨ ¡Tu proyecto ha sido Cotizado exitosamente! Míralo y descárgalo aquí.`, usuarioLogueado?.id);
@@ -235,6 +288,8 @@ export default function Revision() {
         matchTab = p.estatus === 'Cotización – Revisión' || p.estatus === 'Recotización – Revisión';
       } else if (tabActiva === 'Aprobación Viabilidad') {
         matchTab = p.estatus === 'Viabilidad' && p.sub_estatus === 'Pendiente Aprobacion Ventas';
+      } else if (tabActiva === 'Viabilidad Terminada') {
+        matchTab = p.estatus === 'Viabilidad' && p.sub_estatus === 'Terminado';
       }
 
       return matchBusqueda && matchTab;
@@ -283,6 +338,11 @@ export default function Revision() {
             {(usuarioLogueado?.permisos_especificos?.revision_viabilidad || !usuarioLogueado?.permisos_especificos) && (
               <button onClick={() => setTabActiva('Aprobación Viabilidad')} className={`shrink-0 flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Aprobación Viabilidad' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
                 Aprobación Viabilidad
+              </button>
+            )}
+            {(usuarioLogueado?.permisos_especificos?.revision_viabilidad_terminada || !usuarioLogueado?.permisos_especificos) && (
+              <button onClick={() => setTabActiva('Viabilidad Terminada')} className={`shrink-0 flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${tabActiva === 'Viabilidad Terminada' ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                Viabilidad Terminada
               </button>
             )}
             {(usuarioLogueado?.permisos_especificos?.aprobacion_pagos || !usuarioLogueado?.permisos_especificos) && (
@@ -381,9 +441,10 @@ export default function Revision() {
 
         {/* MODAL DETALLE (FICHA TÉCNICA) */}
         <AnimatePresence>
-          {modalDetalle && proyectoSeleccionado && proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' && (
+          {modalDetalle && proyectoSeleccionado && proyectoSeleccionado.estatus === 'Viabilidad' && (proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' || proyectoSeleccionado.sub_estatus === 'Terminado') && (
             <ModalViabilidadDetalle
-              isRevisionMode={true}
+              isRevisionMode={proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas'}
+              isRevisionTerminadaMode={proyectoSeleccionado.sub_estatus === 'Terminado'}
               proyectoSeleccionado={proyectoSeleccionado}
               setProyectoSeleccionado={() => setModalDetalle(false)}
               showModalSecundario={showModalSecundario}
@@ -396,10 +457,13 @@ export default function Revision() {
               onBitacoraClick={() => verLogs(proyectoSeleccionado.id)}
               onAprobarRevision={() => setModalAprobar(true)}
               onRechazarRevision={() => setModalRechazo(true)}
+              onRecotizar={() => setModalRecotizar(true)}
+              onReingenieriaRevision={() => setModalRechazo(true)}
+              onVerArchivos={abrirVisorArchivos}
             />
           )}
 
-          {modalDetalle && proyectoSeleccionado && tabActiva !== 'Aprobación Pagos' && !(proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas') && (
+          {modalDetalle && proyectoSeleccionado && tabActiva !== 'Aprobación Pagos' && !(proyectoSeleccionado.estatus === 'Viabilidad' && (proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' || proyectoSeleccionado.sub_estatus === 'Terminado')) && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh] mt-12 md:mt-0 overflow-y-auto custom-scrollbar">
 
@@ -551,13 +615,13 @@ export default function Revision() {
             <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
                 <div className="bg-red-50 p-6 flex justify-between items-center text-red-600 border-b border-red-100">
-                  <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Rechazar Revisión</h3> </div>
+                  <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">{proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Solicitar Reingeniería' : 'Rechazar Revisión'}</h3> </div>
                   <button onClick={() => setModalRechazo(false)} className="p-2 bg-white hover:bg-red-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleRechazar} className="p-6 bg-slate-50 flex flex-col gap-4">
-                  <p className="text-[11px] md:text-xs text-slate-500 font-medium">Explica por qué la cotización no puede ser aprobada. El proyecto regresará al equipo de Cotizaciones para corrección.</p>
-                  <textarea required rows={4} placeholder="Ej: Faltan equipos en la lista..." value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-red-400 shadow-inner resize-none" />
-                  <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-red-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : 'Devolver a Cotizaciones'} </button>
+                  <p className="text-[11px] md:text-xs text-slate-500 font-medium">{proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Explica qué debe corregirse en el reporte técnico. El proyecto regresará a Ingeniería para reingeniería.' : 'Explica por qué la cotización no puede ser aprobada. El proyecto regresará al equipo de Cotizaciones para corrección.'}</p>
+                  <textarea required rows={4} placeholder={proyectoSeleccionado?.sub_estatus === 'Terminado' ? "Ej: El diagrama estructural no coincide con..." : "Ej: Faltan equipos en la lista..."} value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-red-400 shadow-inner resize-none" />
+                  <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-red-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : (proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Devolver a Ingeniería' : 'Devolver a Cotizaciones')} </button>
                 </form>
               </motion.div>
             </div>
@@ -610,43 +674,12 @@ export default function Revision() {
 
         <AnimatePresence>
           {docPreview && (
-            <div className="fixed inset-0 z-[1055] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onClick={() => setDocPreview(null)}>
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-6xl h-[85vh] md:h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-white mt-12 md:mt-0 relative" onClick={e => e.stopPropagation()}>
-
-                <div className="bg-white p-4 md:p-6 flex justify-between items-center border-b border-slate-100 z-10 shrink-0">
-                  <h3 className="font-black uppercase tracking-widest text-slate-900 text-[10px] md:text-sm flex items-center gap-2 md:gap-3">
-                    <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-500 hidden sm:block shrink-0" />
-                    <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-xs">{docPreview.nombre}</span>
-                    {docPreview.urls.length > 1 && <span className="text-blue-500 bg-blue-50 px-1.5 md:px-2 py-1 rounded-md shrink-0">({docPreview.currentIndex + 1}/{docPreview.urls.length})</span>}
-                  </h3>
-                  <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                    <a href={docPreview.urls[docPreview.currentIndex]} download target="_blank" rel="noreferrer" className="flex items-center bg-orange-500 hover:bg-slate-900 text-white rounded-lg md:rounded-xl shadow-sm px-4 md:px-5 py-2 transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest relative z-[2000]">
-                      Descargar
-                    </a>
-                    <div className="flex items-center bg-slate-100 rounded-lg md:rounded-xl overflow-hidden shadow-inner hidden md:flex">
-                      <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 md:p-2 md:px-3 hover:bg-slate-200 text-slate-600 font-black transition-colors">-</button>
-                      <span className="text-[9px] md:text-[10px] font-black text-slate-600 px-1 w-8 md:w-12 text-center">{Math.round(zoom * 100)}%</span>
-                      <button onClick={() => setZoom(z => Math.min(3, z + 0.25))} className="p-1.5 md:p-2 md:px-3 hover:bg-slate-200 text-slate-600 font-black transition-colors">+</button>
-                    </div>
-                    <button onClick={() => setDocPreview(null)} className="p-1.5 md:p-2 bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 rounded-full transition-colors"><X className="w-4 h-4 md:w-5 md:h-5" /></button>
-                  </div>
-                </div>
-
-                <div className="flex-1 bg-slate-800 relative flex items-center justify-center overflow-auto custom-scrollbar p-2 md:p-4">
-                  {docPreview.urls.length > 1 && (
-                    <>
-                      <button onClick={() => { setDocPreview(prev => prev ? { ...prev, currentIndex: Math.max(0, prev.currentIndex - 1) } : null); setZoom(1); }} disabled={docPreview.currentIndex === 0} className="fixed left-2 sm:left-4 md:absolute md:left-6 top-1/2 -translate-y-1/2 z-[1000] md:z-20 p-2 md:p-4 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md disabled:opacity-30 transition-all shadow-xl"><ChevronLeft className="w-5 h-5 md:w-6 md:h-6" /></button>
-                      <button onClick={() => { setDocPreview(prev => prev ? { ...prev, currentIndex: Math.min(prev.urls.length - 1, prev.currentIndex + 1) } : null); setZoom(1); }} disabled={docPreview.currentIndex === docPreview.urls.length - 1} className="fixed right-2 sm:right-4 md:absolute md:right-6 top-1/2 -translate-y-1/2 z-[1000] md:z-20 p-2 md:p-4 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md disabled:opacity-30 transition-all shadow-xl"><ChevronRight className="w-5 h-5 md:w-6 md:h-6" /></button>
-                    </>
-                  )}
-                  <div className="transition-transform duration-300 origin-center flex items-center justify-center w-full h-full" style={{ transform: `scale(${zoom})` }}>
-                    {docPreview.urls[docPreview.currentIndex].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) != null ? (
-                      <img src={docPreview.urls[docPreview.currentIndex]} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" alt="Visor" />
-                    ) : (<iframe src={docPreview.urls[docPreview.currentIndex]} className="w-full h-full border-none bg-white rounded-xl shadow-2xl min-h-[60vh] md:min-h-full" title={docPreview.nombre} />)}
-                  </div>
-                </div>
-              </motion.div>
-            </div>
+            <ModalVisorGlobal
+              titulo={docPreview.nombre}
+              urls={docPreview.urls}
+              initialIndex={docPreview.currentIndex}
+              onClose={() => setDocPreview(null)}
+            />
           )}
         </AnimatePresence>
 
@@ -669,6 +702,25 @@ export default function Revision() {
                 showConfirm={showConfirm} 
              />
           )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {modalRecotizar && (
+            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
+                <div className="bg-orange-50 p-6 flex justify-between items-center text-orange-600 border-b border-orange-100">
+                  <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Solicitar Recotización</h3> </div>
+                  <button onClick={() => setModalRecotizar(false)} className="p-2 bg-white hover:bg-orange-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
+                </div>
+                <form onSubmit={handleRecotizar} className="p-6 bg-slate-50 flex flex-col gap-4">
+                  <p className="text-[11px] md:text-xs text-slate-500 font-medium">Instrucciones o motivo por el cual el vendedor debe realizar una nueva cotización basado en el reporte de viabilidad.</p>
+                  <textarea required rows={4} placeholder="Ej: Se requieren 2 paneles adicionales..." value={mensajeRecotizar} onChange={e => setMensajeRecotizar(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-orange-400 shadow-inner resize-none" />
+                  <button type="submit" disabled={procesando} className="mt-2 bg-orange-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-orange-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : 'Enviar a Recotizar'} </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+
         </AnimatePresence>
 
       </main>

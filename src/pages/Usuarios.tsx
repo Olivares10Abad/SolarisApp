@@ -109,9 +109,11 @@ export default function Usuarios() {
     agendar_viabilidad: false, finanzas: false, cotizaciones: false,
     revision_cotizaciones: false, administrador_pagos: false,
     notif_cotizaciones: false, notif_revision: false,
+    notif_viabilidad_tecnica: false, notif_viabilidad_revision: false, notif_postventa: false, notif_instalacion: false,
     notif_interconexion: false, notif_inventario: false, notif_finanzas: false, notif_finanzas_revision: false,
+    notif_vehiculos: false, notif_revision_viabilidad_terminada: false,
     admin_calendario: false,
-    permisos_especificos: { revision_cotizacion: false, revision_viabilidad: false, aprobacion_pagos: false }
+    permisos_especificos: { revision_cotizacion: false, revision_viabilidad: false, aprobacion_pagos: false, revision_viabilidad_terminada: false }
   }
   const [formData, setFormData] = useState<any>(initialFormState)
 
@@ -490,6 +492,10 @@ export default function Usuarios() {
                             <input type="checkbox" checked={formData.permisos_especificos?.aprobacion_pagos || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), aprobacion_pagos: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
                             Aprobación Pagos
                           </label>
+                          <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-600 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm hover:border-orange-300 transition-all">
+                            <input type="checkbox" checked={formData.permisos_especificos?.revision_viabilidad_terminada || false} onChange={e => setFormData((p: any) => ({ ...p, permisos_especificos: { ...(p.permisos_especificos || {}), revision_viabilidad_terminada: e.target.checked } }))} className="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+                            Aprobación Viab. Terminada
+                          </label>
                         </div>
                       </div>
                     )}
@@ -524,6 +530,7 @@ export default function Usuarios() {
                         { k: 'notif_revision', tab: 'Cotizaciones', t: 'Pase a Revisión (Cot.)', d: 'Avisos cuando un proyecto está en Cotizado listo para revisar.', icon: CheckCircle2, c: 'emerald' },
                         { k: 'notif_viabilidad_tecnica', tab: 'Viabilidad', t: 'Viabilidad Técnica', d: 'Alertas sobre solicitudes y agendamientos técnicos.', icon: Zap, c: 'orange' },
                         { k: 'notif_viabilidad_revision', tab: 'Viabilidad', t: 'Revisión Viabilidad (Ventas)', d: 'Avisos cuando ingeniería termina y pasa a revisión de gerencia/ventas.', icon: CheckCircle2, c: 'indigo' },
+                        { k: 'notif_revision_viabilidad_terminada', tab: 'Viabilidad', t: 'Revisión Viabilidad Terminada', d: 'Notificaciones sobre aprobaciones finales de ingeniería.', icon: CheckCircle2, c: 'emerald' },
                         { k: 'notif_postventa', tab: 'Postventa', t: 'Postventa', d: 'Notificaciones sobre nuevas solicitudes de postventa y sus seguimientos.', icon: Wrench, c: 'violet' },
                         { k: 'notif_instalacion', tab: 'Operaciones', t: 'Instalación', d: 'Alertas de proyectos agendados a instalación y reportes.', icon: Wrench, c: 'teal' },
                         { k: 'notif_interconexion', tab: 'Operaciones', t: 'Interconexión', d: 'Avisos de trámites CFE, medidor e inspecciones.', icon: Network, c: 'purple' },
