@@ -10,6 +10,7 @@ interface FormularioViabilidadProps {
    onSaveOffline: (payload: any, isTerminar: boolean) => void;
    initialData?: any;
    usuarioLogueado?: any;
+   readOnly?: boolean;
 }
 
 const CATEGORIAS_EVIDENCIA = [
@@ -26,7 +27,7 @@ const CATEGORIAS_EVIDENCIA = [
    { id: 'area_instalacion', label: 'ÁREA DE INSTALACIÓN', required: true },
 ];
 
-export default function FormularioViabilidad({ proyectoSeleccionado, onClose, onSaveOffline, initialData, usuarioLogueado }: FormularioViabilidadProps) {
+export default function FormularioViabilidad({ proyectoSeleccionado, onClose, onSaveOffline, initialData, usuarioLogueado, readOnly = false }: FormularioViabilidadProps) {
    const { showAlert, showConfirm } = useDialog();
    const [isOnline, setIsOnline] = useState(navigator.onLine);
    const [activeTab, setActiveTab] = useState<'Viabilidad' | 'Fotos'>('Viabilidad');
@@ -258,7 +259,7 @@ export default function FormularioViabilidad({ proyectoSeleccionado, onClose, on
                
                {/* BODY */}
                <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50">
-                  
+                  <fieldset disabled={readOnly} className="contents">
                   {activeTab === 'Viabilidad' && (
                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                         {/* INFORMACION GENERAL */}
@@ -381,7 +382,7 @@ export default function FormularioViabilidad({ proyectoSeleccionado, onClose, on
 
                      </motion.div>
                   )}
-
+                  </fieldset>
                </div>
                
                {/* Footer / Actions */}
@@ -389,23 +390,25 @@ export default function FormularioViabilidad({ proyectoSeleccionado, onClose, on
                   <button onClick={onClose} className="px-6 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest text-slate-500 hover:bg-slate-100 transition-colors w-full sm:w-auto text-center">
                      Cerrar
                   </button>
-                  <div className="flex gap-3 w-full sm:w-auto">
-                     <button onClick={handleGuardar} className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors shadow-sm flex justify-center items-center gap-2">
-                        <Save size={16} />
-                        Guardar Progreso
-                     </button>
-                     <button onClick={handleTerminar} className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest bg-[#ffb000] text-slate-900 hover:bg-orange-500 hover:text-white transition-colors shadow-md flex justify-center items-center gap-2">
-                        <CheckCircle2 size={16} />
-                        Terminar y Enviar
-                     </button>
-                  </div>
+                  {!readOnly && (
+                     <div className="flex gap-3 w-full sm:w-auto">
+                        <button onClick={handleGuardar} className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors shadow-sm flex justify-center items-center gap-2">
+                           <Save size={16} />
+                           Guardar Progreso
+                        </button>
+                        <button onClick={handleTerminar} className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest bg-[#ffb000] text-slate-900 hover:bg-orange-500 hover:text-white transition-colors shadow-md flex justify-center items-center gap-2">
+                           <CheckCircle2 size={16} />
+                           Terminar y Enviar
+                        </button>
+                     </div>
+                  )}
                </div>
             </motion.div>
          </div>
 
          {/* Modal Secundario de Captura */}
          <AnimatePresence>
-            {activeCategoria && (
+            {activeCategoria && !readOnly && (
                <ModalCapturaFoto
                   categoria={activeCategoria}
                   initialData={evidencias[activeCategoria]}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, Info, MapPin, Clock, FileText, Check, ChevronRight, MessageSquare, History, Calendar, MapPin as MapIcon } from 'lucide-react'
+import { X, Camera, Info, MapPin, Clock, FileText, Check, ChevronRight, MessageSquare, History, Calendar, MapPin as MapIcon, LayoutList } from 'lucide-react'
 
 const STEPS = [
    { id: 1, label: 'Pendiente', filtro: 'Pendiente' },
@@ -73,7 +73,7 @@ export default function ModalViabilidadDetalle({
    }
 
    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 xl:p-8 bg-slate-900/60 backdrop-blur-md overflow-hidden" onClick={(e) => {
+      <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 xl:p-8 bg-slate-900/60 backdrop-blur-md overflow-hidden" onClick={(e) => {
          if (e.target === e.currentTarget) setProyectoSeleccionado(null)
       }}>
          <motion.div
@@ -92,7 +92,7 @@ export default function ModalViabilidadDetalle({
 
             {/* CUERPO MOCKUP */}
             <div className="p-4 overflow-y-auto custom-scrollbar flex-1 flex flex-col pb-6">
-               <div className="bg-white rounded-[26px] shadow-sm overflow-hidden p-0 border border-slate-100 flex flex-col h-full relative">
+               <div className="bg-white rounded-[26px] shadow-sm overflow-hidden p-0 border border-slate-100 flex flex-col min-h-full h-fit shrink-0 relative">
 
                   {/* Contenedor de Imagen con el Padding Solicitado para Redondear adentro */}
                   <div className="p-3 bg-white w-full">
@@ -171,19 +171,23 @@ export default function ModalViabilidadDetalle({
                               </button>
                            </div>
                            
-                           {viabilidadRef?.reportes_ingenieria?.length > 0 ? (
+                           {viabilidadRef?.hoja_digital_json?.reportes_ingenieria?.length > 0 ? (
                               <div className="flex flex-wrap gap-2 mt-2">
-                                  {viabilidadRef.reportes_ingenieria.map((url: string, idx: number) => (
-                                     <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [url]) : window.open(url, '_blank')} className="flex items-center justify-center gap-1.5 flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl py-2 px-3 text-[9px] uppercase font-black tracking-widest border border-blue-200 transition-colors" title={`Ver Reporte ${idx+1}`}>
-                                       <FileText size={12} strokeWidth={2.5}/> Reporte de Viabilidad {viabilidadRef.reportes_ingenieria.length > 1 ? idx+1 : ''}
+                                  {viabilidadRef.hoja_digital_json.reportes_ingenieria.map((url: string, idx: number) => (
+                                     <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Reporte de Ingeniería', [url]) : window.open(url, '_blank')} className="flex items-center justify-center gap-1.5 flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl py-2 px-3 text-[9px] uppercase font-black tracking-widest border border-blue-200 transition-colors" title={`Ver Reporte ${idx+1}`}>
+                                       <FileText size={12} strokeWidth={2.5}/> Reporte de Ingeniería {viabilidadRef.hoja_digital_json.reportes_ingenieria.length > 1 ? idx+1 : ''}
                                      </button>
                                   ))}
                               </div>
-                           ) : viabilidadRef?.reporte_ingenieria ? (
-                              <button onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [viabilidadRef.reporte_ingenieria]) : window.open(viabilidadRef.reporte_ingenieria, '_blank')} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl py-2.5 text-[10px] uppercase font-black tracking-widest border border-blue-200 mt-2 transition-colors">
-                                 <FileText size={14} strokeWidth={2.5}/> Ver Reporte de Viabilidad
+                           ) : viabilidadRef?.hoja_digital_json?.reporte_ingenieria ? (
+                              <button onClick={() => onVerArchivos ? onVerArchivos('Reporte de Ingeniería', [viabilidadRef.hoja_digital_json.reporte_ingenieria]) : window.open(viabilidadRef.hoja_digital_json.reporte_ingenieria, '_blank')} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl py-2.5 text-[10px] uppercase font-black tracking-widest border border-blue-200 mt-2 transition-colors">
+                                 <FileText size={14} strokeWidth={2.5}/> Ver Reporte de Ingeniería
                               </button>
                            ) : null}
+
+                           <button onClick={() => setShowModalSecundario('Formulario')} className="w-full flex items-center justify-center gap-1.5 bg-slate-50 text-slate-700 hover:bg-[#ffb000] hover:text-white rounded-xl py-2.5 text-[10px] uppercase font-black tracking-widest border border-slate-200 mt-2 transition-colors">
+                              <LayoutList size={14} strokeWidth={2.5}/> Ver Información de Viabilidad
+                           </button>
 
                            {proyectoDatos?.archivos_cotizacion?.length > 0 && (
                               <div className="flex flex-wrap gap-2 mt-2">
@@ -270,7 +274,7 @@ export default function ModalViabilidadDetalle({
                                     </button>
                                     
                                     {/* Botón Cruz (Incidente) */}
-                                    <button onClick={() => setShowModalSecundario('Incidente')} className="w-[28px] h-[28px] rounded-[6px] bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center justify-center border border-red-200 hover:border-red-500">
+                                    <button onClick={() => setShowModalSecundario('Incidente')} disabled={viabilidadRef?.status !== 4} className="w-[28px] h-[28px] rounded-[6px] bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center justify-center border border-red-200 hover:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed">
                                        <X size={16} strokeWidth={3} />
                                     </button>
                                  </div>
@@ -306,7 +310,7 @@ export default function ModalViabilidadDetalle({
                                  <button onClick={() => onVerArchivos ? onVerArchivos('Reporte', [viabilidadRef.hoja_digital_json.reporte_ingenieria]) : window.open(viabilidadRef.hoja_digital_json.reporte_ingenieria, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-md ml-2 border border-blue-100" title="Ver Reporte"><FileText size={12} strokeWidth={3}/></button>
                               )}
 
-                              <button onClick={() => avanzarA && avanzarA(7, true)} disabled={procesando || (viabilidadRef?.status < 5 && (!filesReporte || filesReporte.length === 0))} className="w-[28px] h-[28px] rounded-[8px] bg-slate-100 hover:bg-[#ffb000] text-slate-400 hover:text-white transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-transparent" title="Generar Reporte">
+                              <button onClick={() => avanzarA && avanzarA(7, true)} disabled={procesando || viabilidadRef?.status !== 5} className="w-[28px] h-[28px] rounded-[8px] bg-slate-100 hover:bg-[#ffb000] text-slate-400 hover:text-white transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-transparent" title="Generar Reporte">
                                  🔧
                               </button>
                            </div>

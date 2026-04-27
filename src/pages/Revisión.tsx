@@ -16,6 +16,7 @@ import ModalLineaTiempo from '../components/ModalLineaTiempo'
 import ModalViabilidadDetalle from '../components/ModalViabilidadDetalle'
 import ModalDetallePago from '../components/finanzas/ModalDetallePago'
 import ModalVisorGlobal from '../components/ModalVisorGlobal'
+import FormularioViabilidad from '../components/FormularioViabilidad'
 
 
 import degradadoBg from '../assets/degradado.png'
@@ -81,7 +82,7 @@ export default function Revision() {
 
   const [modalDetalle, setModalDetalle] = useState(false)
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any>(null)
-  const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | null>(null)
+  const [showModalSecundario, setShowModalSecundario] = useState<'Agendar' | 'Visor' | 'Info' | 'Formulario' | null>(null)
 
   const [docPreview, setDocPreview] = useState<{ urls: string[], currentIndex: number, nombre: string } | null>(null)
   const [zoom, setZoom] = useState(1)
@@ -139,7 +140,7 @@ export default function Revision() {
     try {
       const isViabilidad = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas';
       const isViabilidadTerminada = proyectoSeleccionado.estatus === 'Viabilidad' && proyectoSeleccionado.sub_estatus === 'Terminado';
-      
+
       let nuevoEstatus = isViabilidad ? 'Evaluación' : (destinoRechazo === 'Vendedor' ? 'Cotización – Corrección' : 'Cotización');
       if (isViabilidadTerminada) nuevoEstatus = 'Viabilidad';
 
@@ -167,7 +168,7 @@ export default function Revision() {
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `🚨 Análisis de Viabilidad Rechazado por Ventas/Gerencia: ${proyectoSeleccionado.nombre_proyecto}. Ha regresado a Evaluación.`, usuarioLogueado?.id);
       } else if (isViabilidadTerminada) {
         if (proyectoSeleccionado.viabilidad_data?.[0]?.id) {
-           await supabase.from('viabilidad_control').update({ status: 5 }).eq('id', proyectoSeleccionado.viabilidad_data[0].id);
+          await supabase.from('viabilidad_control').update({ status: 5 }).eq('id', proyectoSeleccionado.viabilidad_data[0].id);
         }
         const ingenieroId = proyectoSeleccionado.viabilidad_data?.[0]?.ingeniero_id;
         if (ingenieroId) {
@@ -190,7 +191,7 @@ export default function Revision() {
     setProcesando(true);
     try {
       await supabase.from('proyectos').update({ estatus: 'Recotización', sub_estatus: null }).eq('id', proyectoSeleccionado.id);
-      
+
       await supabase.from('proyectos_interacciones').insert([{
         proyecto_id: proyectoSeleccionado.id,
         usuario_id: usuarioLogueado?.id,
@@ -202,7 +203,7 @@ export default function Revision() {
 
       await enviarNotificacionRoles('notif_cotizaciones', `⚠️ Se requiere Recotización por viabilidad técnica: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `⚠️ Se terminó la viabilidad técnica y se tuvo que recotizar: ${proyectoSeleccionado.nombre_proyecto}. Motivo: ${mensajeRecotizar}|||/proyectos?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
-      
+
       setModalRecotizar(false);
       setModalDetalle(false);
       setMensajeRecotizar('');
@@ -239,8 +240,8 @@ export default function Revision() {
           await supabase.from('viabilidad_control').update({ status: 2, fecha_revisada_ventas: new Date().toISOString() }).eq('id', vControl.id);
         }
       } else if (isViabilidadTerminada) {
-         payload.sub_estatus = null;
-         payload.fecha_aprobacion_viabilidad = new Date().toISOString();
+        payload.sub_estatus = null;
+        payload.fecha_aprobacion_viabilidad = new Date().toISOString();
       } else if (isRecot) {
         payload.fecha_aprobacion_recotizacion = new Date().toISOString();
       } else {
@@ -254,7 +255,7 @@ export default function Revision() {
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Ventas ha aprobado solicitud de viabilidad: ${proyectoSeleccionado.nombre_proyecto}. Continúa en proceso.`, usuarioLogueado?.id);
         await enviarNotificacionRoles('notif_viabilidad_tecnica', `Se ha validado la revisión por ventas, la Viabilidad pasa a estar lista para agendar: ${proyectoSeleccionado.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       } else if (isViabilidadTerminada) {
-         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Se ha terminado la viabilidad técnica y aprobado exitosamente: ${proyectoSeleccionado.nombre_proyecto}. Listo para avanzar a Contrato/Finanzas.|||/proyectos?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
+        await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✅ Se ha terminado la viabilidad técnica y aprobado exitosamente: ${proyectoSeleccionado.nombre_proyecto}. Listo para avanzar a Contrato/Finanzas.|||/proyectos?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       } else {
         await enviarNotificacionRoles('notif_cotizaciones', `Revisión validada y aprobada: ${proyectoSeleccionado.nombre_proyecto}|||/cotizaciones?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `✨ ¡Tu proyecto ha sido Cotizado exitosamente! Míralo y descárgalo aquí.`, usuarioLogueado?.id);
@@ -299,9 +300,9 @@ export default function Revision() {
 
   const pagosFiltrados = useMemo(() => {
     return pagos.filter(p => {
-      const matchBusqueda = (p.proveedor_nombre || '').toLowerCase().includes(busqueda.toLowerCase()) || 
-                            (p.tipo_solicitud || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-                            (p.id || '').toLowerCase().includes(busqueda.toLowerCase());
+      const matchBusqueda = (p.proveedor_nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+        (p.tipo_solicitud || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+        (p.id || '').toLowerCase().includes(busqueda.toLowerCase());
       return matchBusqueda;
     })
   }, [pagos, busqueda])
@@ -363,34 +364,34 @@ export default function Revision() {
           {cargando ? (
             <p className="text-center text-slate-400 font-bold py-10 uppercase tracking-widest text-xs">Cargando revisiones...</p>
           ) : tabActiva === 'Aprobación Pagos' ? (
-             pagosFiltrados.length === 0 ? (
-                <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay pagos pendientes de aprobación.</p>
-                </div>
-             ) : (
-                pagosFiltrados.map((p) => {
-                  return (
-                    <div key={p.id} onClick={() => { setProyectoSeleccionado(p); setModalDetalle(true); }} className="bg-white border border-slate-100 rounded-[20px] md:rounded-[25px] p-4 md:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group hover:border-orange-400 transition-all hover:shadow-xl cursor-pointer relative overflow-hidden">
-                      <div className="flex items-center justify-between w-full">
-                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 md:w-14 md:h-14 bg-orange-100 text-orange-600 rounded-xl md:rounded-2xl flex items-center justify-center font-black text-lg md:text-xl flex-shrink-0 shadow-sm border border-orange-200">
-                               <Wallet size={24} />
-                            </div>
-                            <div>
-                               <h4 className="font-black text-slate-950 text-[12px] md:text-sm uppercase italic tracking-tighter leading-none">{p.proveedor_nombre}</h4>
-                               <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 mb-0.5">{p.usuario?.nombre} {p.usuario?.apellidos}</p>
-                               <p className="text-[10px] md:text-xs font-semibold text-slate-600 mt-1 uppercase flex items-center gap-1"><span className="bg-slate-100 px-2 py-0.5 rounded-lg">{p.tipo_solicitud}</span> {p.categoria}</p>
-                            </div>
-                         </div>
-                         <div className="text-right">
-                            <p className="font-black text-base md:text-xl text-green-600 leading-none">${p.monto_iva?.toLocaleString('es-MX', {minimumFractionDigits: 2})}</p>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">SLA Rev</p>
-                         </div>
+            pagosFiltrados.length === 0 ? (
+              <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay pagos pendientes de aprobación.</p>
+              </div>
+            ) : (
+              pagosFiltrados.map((p) => {
+                return (
+                  <div key={p.id} onClick={() => { setProyectoSeleccionado(p); setModalDetalle(true); }} className="bg-white border border-slate-100 rounded-[20px] md:rounded-[25px] p-4 md:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group hover:border-orange-400 transition-all hover:shadow-xl cursor-pointer relative overflow-hidden">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-orange-100 text-orange-600 rounded-xl md:rounded-2xl flex items-center justify-center font-black text-lg md:text-xl flex-shrink-0 shadow-sm border border-orange-200">
+                          <Wallet size={24} />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-slate-950 text-[12px] md:text-sm uppercase italic tracking-tighter leading-none">{p.proveedor_nombre}</h4>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 mb-0.5">{p.usuario?.nombre} {p.usuario?.apellidos}</p>
+                          <p className="text-[10px] md:text-xs font-semibold text-slate-600 mt-1 uppercase flex items-center gap-1"><span className="bg-slate-100 px-2 py-0.5 rounded-lg">{p.tipo_solicitud}</span> {p.categoria}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-base md:text-xl text-green-600 leading-none">${p.monto_iva?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">SLA Rev</p>
                       </div>
                     </div>
-                  )
-                })
-             )
+                  </div>
+                )
+              })
+            )
           ) : proyectosFiltrados.length === 0 ? (
             <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
               <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay proyectos pendientes.</p>
@@ -439,292 +440,304 @@ export default function Revision() {
             })
           )}
         </div>
-
-        {/* MODAL DETALLE (FICHA TÉCNICA) */}
-        <AnimatePresence>
-          {modalDetalle && proyectoSeleccionado && proyectoSeleccionado.estatus === 'Viabilidad' && (proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' || proyectoSeleccionado.sub_estatus === 'Terminado') && (
-            <ModalViabilidadDetalle
-              isRevisionMode={proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas'}
-              isRevisionTerminadaMode={proyectoSeleccionado.sub_estatus === 'Terminado'}
-              proyectoSeleccionado={proyectoSeleccionado}
-              setProyectoSeleccionado={() => setModalDetalle(false)}
-              showModalSecundario={showModalSecundario}
-              setShowModalSecundario={setShowModalSecundario}
-              procesando={procesando}
-              onChatClick={() => {
-                setChatInicial({ tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus, vendedor_id: proyectoSeleccionado.vendedor_id });
-                setChatAbierto(true);
-              }}
-              onBitacoraClick={() => verLogs(proyectoSeleccionado.id)}
-              onAprobarRevision={() => setModalAprobar(true)}
-              onRechazarRevision={() => setModalRechazo(true)}
-              onRecotizar={() => setModalRecotizar(true)}
-              onReingenieriaRevision={() => setModalRechazo(true)}
-              onVerArchivos={abrirVisorArchivos}
-            />
-          )}
-
-          {modalDetalle && proyectoSeleccionado && tabActiva !== 'Aprobación Pagos' && !(proyectoSeleccionado.estatus === 'Viabilidad' && (proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' || proyectoSeleccionado.sub_estatus === 'Terminado')) && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh] mt-12 md:mt-0 overflow-y-auto custom-scrollbar">
-
-                <div className="flex justify-between items-center pt-6 pb-4 px-6 md:px-8 border-b border-slate-100 shrink-0 bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /></div>
-                    <p className="font-black text-[12px] md:text-[14px] uppercase italic text-slate-950 leading-none tracking-tighter truncate">
-                      Revisión: {proyectoSeleccionado.nombre_proyecto.split('-')[0]?.trim()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => {
-                      setChatInicial({ tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus, vendedor_id: proyectoSeleccionado.vendedor_id });
-                      setChatAbierto(true);
-                    }} className="p-2 bg-white shadow-sm border border-slate-100 text-orange-500 hover:text-white hover:bg-orange-500 rounded-full transition-colors"><MessageSquare className="w-4 h-4 md:w-5 md:h-5" /></button>
-                    <button onClick={() => verLogs(proyectoSeleccionado.id)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-500 hover:text-blue-500 rounded-full transition-colors"><History className="w-4 h-4 md:w-5 md:h-5" /></button>
-                    <button onClick={() => setModalDetalle(false)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors leading-none"><X className="w-4 h-4 md:w-5 md:h-5" /></button>
-                  </div>
-                </div>
-
-                <div className="p-6 md:p-8 bg-white flex flex-col gap-5 md:gap-6">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
-                    <div className="flex-1 w-full overflow-hidden">
-                      <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Nombre del Proyecto</p>
-                      <h2 className="font-black text-xl md:text-2xl text-slate-950 uppercase italic tracking-tighter leading-tight truncate">
-                        {proyectoSeleccionado.nombre_proyecto.split('-')[1]?.trim() || proyectoSeleccionado.nombre_proyecto}
-                      </h2>
-                    </div>
-                    <span className={`text-[9px] md:text-[11px] font-black px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl uppercase border shadow-sm flex-shrink-0 leading-none ${getEstiloEstatus(proyectoSeleccionado.estatus).bg} ${getEstiloEstatus(proyectoSeleccionado.estatus).text}`}>
-                      {getEstiloEstatus(proyectoSeleccionado.estatus).label}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 bg-slate-50 rounded-[15px] md:rounded-[20px] p-4 md:p-5 border border-slate-100 shadow-inner">
-                    <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><MapPin size={10} /> Giro</p> <p className="text-xs md:text-sm font-bold text-slate-800 uppercase">{proyectoSeleccionado.giro_proyecto || '-'}</p> </div>
-                    <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><CalendarIcon size={10} /> Creado El</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(proyectoSeleccionado.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })} </p> </div>
-                    <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Clock size={10} /> H. Creado</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(proyectoSeleccionado.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} </p> </div>
-                    <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Timer size={10} /> SLA Global</p> <p className={`text-xs md:text-sm font-black uppercase ${calcularHorasHabiles(proyectoSeleccionado.created_at).hours >= 24 ? 'text-red-500' : 'text-slate-800'}`}> {calcularHorasHabiles(proyectoSeleccionado.created_at).text} hrs </p> </div>
-                  </div>
-
-                  {proyectoSeleccionado.vendedor && (
-                    <div className="bg-white border border-slate-200 rounded-[15px] p-3 md:p-4 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                      <div className="flex flex-col">
-                        <p className="font-black text-[8px] md:text-[9px] text-slate-400 uppercase tracking-widest mb-1">Vendedor / Solicitante</p>
-                        <p className="font-black text-slate-900 text-[10px] md:text-xs uppercase italic tracking-tighter truncate"> 👤 {proyectoSeleccionado.vendedor.nombre} {proyectoSeleccionado.vendedor.apellidos} </p>
-                      </div>
-                      <div className="flex gap-2 w-full md:w-auto mt-1 md:mt-0">
-                        {proyectoSeleccionado.vendedor.telefono_movil && (<a href={`tel:${proyectoSeleccionado.vendedor.telefono_movil}`} className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-100 text-slate-600 px-3 md:px-4 py-2 rounded-xl hover:text-orange-500 hover:border-orange-300 font-bold text-[8px] md:text-[9px] uppercase tracking-widest transition-colors"><Phone size={10} /> Llamar</a>)}
-                        {proyectoSeleccionado.vendedor.email_corporativo && (<a href={`mailto:${proyectoSeleccionado.vendedor.email_corporativo}`} className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-100 text-slate-600 px-3 md:px-4 py-2 rounded-xl hover:text-orange-500 hover:border-orange-300 font-bold text-[8px] md:text-[9px] uppercase tracking-widest transition-colors"><Mail size={10} /> Correo</a>)}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-slate-50 p-4 md:p-5 rounded-[15px] md:rounded-[20px] border border-slate-200 shadow-inner flex flex-col gap-2 md:gap-3">
-                    <p className="font-black text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest">📝 Contexto de la Solicitud</p>
-                    <p className="text-xs md:text-sm text-slate-800 font-medium italic border-l-2 border-blue-300 pl-3 py-1">
-                      {proyectoSeleccionado.comentarios_iniciales ? `"${proyectoSeleccionado.comentarios_iniciales}"` : 'Sin comentarios adicionales.'}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 px-1 pb-2 border-t border-slate-100 pt-4 mt-1">
-                    <button onClick={() => abrirVisorArchivos('Archivos del Vendedor', proyectoSeleccionado.archivos_adjuntos || (proyectoSeleccionado.archivo_url ? [proyectoSeleccionado.archivo_url] : []))} disabled={!(proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url)} className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 opacity-90'}`}>
-                      <FileText size={14} /> Ver Recibos/Planos
-                    </button>
-                    <button onClick={() => abrirVisorArchivos('Propuestas de Cotización', proyectoSeleccionado.archivos_cotizacion || [])} disabled={!(proyectoSeleccionado.archivos_cotizacion?.length > 0)} className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_cotizacion?.length > 0 ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 opacity-90'}`}>
-                      <FileCheck size={14} /> Ver Cotización
-                    </button>
-                  </div>
-
-                  {['Cotización - Revisión', 'Cotización – Revisión', 'Recotización - Revisión', 'Recotización – Revisión', 'Viabilidad - Revisión'].includes(proyectoSeleccionado.estatus) && (
-                    <div className={`grid ${proyectoSeleccionado.estatus.includes('Recotización') ? 'grid-cols-1' : 'grid-cols-2'} gap-3 pt-4 border-t border-slate-100 mt-1`}>
-                      {!proyectoSeleccionado.estatus.includes('Recotización') && (
-                        <button onClick={() => setModalRechazo(true)} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-red-200 bg-white text-red-500 font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"> <FileX className="w-4 h-4 md:w-5 md:h-5" /> Rechazar </button>
-                      )}
-                      <button onClick={() => setModalAprobar(true)} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-emerald-500 bg-emerald-500 text-white font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors"> <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5" /> Aprobar </button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* MODALES SECUNDARIOS DEL COMPONENTE DE VIABILIDAD */}
-        <AnimatePresence>
-          {showModalSecundario === 'Visor' && proyectoSeleccionado && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setShowModalSecundario(null)}>
-              <motion.img initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
-                src={proyectoSeleccionado.fachada_url} className="max-w-full max-h-screen object-contain rounded-[30px] border-4 border-white/10"
-                onClick={(e: any) => e.stopPropagation()}
-              />
-              <button onClick={() => setShowModalSecundario(null)} className="absolute top-6 right-6 text-white p-3 bg-white/20 hover:bg-red-500 rounded-full transition-colors backdrop-blur-md border border-white/20"><X size={32} /></button>
-            </div>
-          )}
-          {showModalSecundario === 'Info' && proyectoSeleccionado && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border-[3px] border-slate-100 w-full max-w-[420px] rounded-[32px] overflow-hidden shadow-2xl relative">
-                <div className="bg-slate-50 px-5 py-4 flex justify-between items-center border-b border-slate-100">
-                  <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px] flex items-center gap-2"><Info size={16} /> Info Solicitud de Viabilidad</h3>
-                  <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
-                </div>
-                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto w-[420px] max-w-full custom-scrollbar">
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Calle</p>
-                      <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.calle || 'N/D'}</p>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Colonia</p>
-                      <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.colonia || 'N/D'}</p>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Ciudad</p>
-                      <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.ciudad || 'N/D'}</p>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Estado / CP</p>
-                      <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.estado_dir} / {proyectoSeleccionado.codigo_postal}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Link Maps Original</p>
-                    <a href={proyectoSeleccionado.link_maps} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 block hover:underline break-all leading-tight" title={proyectoSeleccionado.link_maps}>{proyectoSeleccionado.link_maps || 'Sin enviar'}</a>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Escalera Especial</p>
-                    <span className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-[6px] ${proyectoSeleccionado.requiere_escalera ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-slate-200 text-slate-500'}`}>
-                      {proyectoSeleccionado.requiere_escalera ? 'SÍ REQUIERE' : 'NO'}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-2">Comentarios Solicitud</p>
-                    <p className="text-xs font-bold text-slate-700 italic border-l-2 border-[#ffb000] pl-3 py-1">{proyectoSeleccionado.comentarios_solicitud || 'Ningún comentario.'}</p>
-                  </div>
-
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* ... MODALES RESTANTES (RECHAZO/APROBACIÓN) ... */}
-        <AnimatePresence>
-          {modalRechazo && (
-            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
-                <div className="bg-red-50 p-6 flex justify-between items-center text-red-600 border-b border-red-100">
-                  <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">{proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Solicitar Reingeniería' : 'Rechazar Revisión'}</h3> </div>
-                  <button onClick={() => setModalRechazo(false)} className="p-2 bg-white hover:bg-red-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleRechazar} className="p-6 bg-slate-50 flex flex-col gap-4">
-                  <p className="text-[11px] md:text-xs text-slate-500 font-medium">{proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Explica qué debe corregirse en el reporte técnico. El proyecto regresará a Ingeniería para reingeniería.' : 'Explica por qué la cotización no puede ser aprobada. El proyecto regresará al equipo de Cotizaciones para corrección.'}</p>
-                  <textarea required rows={4} placeholder={proyectoSeleccionado?.sub_estatus === 'Terminado' ? "Ej: El diagrama estructural no coincide con..." : "Ej: Faltan equipos en la lista..."} value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-red-400 shadow-inner resize-none" />
-                  <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-red-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : (proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Devolver a Ingeniería' : 'Devolver a Cotizaciones')} </button>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {modalAprobar && (
-            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
-                <div className="bg-emerald-50 p-6 flex justify-between items-center text-emerald-700 border-b border-emerald-100">
-                  <div className="flex items-center gap-3"> <CheckCircle2 size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Aprobar Revisión</h3> </div>
-                  <button onClick={() => setModalAprobar(false)} className="p-2 bg-white hover:bg-emerald-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleAprobar} className="p-6 bg-slate-50 flex flex-col gap-5">
-                  <div>
-                    <span className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase text-slate-500 mb-2"> <FileText className="w-4 h-4 text-emerald-500" /> Comentario de Cierre (Opcional) </span>
-                    <textarea rows={3} placeholder="Dejar un mensaje final..." value={mensajeAprobacion} onChange={e => setMensajeAprobacion(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none resize-none shadow-inner" />
-                  </div>
-                  <button type="submit" disabled={procesando} className="mt-2 bg-emerald-500 text-white w-full py-4 rounded-xl font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Procesando...' : 'Aprobar y Liberar Proyecto'} </button>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* VISORES Y LOGS COMPACTOS */}
-        <AnimatePresence>
-          {modalListaArchivos && (
-            <div className="fixed inset-0 z-[1051] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-sm shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0 max-h-[70vh]">
-                <div className="bg-slate-50 p-5 md:p-6 flex justify-between items-center border-b border-slate-200 shrink-0">
-                  <h3 className="font-black uppercase tracking-widest text-slate-900 text-xs md:text-sm flex items-center gap-2"><FileText className="text-blue-500 w-4 h-4 md:w-5 md:h-5" /> {modalListaArchivos.titulo}</h3>
-                  <button onClick={() => setModalListaArchivos(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors shrink-0"><X size={16} /></button>
-                </div>
-                <div className="p-5 md:p-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
-                  {modalListaArchivos.urls.map((url, idx) => (
-                    <button key={idx} onClick={() => { setDocPreview({ urls: modalListaArchivos.urls, currentIndex: idx, nombre: modalListaArchivos.titulo }); setModalListaArchivos(null); }} className="w-full text-left py-3 md:py-4 px-4 md:px-5 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all font-black text-[9px] md:text-[11px] text-slate-700 uppercase tracking-widest flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-3 truncate">
-                        <FileIcon className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-400 shrink-0" /> Opción {idx + 1}
-                      </span>
-                      <span className="text-[8px] bg-slate-50 border border-slate-100 px-2 py-1 rounded-md text-slate-400 shrink-0">V{idx + 1}</span>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {docPreview && (
-            <ModalVisorGlobal
-              titulo={docPreview.nombre}
-              urls={docPreview.urls}
-              initialIndex={docPreview.currentIndex}
-              onClose={() => setDocPreview(null)}
-            />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {modalLog && proyectoSeleccionado && (
-            <ModalLineaTiempo
-              logs={logsProyecto}
-              proyecto={proyectoSeleccionado}
-              onClose={() => setModalLog(false)}
-            />
-          )}
-
-          {modalDetalle && tabActiva === 'Aprobación Pagos' && proyectoSeleccionado && (
-             <ModalDetallePago 
-                pago={proyectoSeleccionado} 
-                onClose={() => setModalDetalle(false)} 
-                onSuccess={() => {setModalDetalle(false); fetchInicial()}}
-                usuarioLogueado={usuarioLogueado} 
-                showAlert={showAlert} 
-                showConfirm={showConfirm} 
-             />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {modalRecotizar && (
-            <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
-                <div className="bg-orange-50 p-6 flex justify-between items-center text-orange-600 border-b border-orange-100">
-                  <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Solicitar Recotización</h3> </div>
-                  <button onClick={() => setModalRecotizar(false)} className="p-2 bg-white hover:bg-orange-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleRecotizar} className="p-6 bg-slate-50 flex flex-col gap-4">
-                  <p className="text-[11px] md:text-xs text-slate-500 font-medium">Instrucciones o motivo por el cual el vendedor debe realizar una nueva cotización basado en el reporte de viabilidad.</p>
-                  <textarea required rows={4} placeholder="Ej: Se requieren 2 paneles adicionales..." value={mensajeRecotizar} onChange={e => setMensajeRecotizar(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-orange-400 shadow-inner resize-none" />
-                  <button type="submit" disabled={procesando} className="mt-2 bg-orange-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-orange-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : 'Enviar a Recotizar'} </button>
-                </form>
-              </motion.div>
-            </div>
-          )}
-
-        </AnimatePresence>
-
       </main>
+
+      {/* MODAL DETALLE (FICHA TÉCNICA) */}
+      <AnimatePresence>
+        {modalDetalle && proyectoSeleccionado && proyectoSeleccionado.estatus === 'Viabilidad' && (proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' || proyectoSeleccionado.sub_estatus === 'Terminado') && (
+          <ModalViabilidadDetalle
+            isRevisionMode={proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas'}
+            isRevisionTerminadaMode={proyectoSeleccionado.sub_estatus === 'Terminado'}
+            proyectoSeleccionado={proyectoSeleccionado}
+            setProyectoSeleccionado={() => setModalDetalle(false)}
+            showModalSecundario={showModalSecundario}
+            setShowModalSecundario={setShowModalSecundario}
+            procesando={procesando}
+            onChatClick={() => {
+              setChatInicial({ tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus, vendedor_id: proyectoSeleccionado.vendedor_id });
+              setChatAbierto(true);
+            }}
+            onBitacoraClick={() => verLogs(proyectoSeleccionado.id)}
+            onAprobarRevision={() => setModalAprobar(true)}
+            onRechazarRevision={() => setModalRechazo(true)}
+            onRecotizar={() => setModalRecotizar(true)}
+            onReingenieriaRevision={() => setModalRechazo(true)}
+            onVerArchivos={abrirVisorArchivos}
+          />
+        )}
+
+        {modalDetalle && proyectoSeleccionado && tabActiva !== 'Aprobación Pagos' && !(proyectoSeleccionado.estatus === 'Viabilidad' && (proyectoSeleccionado.sub_estatus === 'Pendiente Aprobacion Ventas' || proyectoSeleccionado.sub_estatus === 'Terminado')) && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col border border-white max-h-[85vh] mt-12 md:mt-0 overflow-y-auto custom-scrollbar">
+
+              <div className="flex justify-between items-center pt-6 pb-4 px-6 md:px-8 border-b border-slate-100 shrink-0 bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /></div>
+                  <p className="font-black text-[12px] md:text-[14px] uppercase italic text-slate-950 leading-none tracking-tighter truncate">
+                    Revisión: {proyectoSeleccionado.nombre_proyecto.split('-')[0]?.trim()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => {
+                    setChatInicial({ tipo: 'proyecto', id: proyectoSeleccionado.id, nombre: proyectoSeleccionado.nombre_proyecto, estatusProyecto: proyectoSeleccionado.estatus, vendedor_id: proyectoSeleccionado.vendedor_id });
+                    setChatAbierto(true);
+                  }} className="p-2 bg-white shadow-sm border border-slate-100 text-orange-500 hover:text-white hover:bg-orange-500 rounded-full transition-colors"><MessageSquare className="w-4 h-4 md:w-5 md:h-5" /></button>
+                  <button onClick={() => verLogs(proyectoSeleccionado.id)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-500 hover:text-blue-500 rounded-full transition-colors"><History className="w-4 h-4 md:w-5 md:h-5" /></button>
+                  <button onClick={() => setModalDetalle(false)} className="p-2 bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors leading-none"><X className="w-4 h-4 md:w-5 md:h-5" /></button>
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8 bg-white flex flex-col gap-5 md:gap-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
+                  <div className="flex-1 w-full overflow-hidden">
+                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Nombre del Proyecto</p>
+                    <h2 className="font-black text-xl md:text-2xl text-slate-950 uppercase italic tracking-tighter leading-tight truncate">
+                      {proyectoSeleccionado.nombre_proyecto.split('-')[1]?.trim() || proyectoSeleccionado.nombre_proyecto}
+                    </h2>
+                  </div>
+                  <span className={`text-[9px] md:text-[11px] font-black px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl uppercase border shadow-sm flex-shrink-0 leading-none ${getEstiloEstatus(proyectoSeleccionado.estatus).bg} ${getEstiloEstatus(proyectoSeleccionado.estatus).text}`}>
+                    {getEstiloEstatus(proyectoSeleccionado.estatus).label}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 bg-slate-50 rounded-[15px] md:rounded-[20px] p-4 md:p-5 border border-slate-100 shadow-inner">
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><MapPin size={10} /> Giro</p> <p className="text-xs md:text-sm font-bold text-slate-800 uppercase">{proyectoSeleccionado.giro_proyecto || '-'}</p> </div>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><CalendarIcon size={10} /> Creado El</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(proyectoSeleccionado.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })} </p> </div>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Clock size={10} /> H. Creado</p> <p className="text-[10px] md:text-xs font-bold text-slate-800 uppercase"> {new Date(proyectoSeleccionado.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} </p> </div>
+                  <div className="col-span-1"> <p className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1"><Timer size={10} /> SLA Global</p> <p className={`text-xs md:text-sm font-black uppercase ${calcularHorasHabiles(proyectoSeleccionado.created_at).hours >= 24 ? 'text-red-500' : 'text-slate-800'}`}> {calcularHorasHabiles(proyectoSeleccionado.created_at).text} hrs </p> </div>
+                </div>
+
+                {proyectoSeleccionado.vendedor && (
+                  <div className="bg-white border border-slate-200 rounded-[15px] p-3 md:p-4 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <div className="flex flex-col">
+                      <p className="font-black text-[8px] md:text-[9px] text-slate-400 uppercase tracking-widest mb-1">Vendedor / Solicitante</p>
+                      <p className="font-black text-slate-900 text-[10px] md:text-xs uppercase italic tracking-tighter truncate"> 👤 {proyectoSeleccionado.vendedor.nombre} {proyectoSeleccionado.vendedor.apellidos} </p>
+                    </div>
+                    <div className="flex gap-2 w-full md:w-auto mt-1 md:mt-0">
+                      {proyectoSeleccionado.vendedor.telefono_movil && (<a href={`tel:${proyectoSeleccionado.vendedor.telefono_movil}`} className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-100 text-slate-600 px-3 md:px-4 py-2 rounded-xl hover:text-orange-500 hover:border-orange-300 font-bold text-[8px] md:text-[9px] uppercase tracking-widest transition-colors"><Phone size={10} /> Llamar</a>)}
+                      {proyectoSeleccionado.vendedor.email_corporativo && (<a href={`mailto:${proyectoSeleccionado.vendedor.email_corporativo}`} className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-100 text-slate-600 px-3 md:px-4 py-2 rounded-xl hover:text-orange-500 hover:border-orange-300 font-bold text-[8px] md:text-[9px] uppercase tracking-widest transition-colors"><Mail size={10} /> Correo</a>)}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-slate-50 p-4 md:p-5 rounded-[15px] md:rounded-[20px] border border-slate-200 shadow-inner flex flex-col gap-2 md:gap-3">
+                  <p className="font-black text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest">📝 Contexto de la Solicitud</p>
+                  <p className="text-xs md:text-sm text-slate-800 font-medium italic border-l-2 border-blue-300 pl-3 py-1">
+                    {proyectoSeleccionado.comentarios_iniciales ? `"${proyectoSeleccionado.comentarios_iniciales}"` : 'Sin comentarios adicionales.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 px-1 pb-2 border-t border-slate-100 pt-4 mt-1">
+                  <button onClick={() => abrirVisorArchivos('Archivos del Vendedor', proyectoSeleccionado.archivos_adjuntos || (proyectoSeleccionado.archivo_url ? [proyectoSeleccionado.archivo_url] : []))} disabled={!(proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url)} className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_adjuntos?.length > 0 || proyectoSeleccionado.archivo_url ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 opacity-90'}`}>
+                    <FileText size={14} /> Ver Recibos/Planos
+                  </button>
+                  <button onClick={() => abrirVisorArchivos('Propuestas de Cotización', proyectoSeleccionado.archivos_cotizacion || [])} disabled={!(proyectoSeleccionado.archivos_cotizacion?.length > 0)} className={`py-3 md:py-4 px-1.5 rounded-xl md:rounded-2xl border-2 font-black text-[8px] md:text-[10px] uppercase tracking-widest transition-all shadow-sm tracking-tighter flex items-center justify-center gap-2 leading-tight ${proyectoSeleccionado.archivos_cotizacion?.length > 0 ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 opacity-90'}`}>
+                    <FileCheck size={14} /> Ver Cotización
+                  </button>
+                </div>
+
+                {['Cotización - Revisión', 'Cotización – Revisión', 'Recotización - Revisión', 'Recotización – Revisión', 'Viabilidad - Revisión'].includes(proyectoSeleccionado.estatus) && (
+                  <div className={`grid ${proyectoSeleccionado.estatus.includes('Recotización') ? 'grid-cols-1' : 'grid-cols-2'} gap-3 pt-4 border-t border-slate-100 mt-1`}>
+                    {!proyectoSeleccionado.estatus.includes('Recotización') && (
+                      <button onClick={() => setModalRechazo(true)} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-red-200 bg-white text-red-500 font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"> <FileX className="w-4 h-4 md:w-5 md:h-5" /> Rechazar </button>
+                    )}
+                    <button onClick={() => setModalAprobar(true)} className="py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-emerald-500 bg-emerald-500 text-white font-black text-[9px] md:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors"> <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5" /> Aprobar </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODALES SECUNDARIOS DEL COMPONENTE DE VIABILIDAD */}
+      <AnimatePresence>
+        {showModalSecundario === 'Visor' && proyectoSeleccionado && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setShowModalSecundario(null)}>
+            <motion.img initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
+              src={proyectoSeleccionado.fachada_url} className="max-w-full max-h-screen object-contain rounded-[30px] border-4 border-white/10"
+              onClick={(e: any) => e.stopPropagation()}
+            />
+            <button onClick={() => setShowModalSecundario(null)} className="absolute top-6 right-6 text-white p-3 bg-white/20 hover:bg-red-500 rounded-full transition-colors backdrop-blur-md border border-white/20"><X size={32} /></button>
+          </div>
+        )}
+        {showModalSecundario === 'Info' && proyectoSeleccionado && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border-[3px] border-slate-100 w-full max-w-[420px] rounded-[32px] overflow-hidden shadow-2xl relative">
+              <div className="bg-slate-50 px-5 py-4 flex justify-between items-center border-b border-slate-100">
+                <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px] flex items-center gap-2"><Info size={16} /> Info Solicitud de Viabilidad</h3>
+                <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
+              </div>
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto w-[420px] max-w-full custom-scrollbar">
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Calle</p>
+                    <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.calle || 'N/D'}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Colonia</p>
+                    <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.colonia || 'N/D'}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Ciudad</p>
+                    <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.ciudad || 'N/D'}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Estado / CP</p>
+                    <p className="text-xs font-bold text-slate-800 leading-tight">{proyectoSeleccionado.estado_dir} / {proyectoSeleccionado.codigo_postal}</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Link Maps Original</p>
+                  <a href={proyectoSeleccionado.link_maps} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 block hover:underline break-all leading-tight" title={proyectoSeleccionado.link_maps}>{proyectoSeleccionado.link_maps || 'Sin enviar'}</a>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Escalera Especial</p>
+                  <span className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-[6px] ${proyectoSeleccionado.requiere_escalera ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-slate-200 text-slate-500'}`}>
+                    {proyectoSeleccionado.requiere_escalera ? 'SÍ REQUIERE' : 'NO'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-2">Comentarios Solicitud</p>
+                  <p className="text-xs font-bold text-slate-700 italic border-l-2 border-[#ffb000] pl-3 py-1">{proyectoSeleccionado.comentarios_solicitud || 'Ningún comentario.'}</p>
+                </div>
+
+              </div>
+            </motion.div>
+          </div>
+        )}
+        {showModalSecundario === 'Formulario' && proyectoSeleccionado && (
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-md">
+            <FormularioViabilidad
+              proyectoSeleccionado={proyectoSeleccionado.viabilidad_data?.[0] || proyectoSeleccionado}
+              onClose={() => setShowModalSecundario(null)}
+              initialData={proyectoSeleccionado.viabilidad_data?.[0]?.hoja_digital_json}
+              usuarioLogueado={usuarioLogueado}
+              readOnly={true}
+              onSaveOffline={async () => { }}
+            />
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ... MODALES RESTANTES (RECHAZO/APROBACIÓN) ... */}
+      <AnimatePresence>
+        {modalRechazo && (
+          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
+              <div className="bg-red-50 p-6 flex justify-between items-center text-red-600 border-b border-red-100">
+                <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">{proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Solicitar Reingeniería' : 'Rechazar Revisión'}</h3> </div>
+                <button onClick={() => setModalRechazo(false)} className="p-2 bg-white hover:bg-red-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
+              </div>
+              <form onSubmit={handleRechazar} className="p-6 bg-slate-50 flex flex-col gap-4">
+                <p className="text-[11px] md:text-xs text-slate-500 font-medium">{proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Explica qué debe corregirse en el reporte técnico. El proyecto regresará a Ingeniería para reingeniería.' : 'Explica por qué la cotización no puede ser aprobada. El proyecto regresará al equipo de Cotizaciones para corrección.'}</p>
+                <textarea required rows={4} placeholder={proyectoSeleccionado?.sub_estatus === 'Terminado' ? "Ej: El diagrama estructural no coincide con..." : "Ej: Faltan equipos en la lista..."} value={mensajeRechazo} onChange={e => setMensajeRechazo(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-red-400 shadow-inner resize-none" />
+                <button type="submit" disabled={procesando} className="mt-2 bg-red-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-red-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : (proyectoSeleccionado?.sub_estatus === 'Terminado' ? 'Devolver a Ingeniería' : 'Devolver a Cotizaciones')} </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {modalAprobar && (
+          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
+              <div className="bg-emerald-50 p-6 flex justify-between items-center text-emerald-700 border-b border-emerald-100">
+                <div className="flex items-center gap-3"> <CheckCircle2 size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Aprobar Revisión</h3> </div>
+                <button onClick={() => setModalAprobar(false)} className="p-2 bg-white hover:bg-emerald-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
+              </div>
+              <form onSubmit={handleAprobar} className="p-6 bg-slate-50 flex flex-col gap-5">
+                <div>
+                  <span className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase text-slate-500 mb-2"> <FileText className="w-4 h-4 text-emerald-500" /> Comentario de Cierre (Opcional) </span>
+                  <textarea rows={3} placeholder="Dejar un mensaje final..." value={mensajeAprobacion} onChange={e => setMensajeAprobacion(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none resize-none shadow-inner" />
+                </div>
+                <button type="submit" disabled={procesando} className="mt-2 bg-emerald-500 text-white w-full py-4 rounded-xl font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Procesando...' : 'Aprobar y Liberar Proyecto'} </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* VISORES Y LOGS COMPACTOS */}
+      <AnimatePresence>
+        {modalListaArchivos && (
+          <div className="fixed inset-0 z-[1051] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-sm shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0 max-h-[70vh]">
+              <div className="bg-slate-50 p-5 md:p-6 flex justify-between items-center border-b border-slate-200 shrink-0">
+                <h3 className="font-black uppercase tracking-widest text-slate-900 text-xs md:text-sm flex items-center gap-2"><FileText className="text-blue-500 w-4 h-4 md:w-5 md:h-5" /> {modalListaArchivos.titulo}</h3>
+                <button onClick={() => setModalListaArchivos(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors shrink-0"><X size={16} /></button>
+              </div>
+              <div className="p-5 md:p-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+                {modalListaArchivos.urls.map((url, idx) => (
+                  <button key={idx} onClick={() => { setDocPreview({ urls: modalListaArchivos.urls, currentIndex: idx, nombre: modalListaArchivos.titulo }); setModalListaArchivos(null); }} className="w-full text-left py-3 md:py-4 px-4 md:px-5 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all font-black text-[9px] md:text-[11px] text-slate-700 uppercase tracking-widest flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-3 truncate">
+                      <FileIcon className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-400 shrink-0" /> Opción {idx + 1}
+                    </span>
+                    <span className="text-[8px] bg-slate-50 border border-slate-100 px-2 py-1 rounded-md text-slate-400 shrink-0">V{idx + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {docPreview && (
+          <ModalVisorGlobal
+            titulo={docPreview.nombre}
+            urls={docPreview.urls}
+            initialIndex={docPreview.currentIndex}
+            onClose={() => setDocPreview(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {modalLog && proyectoSeleccionado && (
+          <ModalLineaTiempo
+            logs={logsProyecto}
+            proyecto={proyectoSeleccionado}
+            onClose={() => setModalLog(false)}
+          />
+        )}
+
+        {modalDetalle && tabActiva === 'Aprobación Pagos' && proyectoSeleccionado && (
+          <ModalDetallePago
+            pago={proyectoSeleccionado}
+            onClose={() => setModalDetalle(false)}
+            onSuccess={() => { setModalDetalle(false); fetchInicial() }}
+            usuarioLogueado={usuarioLogueado}
+            showAlert={showAlert}
+            showConfirm={showConfirm}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {modalRecotizar && (
+          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[30px] md:rounded-[40px] w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col border border-white mt-12 md:mt-0">
+              <div className="bg-orange-50 p-6 flex justify-between items-center text-orange-600 border-b border-orange-100">
+                <div className="flex items-center gap-3"> <AlertCircle size={24} className="shrink-0" /> <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter">Solicitar Recotización</h3> </div>
+                <button onClick={() => setModalRecotizar(false)} className="p-2 bg-white hover:bg-orange-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
+              </div>
+              <form onSubmit={handleRecotizar} className="p-6 bg-slate-50 flex flex-col gap-4">
+                <p className="text-[11px] md:text-xs text-slate-500 font-medium">Instrucciones o motivo por el cual el vendedor debe realizar una nueva cotización basado en el reporte de viabilidad.</p>
+                <textarea required rows={4} placeholder="Ej: Se requieren 2 paneles adicionales..." value={mensajeRecotizar} onChange={e => setMensajeRecotizar(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-orange-400 shadow-inner resize-none" />
+                <button type="submit" disabled={procesando} className="mt-2 bg-orange-500 text-white w-full py-4 rounded-xl font-black shadow-lg hover:bg-orange-600 uppercase text-[10px] md:text-[11px] tracking-widest disabled:opacity-50"> {procesando ? 'Enviando...' : 'Enviar a Recotizar'} </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+      </AnimatePresence>
+
     </div>
   )
 }

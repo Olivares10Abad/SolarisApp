@@ -1046,6 +1046,7 @@ export default function Viabilidad() {
                   onClose={() => setShowModalSecundario(null)}
                   initialData={proyectoSeleccionado.hoja_digital_json}
                   usuarioLogueado={usuarioLogueado}
+                  readOnly={proyectoSeleccionado.status !== 4}
                   onSaveOffline={async (payload, isTerminar) => {
                      setProcesando(true);
                      try {
@@ -1181,6 +1182,7 @@ export default function Viabilidad() {
 
          {showBitacora && proyectoSeleccionado && (
             <ModalLineaTiempo
+               logs={logsProyecto}
                proyecto={proyectoSeleccionado.proyecto}
                onClose={() => setShowBitacora(false)}
                usuarioLogueado={usuarioLogueado}
