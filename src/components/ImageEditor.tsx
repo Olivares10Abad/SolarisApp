@@ -23,6 +23,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ base64Image, onSave, o
 
    useEffect(() => {
       const img = new Image();
+      img.crossOrigin = 'anonymous'; // Necesario para editar imágenes desde Supabase Storage
       img.onload = () => {
          const maxWidth = window.innerWidth * 0.9;
          const maxHeight = window.innerHeight * 0.6;

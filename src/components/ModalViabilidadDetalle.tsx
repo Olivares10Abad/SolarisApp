@@ -14,7 +14,7 @@ const STEPS = [
 interface ModalViabilidadDetalleProps {
    proyectoSeleccionado: any;
    setProyectoSeleccionado: (p: any) => void;
-   showModalSecundario: 'Agendar' | 'Visor' | 'Info' | 'Confirmar' | 'Cancelar' | 'Incidente' | 'Formulario' | null;
+   showModalSecundario: 'Agendar' | 'Visor' | 'Info' | 'Confirmar' | 'Cancelar' | 'Incidente' | 'Formulario' | 'ReporteIngenieria' | null;
    setShowModalSecundario: (s: any) => void;
    cancelarViabilidad?: () => void;
    avanzarA?: (target: number, uploadPdf?: boolean) => void;
@@ -277,17 +277,6 @@ export default function ModalViabilidadDetalle({
                               ) : (
                                  <div className="text-[9px] font-bold text-slate-400 italic">No disponible</div>
                               )}
-                              
-                              {/* Legacy Upload File fallback */}
-                              {viabilidadRef?.reportes_ingenieria?.length > 0 ? (
-                                 <div className="flex gap-1 ml-1 overflow-x-auto custom-scrollbar max-w-[80px]">
-                                     {viabilidadRef.reportes_ingenieria.map((url: string, idx: number) => (
-                                        <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [url]) : window.open(url, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1 rounded-md shrink-0 border border-blue-100" title={`Ver Adjunto ${idx+1}`}><FileText size={12} strokeWidth={3}/></button>
-                                     ))}
-                                 </div>
-                              ) : viabilidadRef?.reporte_ingenieria && (
-                                 <button onClick={() => onVerArchivos ? onVerArchivos('Reporte de Viabilidad', [viabilidadRef.reporte_ingenieria]) : window.open(viabilidadRef.reporte_ingenieria, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-md ml-2 border border-blue-100" title="Ver Reporte de Viabilidad"><FileText size={12} strokeWidth={3}/></button>
-                              )}
                            </div>
 
                            {/* Confirmar */}
@@ -304,10 +293,21 @@ export default function ModalViabilidadDetalle({
                               )}
                            </div>
 
-                           <div className="flex items-center gap-2">
-                              <span className="flex-1 text-[#ffb000]">Ingeniería:</span>
-                              <button onClick={() => avanzarA && avanzarA(7, true)} disabled={procesando || (viabilidadRef?.status < 5 && (!filesReporte || filesReporte.length === 0))} className="w-[28px] h-[28px] rounded-[8px] bg-slate-100 hover:bg-[#ffb000] text-slate-400 hover:text-white transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-transparent">
-                                 <ChevronRight size={18} strokeWidth={3} />
+                           <div className="flex items-center justify-end gap-2">
+                              <span className="flex-1 text-[#ffb000] font-black text-[10px] tracking-widest">Ingeniería:</span>
+                              {/* Legacy Upload File fallback */}
+                              {viabilidadRef?.hoja_digital_json?.reportes_ingenieria?.length > 0 ? (
+                                 <div className="flex gap-1 ml-1 overflow-x-auto custom-scrollbar max-w-[80px]">
+                                     {viabilidadRef.hoja_digital_json.reportes_ingenieria.map((url: string, idx: number) => (
+                                        <button key={idx} onClick={() => onVerArchivos ? onVerArchivos('Reporte', [url]) : window.open(url, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1 rounded-md shrink-0 border border-blue-100" title={`Ver Adjunto ${idx+1}`}><FileText size={12} strokeWidth={3}/></button>
+                                     ))}
+                                 </div>
+                              ) : viabilidadRef?.hoja_digital_json?.reporte_ingenieria && (
+                                 <button onClick={() => onVerArchivos ? onVerArchivos('Reporte', [viabilidadRef.hoja_digital_json.reporte_ingenieria]) : window.open(viabilidadRef.hoja_digital_json.reporte_ingenieria, '_blank')} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-md ml-2 border border-blue-100" title="Ver Reporte"><FileText size={12} strokeWidth={3}/></button>
+                              )}
+
+                              <button onClick={() => avanzarA && avanzarA(7, true)} disabled={procesando || (viabilidadRef?.status < 5 && (!filesReporte || filesReporte.length === 0))} className="w-[28px] h-[28px] rounded-[8px] bg-slate-100 hover:bg-[#ffb000] text-slate-400 hover:text-white transition-colors flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-transparent" title="Generar Reporte">
+                                 🔧
                               </button>
                            </div>
 

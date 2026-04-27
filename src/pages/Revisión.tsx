@@ -173,6 +173,7 @@ export default function Revision() {
         if (ingenieroId) {
           await enviarNotificacionVendedor(ingenieroId, `🔄 Tu reporte técnico ha sido rechazado y requiere Reingeniería: ${proyectoSeleccionado.nombre_proyecto}. Motivo: ${mensajeRechazo}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
         }
+        await enviarNotificacionRoles('notif_viabilidad_tecnica', `🚨 Se ha solicitado Reingeniería para: ${proyectoSeleccionado.nombre_proyecto}|||/viabilidad?proyecto_id=${proyectoSeleccionado.id}`, usuarioLogueado?.id);
       } else if (destinoRechazo === 'Vendedor') {
         await enviarNotificacionVendedor(proyectoSeleccionado.vendedor_id, `🚨 Corrección solicitada: Tu solicitud ha regresado a tu bandeja: ${proyectoSeleccionado.nombre_proyecto}`, usuarioLogueado?.id);
       } else {

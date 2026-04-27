@@ -17,6 +17,7 @@ import ModalLineaTiempo from '../components/ModalLineaTiempo'
 import ModalViabilidadDetalle from '../components/ModalViabilidadDetalle'
 import ModalVisorGlobal from '../components/ModalVisorGlobal'
 import ModalCalendarioViabilidad from '../components/ModalCalendarioViabilidad'
+import FormularioViabilidad from '../components/FormularioViabilidad'
 import degradadoBg from '../assets/degradado.png'
 
 const STEPS = [
@@ -84,7 +85,7 @@ export default function Viabilidad() {
 
    // FILTROS Y BÚSQUEDA
    const [busqueda, setBusqueda] = useState('')
-   const [filtroPaso, setFiltroPaso] = useState<number | 'Todos'>('Todos')
+   const [filtroPaso, setFiltroPaso] = useState<number | 'Todos' | 'Inconvenientes'>('Todos')
 
    // Archivo
    const [filesReporte, setFilesReporte] = useState<File[]>([])
@@ -121,8 +122,10 @@ export default function Viabilidad() {
          .select(`
         *,
         proyecto:proyecto_id (
-          id, id_referencia, nombre_proyecto, giro_proyecto, estatus, sub_estatus, vendedor:vendedor_id (id, nombre, apellidos, avatar_url, numero_empleado),
-          link_maps, calle, colonia, ciudad, estado_dir, codigo_postal, nombre_cliente, numero_cliente, requiere_escalera, comentarios_solicitud, fachada_url
+          id, id_referencia, nombre_proyecto, giro_proyecto, estatus, sub_estatus, vendedor:vendedor_id (id, nombre, apellidos, avatar_url, numero_empleado, telefono_movil),
+          link_maps, calle, colonia, ciudad, estado_dir, codigo_postal, nombre_cliente, numero_cliente, requiere_escalera, comentarios_solicitud, fachada_url,
+          viabilidad_hoja_tecnica (*),
+          viabilidad_evidencias (*)
         ),
         ingeniero:ingeniero_id (nombre, apellidos)
       `)
@@ -135,14 +138,50 @@ export default function Viabilidad() {
       if (engs) setIngenieros(engs)
 
       if (data) {
+         // Reconstruir hoja_digital_json a partir de las tablas relacionales para mantener compatibilidad con el UI actual
+         const formattedData = data.map((item: any) => {
+            const proyecto = item.proyecto;
+            if (proyecto && (proyecto.viabilidad_hoja_tecnica?.length > 0 || proyecto.viabilidad_evidencias?.length > 0)) {
+               const hojaTecnica = proyecto.viabilidad_hoja_tecnica?.[0] || {};
+               const evidenciasArray = proyecto.viabilidad_evidencias || [];
+               
+               const evidenciasObj: Record<string, any> = {};
+               evidenciasArray.forEach((ev: any) => {
+                  if (!evidenciasObj[ev.categoria]) {
+                     evidenciasObj[ev.categoria] = {
+                        categoria: ev.categoria,
+                        ubicacion: ev.ubicacion,
+                        comentarios: ev.comentarios,
+                        adjuntos: []
+                     };
+                  }
+                  evidenciasObj[ev.categoria].adjuntos.push({
+                     id: ev.id?.toString() || Math.random().toString(),
+                     name: ev.nombre_archivo || 'Foto',
+                     base64: ev.url_foto
+                  });
+               });
+
+               return {
+                  ...item,
+                  hoja_digital_json: {
+                     ...(item.hoja_digital_json || {}),
+                     ...hojaTecnica,
+                     evidencias: evidenciasObj
+                  }
+               };
+            }
+            return item;
+         });
+
          if (esRolViabilidad) {
-            offlineService.setCache('viabilidades', data).catch(console.error);
+            offlineService.setCache('viabilidades', formattedData).catch(console.error);
          }
-         setViabilidades(data)
+         setViabilidades(formattedData)
          const searchParams = new URLSearchParams(window.location.search);
          const prId = searchParams.get('proyecto_id');
          if (prId) {
-            const encontrado = data.find((v: any) => v.proyecto_id === prId);
+            const encontrado = formattedData.find((v: any) => v.proyecto_id === prId);
             if (encontrado) setProyectoSeleccionado(encontrado);
          }
       }
@@ -157,7 +196,10 @@ export default function Viabilidad() {
          const idRefStr = p.id_referencia ? String(p.id_referencia) : v.id;
          const searchStr = `${p.nombre_proyecto || ''} ${idRefStr} ${p.nombre_cliente || ''} ${vend.nombre || ''}`.toLowerCase();
          const matchTexto = searchStr.includes(busqueda.toLowerCase());
-         const matchPaso = filtroPaso === 'Todos' || v.status === (filtroPaso as any);
+         let matchPaso = false;
+         if (filtroPaso === 'Todos') matchPaso = true;
+         else if (filtroPaso === 'Inconvenientes') matchPaso = v.status === 5 || v.incidente_visita === true;
+         else matchPaso = v.status === (filtroPaso as any);
          return matchTexto && matchPaso;
       });
    }, [viabilidades, busqueda, filtroPaso]);
@@ -214,6 +256,10 @@ export default function Viabilidad() {
    }
 
    const avanzarA = async (targetStatus: number, uploadPdf: boolean = false) => {
+      if (targetStatus === 7 && uploadPdf) {
+         setShowModalSecundario('ReporteIngenieria');
+         return;
+      }
       setProcesando(true)
       try {
          if (!navigator.onLine) {
@@ -424,14 +470,17 @@ export default function Viabilidad() {
             for (const file of filesReporte) {
                const fileExt = file.name.split('.').pop()
                const fileName = `viab_${proyectoSeleccionado.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
-               const { error } = await supabase.storage.from('proyectos_media').upload(fileName, file)
+               const { error } = await supabase.storage.from('expedientes').upload(fileName, file)
                if (!error) {
-                  uploadedUrls.push(supabase.storage.from('proyectos_media').getPublicUrl(fileName).data.publicUrl)
+                  uploadedUrls.push(supabase.storage.from('expedientes').getPublicUrl(fileName).data.publicUrl)
                }
             }
             if (uploadedUrls.length > 0) {
-               updates.reportes_ingenieria = uploadedUrls;
-               updates.reporte_ingenieria = uploadedUrls[0]; 
+               updates.hoja_digital_json = {
+                  ...(proyectoSeleccionado.hoja_digital_json || {}),
+                  reportes_ingenieria: uploadedUrls,
+                  reporte_ingenieria: uploadedUrls[0]
+               };
             }
          }
          if (targetStatus === 7) updates.fecha_terminada = new Date().toISOString();
@@ -463,6 +512,107 @@ export default function Viabilidad() {
             if (targetStatus === 4) {
                await enviarNotificacionVendedor(proyectoSeleccionado.proyecto?.vendedor_id, `✅ Tu solicitud de Viabilidad Técnica ha sido verificada y confirmada en agenda: ${proyectoSeleccionado.proyecto?.nombre_proyecto}|||/proyectos?proyecto_id=${proyectoSeleccionado.proyecto_id}`, usuarioLogueado?.id);
             }
+         }
+      }
+      else if (type === 'submit_hoja') {
+         let { hoja_digital_json, proyecto_id, id_real_proyecto, vendedor_id, nombre_proyecto, isTerminar, usuarioLogueado } = payload;
+         
+         // Rescate para tareas encoladas con el formato viejo
+         if (!id_real_proyecto) {
+            const { data: viab } = await supabase.from('viabilidad_control').select('proyecto_id, proyecto:proyecto_id(vendedor_id, nombre_proyecto)').eq('id', proyecto_id).single();
+            if (viab) {
+               id_real_proyecto = viab.proyecto_id;
+               vendedor_id = (viab.proyecto as any)?.vendedor_id;
+               nombre_proyecto = (viab.proyecto as any)?.nombre_proyecto;
+            }
+         }
+
+         if (!id_real_proyecto) return; // Si aún así no existe, abortar para no causar errores de UUID
+
+         const { evidencias, ...hoja_tecnica } = hoja_digital_json;
+         
+         // Limpiar columnas que no existen en la BD pero sí en el state
+         delete hoja_tecnica.caben_todos_los_paneles;
+
+         // Convertir todo el objeto hoja_tecnica de camelCase a snake_case automáticamente
+         // Esto previene errores como 'comentariosGenerales' vs 'comentarios_generales'
+         const snakeCaseHojaTecnica = Object.keys(hoja_tecnica).reduce((acc: any, key: string) => {
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            acc[snakeKey] = hoja_tecnica[key];
+            return acc;
+         }, {});
+
+         // Subir fotos a Storage
+         const evidenceRecords = [];
+         for (const [catName, registro] of Object.entries(evidencias as Record<string, any>)) {
+            for (const adj of registro.adjuntos) {
+               let finalUrl = adj.base64; // Puede que ya sea una URL si se editó
+
+               if (typeof adj.base64 === 'string' && adj.base64.startsWith('data:image')) {
+                  try {
+                     const response = await fetch(adj.base64);
+                     const blob = await response.blob();
+                     const fileName = `${id_real_proyecto}/${catName}_${adj.id}_${Date.now()}.jpg`.replace(/\s+/g, '_');
+                     const { error: uploadError } = await supabase.storage.from('evidencias').upload(fileName, blob, { upsert: true });
+                     if (!uploadError) {
+                        const { data: publicUrlData } = supabase.storage.from('evidencias').getPublicUrl(fileName);
+                        finalUrl = publicUrlData.publicUrl;
+                     } else {
+                        console.error('Error uploading photo:', uploadError);
+                     }
+                  } catch (e: any) {
+                     console.error('Error parsing/uploading base64:', e?.message || e);
+                  }
+               }
+
+               evidenceRecords.push({
+                  proyecto_id: id_real_proyecto,
+                  categoria: catName,
+                  ubicacion: registro.ubicacion,
+                  comentarios: registro.comentarios,
+                  url: finalUrl // Asumimos que la columna se llama 'url', 'foto_url' o 'archivo' en lugar de 'url_foto'
+                  // nombre_archivo se omite porque no existe en la tabla viabilidad_evidencias
+               });
+            }
+         }
+
+         // Guardar hoja técnica relacional
+         const { data: existingHoja } = await supabase.from('viabilidad_hoja_tecnica').select('id').eq('proyecto_id', id_real_proyecto).single();
+         if (existingHoja) {
+            await supabase.from('viabilidad_hoja_tecnica').update(snakeCaseHojaTecnica).eq('id', existingHoja.id);
+         } else {
+            await supabase.from('viabilidad_hoja_tecnica').insert({ proyecto_id: id_real_proyecto, ...snakeCaseHojaTecnica });
+         }
+
+         // Guardar evidencias relacionales
+         await supabase.from('viabilidad_evidencias').delete().eq('proyecto_id', id_real_proyecto);
+         if (evidenceRecords.length > 0) {
+            await supabase.from('viabilidad_evidencias').insert(evidenceRecords);
+         }
+
+         // Actualizar viabilidad_control (sólo metadata/estatus)
+         const updates: any = {};
+         if (isTerminar) {
+            updates.status = 5; // Enviar a Ingeniería
+            updates.fecha_terminada = new Date().toISOString();
+         }
+         await supabase.from('viabilidad_control').update(updates).eq('id', proyecto_id);
+         
+         await supabase.from('proyectos_interacciones').insert([{
+            proyecto_id: id_real_proyecto,
+            usuario_id: usuarioLogueado?.id,
+            estado_anterior: 'Viabilidad',
+            estado_nuevo: 'Viabilidad',
+            accion: isTerminar ? 'Viabilidad Finalizada' : 'Hoja de Viabilidad',
+            mensaje: isTerminar ? `El ingeniero finalizó la Hoja de Viabilidad y la envió a Ingeniería.` : `El ingeniero guardó la Hoja de Viabilidad digital.`
+         }]);
+
+         if (isTerminar) {
+            await supabase.from('proyectos').update({ sub_estatus: 'Ingeniería' }).eq('id', id_real_proyecto);
+            if (vendedor_id) {
+               await enviarNotificacionVendedor(vendedor_id, `🔧 La Viabilidad de tu proyecto ${nombre_proyecto} ha sido finalizada y enviada a Ingeniería.|||/proyectos?proyecto_id=${id_real_proyecto}`, usuarioLogueado?.id);
+            }
+            await enviarNotificacionRoles('notif_revision_viabilidad_terminada', `Viabilidad Técnica finalizada y lista para Ingeniería: ${nombre_proyecto}|||/revision`, usuarioLogueado?.id);
          }
       }
    }
@@ -506,7 +656,13 @@ export default function Viabilidad() {
                      onClick={() => setFiltroPaso('Todos')}
                      className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap ${filtroPaso === 'Todos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
                   >
-                     TODAS
+                     TODAS <span className="bg-black/10 px-1.5 py-0.5 rounded-md text-[9px] font-bold">{viabilidades.length}</span>
+                  </button>
+                  <button
+                     onClick={() => setFiltroPaso('Inconvenientes')}
+                     className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap ${filtroPaso === 'Inconvenientes' ? 'bg-red-500 text-white shadow-md' : 'text-red-500 hover:bg-red-50'}`}
+                  >
+                     ⚠️ Inconvenientes <span className="bg-black/10 px-1.5 py-0.5 rounded-md text-[9px] font-bold">{viabilidades.filter(v => v.status === 5 || v.incidente_visita).length}</span>
                   </button>
                   {STEPS.map((s) => (
                      <button
@@ -514,7 +670,7 @@ export default function Viabilidad() {
                         onClick={() => setFiltroPaso(s.id)}
                         className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[14px] text-[10px] md:text-[11px] font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap ${filtroPaso === s.id ? 'bg-[#ffb000] text-slate-900 shadow-md' : 'text-slate-500 hover:text-[#ffb000] hover:bg-orange-50'}`}
                      >
-                        {s.label}
+                        {s.label} <span className="bg-black/10 px-1.5 py-0.5 rounded-md text-[9px] font-bold">{viabilidades.filter(v => v.status === s.id).length}</span>
                      </button>
                   ))}
                </div>
@@ -568,12 +724,18 @@ export default function Viabilidad() {
                                     </div>
                                  )}
 
-                                 <div className="flex-1 overflow-hidden sm:hidden">
-                                    <h4 className="font-black text-slate-950 text-[13px] uppercase italic tracking-tighter leading-none truncate pr-16">{v.proyecto?.nombre_proyecto || 'Sin Titulo'}</h4>
-                                    <div className="flex flex-wrap gap-2 mt-2">
+                                 <div className="flex-1 min-w-0 pr-4 sm:hidden">
+                                    <h4 className="font-black text-slate-950 text-[13px] uppercase italic tracking-tighter leading-none truncate mb-2">{v.proyecto?.nombre_proyecto || 'Sin Titulo'}</h4>
+                                    
+                                    <div className="flex flex-wrap gap-2">
                                        <span className={`text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${badgeColor}`}>
                                           {v.status === 1 ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />} {labelEstatus}
                                        </span>
+                                       {v.status === 5 && (
+                                          <span className="text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit bg-red-50 text-red-600 border-red-200">
+                                             <AlertTriangle size={10} /> Reingeniería Req.
+                                          </span>
+                                       )}
                                        {v.incidente_visita && (
                                           <span className="text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit bg-red-50 text-red-600 border-red-200 animate-pulse">
                                              <AlertTriangle size={10} /> Visita Fallida
@@ -581,6 +743,21 @@ export default function Viabilidad() {
                                        )}
                                     </div>
                                     <p className="text-[9px] font-semibold text-slate-600 uppercase mt-1.5 truncate flex items-center gap-1.5 leading-none"><MapPin size={11} className="text-slate-400" /> ID: {tagId}</p>
+                                    {v.ingeniero && (
+                                       <p className="text-[9px] font-bold text-slate-500 uppercase mt-1 truncate leading-none flex items-center gap-1">
+                                          👷‍♂️ Ing: {v.ingeniero.nombre} {v.ingeniero.apellidos}
+                                       </p>
+                                    )}
+                                    {v.proyecto?.vendedor && (
+                                       <div className="flex items-center gap-2 mt-1">
+                                         <p className="text-[9px] font-bold text-slate-500 uppercase truncate leading-none">
+                                            👤 Vend: {v.proyecto.vendedor.nombre} {v.proyecto.vendedor.apellidos}
+                                         </p>
+                                         <p className="text-[9px] font-bold text-slate-400 uppercase truncate leading-none">
+                                            📞 Tel: {v.proyecto.vendedor.telefono_movil || 'S/N'}
+                                         </p>
+                                       </div>
+                                    )}
                                  </div>
                               </div>
 
@@ -590,6 +767,11 @@ export default function Viabilidad() {
                                     <span className={`text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit ${badgeColor}`}>
                                        {v.status === 1 ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />} {labelEstatus}
                                     </span>
+                                    {v.status === 5 && (
+                                       <span className="text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit bg-red-50 text-red-600 border-red-200">
+                                          <AlertTriangle size={10} /> Reingeniería Req.
+                                       </span>
+                                    )}
                                     {v.incidente_visita && (
                                        <span className="text-[8px] font-black px-2 py-1 rounded-md uppercase border shadow-sm flex items-center gap-1 w-fit bg-red-50 text-red-600 border-red-200 animate-pulse">
                                           <AlertTriangle size={10} /> Visita Fallida
@@ -599,6 +781,21 @@ export default function Viabilidad() {
                                  <p className="text-[9px] font-semibold text-slate-600 uppercase mt-1.5 truncate flex items-center gap-1.5 leading-none">
                                     <MapPin size={11} className="text-slate-400" /> ID: {tagId}
                                  </p>
+                                 {v.ingeniero && (
+                                    <p className="text-[9px] font-bold text-slate-500 uppercase mt-1 truncate leading-none flex items-center gap-1">
+                                       👷‍♂️ Ing: {v.ingeniero.nombre} {v.ingeniero.apellidos}
+                                    </p>
+                                 )}
+                                 {v.proyecto?.vendedor && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <p className="text-[9px] font-bold text-slate-500 uppercase truncate leading-none">
+                                         👤 Vend: {v.proyecto.vendedor.nombre} {v.proyecto.vendedor.apellidos}
+                                      </p>
+                                      <p className="text-[9px] font-bold text-slate-400 uppercase truncate leading-none">
+                                         📞 Tel: {v.proyecto.vendedor.telefono_movil || 'S/N'}
+                                      </p>
+                                    </div>
+                                 )}
                               </div>
 
                               {/* SLA METRICS */}
@@ -841,43 +1038,84 @@ export default function Viabilidad() {
             )}
          </AnimatePresence>
 
+         {/* MODAL FORMULARIO VIABILIDAD */}
+         <AnimatePresence>
+            {showModalSecundario === 'Formulario' && proyectoSeleccionado && (
+               <FormularioViabilidad
+                  proyectoSeleccionado={proyectoSeleccionado}
+                  onClose={() => setShowModalSecundario(null)}
+                  initialData={proyectoSeleccionado.hoja_digital_json}
+                  usuarioLogueado={usuarioLogueado}
+                  onSaveOffline={async (payload, isTerminar) => {
+                     setProcesando(true);
+                     try {
+                        const fullPayload = { ...payload, isTerminar, usuarioLogueado };
+                        if (!navigator.onLine) {
+                           await offlineService.addSyncTask('submit_hoja', fullPayload);
+                           setViabilidades(v => v.map((item:any) => item.id === proyectoSeleccionado.id ? { ...item, hoja_digital_json: payload.hoja_digital_json, ...(isTerminar ? {status: 5} : {}) } : item));
+                           await showAlert('Modo Offline', 'Los datos se han guardado localmente y se sincronizarán y notificarán cuando recuperes señal.');
+                        } else {
+                           await ejecutarTareaSync({ type: 'submit_hoja', payload: fullPayload });
+                           setViabilidades(v => v.map((item:any) => item.id === proyectoSeleccionado.id ? { ...item, hoja_digital_json: payload.hoja_digital_json, ...(isTerminar ? {status: 5} : {}) } : item));
+                           if (isTerminar) {
+                              await showAlert('Éxito', 'Viabilidad enviada a ingeniería correctamente.');
+                           } else {
+                              await showAlert('Éxito', 'Progreso guardado correctamente.');
+                           }
+                        }
+                     } catch (e) {
+                        console.error(e);
+                        await showAlert('Error', 'No se pudo guardar la información.');
+                     } finally {
+                        setProcesando(false);
+                        setShowModalSecundario(null);
+                     }
+                  }}
+               />
+            )}
+         </AnimatePresence>
+
          {/* MODAL REPORTE INGENIERIA */}
          <AnimatePresence>
             {showModalSecundario === 'ReporteIngenieria' && (
                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border-[3px] border-white w-full max-w-[400px] rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col">
-                     <div className="bg-orange-500 px-5 py-4 flex justify-between items-center">
-                        <h3 className="font-black text-white uppercase tracking-widest text-[11px] flex items-center gap-2"><FileText size={16}/> Reporte Ingeniería</h3>
-                        <button onClick={() => setShowModalSecundario(null)} className="text-white hover:text-orange-100 transition-colors"><X size={20} /></button>
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white w-full max-w-[400px] rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col">
+                     <div className="px-6 pt-6 pb-4 flex justify-between items-center border-b border-slate-100">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm">Reporte</h3>
+                        <button onClick={() => setShowModalSecundario(null)} className="text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 rounded-full p-1"><X size={20} /></button>
                      </div>
-                     <div className="p-5 flex flex-col gap-4 bg-slate-50">
+                     <div className="p-6 flex flex-col gap-5">
                         <div>
-                           <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Comentarios del Reporte</label>
-                           <textarea rows={4} value={reporteIngenieriaForm.comentarios} onChange={e => setReporteIngenieriaForm({...reporteIngenieriaForm, comentarios: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold outline-none resize-none shadow-inner" placeholder="Escribe tus observaciones..."></textarea>
+                           <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Comentarios del Reporte</label>
+                           <textarea rows={4} value={reporteIngenieriaForm.comentarios} onChange={e => setReporteIngenieriaForm({...reporteIngenieriaForm, comentarios: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 text-sm font-medium outline-none resize-none focus:ring-2 focus:ring-[#ffb000]/50 transition-all" placeholder="Escribe tus observaciones..."></textarea>
                         </div>
                         <div>
-                           <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Adjuntar Archivos (Fotos/PDF)</label>
+                           <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Adjuntar Archivos (Fotos/PDF)</label>
                            <input type="file" multiple accept="image/*,.pdf" onChange={e => {
                               if (e.target.files) {
                                  setReporteIngenieriaForm({ ...reporteIngenieriaForm, archivos: Array.from(e.target.files) });
                               }
-                           }} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100" />
+                           }} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-[#ffb000]/10 file:text-[#ffb000] hover:file:bg-[#ffb000]/20 transition-all" />
                            {reporteIngenieriaForm.archivos.length > 0 && (
-                              <div className="mt-2 text-[10px] font-bold text-slate-500">
+                              <div className="mt-2 text-xs font-bold text-[#ffb000]">
                                  {reporteIngenieriaForm.archivos.length} archivo(s) seleccionado(s)
                               </div>
                            )}
                         </div>
                      </div>
-                     <div className="p-4 bg-white border-t border-slate-100">
+                     <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                        <button onClick={() => setShowModalSecundario(null)} className="px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 transition-colors">
+                           Cancelar
+                        </button>
                         <button onClick={() => {
                            if (!reporteIngenieriaForm.comentarios && reporteIngenieriaForm.archivos.length === 0) {
                               alert("Debes agregar comentarios o archivos"); return;
                            }
-                           ejecutarTareaSync({ type: 'avanzar', payload: { targetStatus: 7, filesReporte: reporteIngenieriaForm.archivos, comentarios: reporteIngenieriaForm.comentarios }});
+                           ejecutarTareaSync({ type: 'avanzar', payload: { proyectoSeleccionado, targetStatus: 7, filesReporte: reporteIngenieriaForm.archivos, comentarios: reporteIngenieriaForm.comentarios, usuarioLogueado }});
                            setShowModalSecundario(null);
-                        }} disabled={procesando} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-3.5 text-[11px] font-black uppercase tracking-widest transition-colors shadow-md disabled:opacity-50">
-                           {procesando ? 'Guardando...' : 'Finalizar Viabilidad'}
+                           setReporteIngenieriaForm({ comentarios: '', archivos: [] });
+                        }} className="px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-900 bg-[#ffb000] hover:bg-orange-500 transition-colors shadow-md">
+                           Enviar Reporte
                         </button>
                      </div>
                   </motion.div>
@@ -920,30 +1158,7 @@ export default function Viabilidad() {
             )}
          </AnimatePresence>
 
-         {/* MODAL FORMULARIO VIABILIDAD */}
-         <AnimatePresence>
-            {showModalSecundario === 'Formulario' && (
-               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#f0f2f5] border-[3px] border-white w-full max-w-[600px] rounded-[32px] overflow-hidden shadow-2xl relative">
-                     <div className="bg-white px-5 py-4 flex justify-between items-center border-b-[4px] border-[#ffb000]">
-                        <h3 className="font-black tracking-widest uppercase text-slate-800 text-[11px]">Hoja de Viabilidad</h3>
-                        <button onClick={() => setShowModalSecundario(null)} className="p-1 text-slate-400 hover:text-red-500"><X size={26} strokeWidth={2.5} /></button>
-                     </div>
-                     <div className="p-8 text-center flex flex-col gap-6 bg-white min-h-[400px] items-center justify-center">
-                        <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                           <FileText size={32} />
-                        </div>
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Formulario en Construcción</h2>
-                        <p className="text-sm font-bold text-slate-500 max-w-sm">Aquí se habilitará próximamente el llenado digital de la Hoja de Viabilidad con todos los campos requeridos.</p>
 
-                        <button onClick={() => setShowModalSecundario(null)} className="mt-4 bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#ffb000] hover:text-slate-900 transition-colors">
-                           Cerrar
-                        </button>
-                     </div>
-                  </motion.div>
-               </div>
-            )}
-         </AnimatePresence>
 
          {/* Visor Documentos */}
          <AnimatePresence>
